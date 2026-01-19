@@ -7,6 +7,3 @@ CREATE TABLE IF NOT EXISTS posts (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_posts_author_id ON posts(author_id);
-CREATE INDEX IF NOT EXISTS idx_posts_privacy ON posts(privacy);

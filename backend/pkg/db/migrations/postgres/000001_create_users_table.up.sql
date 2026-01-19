@@ -13,5 +13,4 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at);
-CREATE INDEX IF NOT EXISTS idx_users_ids ON users (id);
+
