@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
     nickname TEXT UNIQUE,
     about_me TEXT,
-    is_private INTEGER NOT NULL DEFAULT 0 CHECK (is_private IN (0, 1)),
-    created_at DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP),
-    updated_at DATETIME NOT NULL DEFAULT (CURRENT_TIMESTAMP)
+    is_private BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users (created_at);
