@@ -1,2 +1,74 @@
-[00:00:01.546] Server  LOG     ✓ Ready in 1077ms
-[00:00:44.330] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:01.553] Server  LOG     ✓ Ready in 1083ms
+[00:00:09.008] Server  ERROR   ⨯ ./frontend/src/app/login/page.tsx:1:1
+Export Input doesn't exist in target module
+> 1 | import { Input } from "../component/ui/input";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 | import { Button } from "../component/ui/button";
+  3 |
+  4 | export default function LoginPage() {
+
+The export Input was not found in module [project]/frontend/src/app/component/ui/input/index.tsx [app-rsc] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+[00:00:12.273] Browser ERROR   ./frontend/src/app/login/page.tsx:1:1
+Export Input doesn't exist in target module
+> 1 | import { Input } from "../component/ui/input";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 | import { Button } from "../component/ui/button";
+  3 |
+  4 | export default function LoginPage() {
+
+The export Input was not found in module [project]/frontend/src/app/component/ui/input/index.tsx [app-rsc] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+[00:00:12.273] Browser ERROR   ./frontend/src/app/login/page.tsx:1:1
+Export Input doesn't exist in target module
+> 1 | import { Input } from "../component/ui/input";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 | import { Button } from "../component/ui/button";
+  3 |
+  4 | export default function LoginPage() {
+
+The export Input was not found in module [project]/frontend/src/app/component/ui/input/index.tsx [app-rsc] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+[00:00:12.273] Browser ERROR   uncaughtError: Error: ./frontend/src/app/login/page.tsx:1:1
+Export Input doesn't exist in target module
+> 1 | import { Input } from "../component/ui/input";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  2 | import { Button } from "../component/ui/button";
+  3 |
+  4 | export default function LoginPage() {
+
+The export Input was not found in module [project]/frontend/src/app/component/ui/input/index.tsx [app-rsc] (ecmascript).
+The module has no exports at all.
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the requested export doesn't exist.
+
+
+[00:00:55.613] Server  ERROR   ⨯ Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.
+[00:00:55.852] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:00:55.852] Browser ERROR   uncaughtError: Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.
+
+Check the render method of `LoginPage`.
+[00:01:08.627] Server  WARN    ⚠ Fast Refresh had to perform a full reload due to a runtime error.
+[00:01:09.020] Server  ERROR   ⨯ Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.
+[00:01:09.221] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:01:09.221] Browser ERROR   uncaughtError: Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined. You likely forgot to export your component from the file it's defined in, or you might have mixed up default and named imports.
+
+Check the render method of `LoginPage`.
+[00:07:24.138] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:15:59.273] Server  LOG     ✓ Compiled in 56ms
+[00:16:10.751] Server  LOG     ✓ Compiled in 223ms
+[00:39:10.604] Server  LOG     ✓ Compiled in 47ms
+[00:46:25.517] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:46:42.393] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:50:48.289] Server  LOG     ✓ Compiled in 54ms
+[00:52:48.907] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[00:55:25.556] Server  LOG     ✓ Compiled in 26ms
+[00:59:15.865] Server  LOG     ✓ Compiled in 30ms
+[01:02:54.741] Server  LOG     ✓ Compiled in 51ms
+[01:03:17.874] Browser INFO    %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold
+[01:03:34.585] Server  LOG     ✓ Compiled in 28ms
+[01:07:16.603] Server  LOG     ✓ Compiled in 50ms
