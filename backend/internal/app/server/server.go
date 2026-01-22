@@ -3,20 +3,20 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"time"
 
-	"social-network/backend/internal/config"
 	"social-network/backend/internal/transport/http/handler"
-	"social-network/backend/internal/transport/http/middleware"
 	transporthttp "social-network/backend/internal/transport/http"
-	authusecase "social-network/backend/internal/usecase/auth"
+	followusecase "social-network/backend/internal/usecase/follow"
 	postusecase "social-network/backend/internal/usecase/post"
+	profileusecase "social-network/backend/internal/usecase/profile"
 	"social-network/backend/pkg/db/postgres"
-	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
+	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
-	"social-network/backend/pkg/logger"
+	userrepo "social-network/backend/pkg/db/postgres/repositories/user"
 	"social-network/backend/pkg/utils"
 )
 
@@ -24,35 +24,33 @@ const envFileName = ".env"
 
 // Run boots the application and blocks until the context is canceled.
 func Run(ctx context.Context) error {
-	// Load environment variables from .env file
-	_ = utils.LoadDotEnv(envFileName)
-
-	// Load and validate configuration
-	cfg, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("load config: %w", err)
+	if err := utils.LoadDotEnv(envFileName); err != nil {
+		log.Printf("warning: could not load %s: %v", envFileName, err)
 	}
 
-	// Initialize logger
-	log := logger.NewDefault(cfg.Server.Debug)
-	log.Info("starting application", logger.F("debug", cfg.Server.Debug))
+	dbURL := utils.GetString("DATABASE_URL", "")
+	if dbURL == "" {
+		return fmt.Errorf("DATABASE_URL is required (set in .env or environment)")
+	}
 
-	// Open database connection
-	db, err := postgres.Open(postgres.WithDefaults(cfg.Database.URL))
+	db, err := postgres.Open(postgres.WithDefaults(dbURL))
 	if err != nil {
 		return fmt.Errorf("open postgres: %w", err)
 	}
 	defer db.Close()
 
-	// Configure connection pool
-	db.SetMaxOpenConns(cfg.Database.MaxOpenConns)
-	db.SetMaxIdleConns(cfg.Database.MaxIdleConns)
-	log.Debug("database connection pool configured",
-		logger.F("max_open", cfg.Database.MaxOpenConns),
-		logger.F("max_idle", cfg.Database.MaxIdleConns))
+	if maxOpen := utils.GetInt("MAX_OPEN_CONNS", 0); maxOpen > 0 {
+		db.SetMaxOpenConns(maxOpen)
+	}
+	if maxIdle := utils.GetInt("MAX_IDLE_CONNS", 0); maxIdle > 0 {
+		db.SetMaxIdleConns(maxIdle)
+	}
 
-	// Apply database migrations
-	migrationsPath, err := filepath.Abs(cfg.Database.MigrationsPath)
+	migrationsDir := utils.GetString("MIGRATIONS_PATH", "")
+	if migrationsDir == "" {
+		return fmt.Errorf("MIGRATIONS_PATH is required (set in .env or environment)")
+	}
+	migrationsPath, err := filepath.Abs(migrationsDir)
 	if err != nil {
 		return fmt.Errorf("resolve migrations path: %w", err)
 	}
@@ -61,67 +59,38 @@ func Run(ctx context.Context) error {
 	if err := postgres.ApplyMigrations(db, sourceURL); err != nil {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
-	log.Info("database migrations applied")
 
-	// Repositories
-	authRepository := authrepo.NewRepository(db)
 	postRepository := postrepo.NewRepository(db)
+	postService := postusecase.NewService(postRepository)
+	postHandler := handler.NewPostHandler(postService)
 
-	// Services
-	authService := authusecase.NewService(authRepository, cfg.Auth, log)
-	postService := postusecase.NewService(postRepository, log)
+	userRepository := userrepo.NewRepository(db)
+	followRepository := followrepo.NewRepository(db)
 
-	// Handlers
-	authHandlerCfg := handler.AuthHandlerConfig{
-		CookieName: cfg.Auth.SessionCookieName,
-		MaxAge:     cfg.Auth.SessionMaxAge,
-	}
-	authHandler := handler.NewAuthHandler(authService, log, authHandlerCfg)
-	postHandler := handler.NewPostHandler(postService, log)
+	profileService := profileusecase.NewService(userRepository, followRepository)
+	followService := followusecase.NewService(userRepository, followRepository)
 
-	// Middleware (authService implements middleware.SessionValidator)
-	authMiddleware := middleware.Auth(authService, cfg.Auth.SessionCookieName, log)
+	profileHandler := handler.NewProfileHandler(profileService)
+	followHandler := handler.NewFollowHandler(followService)
 
-	// Rate limiter
-	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit.RequestsPerMinute, cfg.RateLimit.Enabled, log)
-	defer rateLimiter.Stop()
-	rateLimitMiddleware := middleware.RateLimit(rateLimiter)
-	log.Info("rate limiter initialized",
-		logger.F("enabled", cfg.RateLimit.Enabled),
-		logger.F("requests_per_minute", cfg.RateLimit.RequestsPerMinute))
+	router := transporthttp.NewRouter(postHandler, profileHandler, followHandler)
 
-	// CORS middleware
-	corsMiddleware := middleware.CORS(cfg.CORS)
-	log.Info("CORS middleware initialized",
-		logger.F("enabled", cfg.CORS.Enabled),
-		logger.F("allowed_origins", cfg.CORS.AllowedOrigins))
-
-	// Security headers middleware
-	securityHeadersMiddleware := middleware.SecurityHeaders(cfg.SecurityHeaders)
-	log.Info("security headers middleware initialized",
-		logger.F("enabled", cfg.SecurityHeaders.Enabled))
-
-	// Build middlewares struct
-	mw := transporthttp.Middlewares{
-		Auth:            authMiddleware,
-		RateLimit:       rateLimitMiddleware,
-		CORS:            corsMiddleware,
-		SecurityHeaders: securityHeadersMiddleware,
+	addr, err := requiredString("SERVER_ADDR")
+	if err != nil {
+		return err
 	}
 
-	router := transporthttp.NewRouter(postHandler, authHandler, mw)
-
-	// Create HTTP server
 	server := &http.Server{
-		Addr:              cfg.Server.Addr,
+		Addr:              addr,
 		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Info("server boot completed, starting HTTP listener", logger.F("addr", cfg.Server.Addr))
+	log.Println("server boot completed, starting HTTP listener")
 
 	errCh := make(chan error, 1)
 	go func() {
+		log.Printf("server listening on %s", server.Addr)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 			return
@@ -131,7 +100,7 @@ func Run(ctx context.Context) error {
 
 	select {
 	case <-ctx.Done():
-		log.Info("shutdown requested")
+		log.Println("shutdown requested")
 	case err := <-errCh:
 		if err != nil {
 			return fmt.Errorf("server error: %w", err)
@@ -141,8 +110,15 @@ func Run(ctx context.Context) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Error("graceful shutdown failed", err)
+		log.Printf("graceful shutdown failed: %v", err)
 	}
-	log.Info("server stopped")
 	return nil
+}
+
+func requiredString(key string) (string, error) {
+	val := utils.GetString(key, "")
+	if val == "" {
+		return "", fmt.Errorf("%s is required (set in .env or environment)", key)
+	}
+	return val, nil
 }
