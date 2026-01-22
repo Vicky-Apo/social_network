@@ -10,8 +10,10 @@ import (
 
 	"social-network/backend/internal/transport/http/handler"
 	transporthttp "social-network/backend/internal/transport/http"
+	authusecase "social-network/backend/internal/usecase/auth"
 	postusecase "social-network/backend/internal/usecase/post"
 	"social-network/backend/pkg/db/postgres"
+	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
 	"social-network/backend/pkg/utils"
 )
@@ -56,11 +58,19 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
+	// Repositories
+	authRepository := authrepo.NewRepository(db)
 	postRepository := postrepo.NewRepository(db)
+
+	// Services
+	authService := authusecase.NewService(authRepository)
 	postService := postusecase.NewService(postRepository)
+
+	// Handlers
+	authHandler := handler.NewAuthHandler(authService)
 	postHandler := handler.NewPostHandler(postService)
 
-	router := transporthttp.NewRouter(postHandler)
+	router := transporthttp.NewRouter(postHandler, authHandler)
 
 	addr, err := requiredString("SERVER_ADDR")
 	if err != nil {

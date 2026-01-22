@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"social-network/backend/internal/transport/http/response"
 	domainpost "social-network/backend/internal/domain/post"
 	usecasepost "social-network/backend/internal/usecase/post"
 )
@@ -23,10 +23,6 @@ func NewPostHandler(service *usecasepost.Service) *PostHandler {
 
 // List handles GET /posts.
 func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 
 	posts, err := h.service.List(r.Context())
 	if err != nil {
@@ -34,15 +30,11 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, posts)
+	response.RespondWithSuccess(w, http.StatusOK, posts)
 }
 
 // GetByID handles GET /posts/{id}.
 func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 
 	id, ok := parseID(r.URL.Path, "/posts/")
 	if !ok {
@@ -60,7 +52,7 @@ func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, post)
+	response.RespondWithSuccess(w, http.StatusOK, post)
 }
 
 func parseID(path, prefix string) (int64, bool) {
@@ -81,8 +73,4 @@ func parseID(path, prefix string) (int64, bool) {
 	return id, true
 }
 
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
-}
+
