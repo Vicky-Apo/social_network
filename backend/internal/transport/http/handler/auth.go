@@ -4,9 +4,9 @@ import (
 	"errors"
 	"net/http"
 
+	domainauth "social-network/backend/internal/domain/auth"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
-	domainauth "social-network/backend/internal/domain/auth"
 	usecaseauth "social-network/backend/internal/usecase/auth"
 	"social-network/backend/pkg/logger"
 )
@@ -98,25 +98,19 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // Logout handles POST /auth/logout
-// Expects Auth middleware to have validated the session
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	// Get session token from context (middleware already validated it)
-	sessionToken, ok := middleware.GetSessionToken(r.Context())
-	if !ok {
-		h.log.Warn("logout attempt without session token")
-		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
-		return
+	var sessionToken string
+	if cookie, err := r.Cookie(h.config.CookieName); err == nil {
+		sessionToken = cookie.Value
 	}
-
-	userID, _ := middleware.GetUserID(r.Context())
-
-	if err := h.service.Logout(r.Context(), sessionToken); err != nil {
-		h.log.Error("logout failed", err, logger.F("user_id", userID))
-		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
-		return
+	if sessionToken != "" {
+		if err := h.service.Logout(r.Context(), sessionToken); err != nil {
+			h.log.Error("logout failed", err)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			return
+		}
+		h.log.Info("user logged out")
 	}
-
-	h.log.Info("user logged out", logger.F("user_id", userID))
 
 	// Clear session cookie
 	h.clearSessionCookie(w)

@@ -32,9 +32,9 @@ func NewRouter(postHandler *handler.PostHandler, authHandler *handler.AuthHandle
 	// Auth routes (public)
 	mux.HandleFunc("POST /auth/register", authHandler.Register)
 	mux.HandleFunc("POST /auth/login", authHandler.Login)
+	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
 
 	// Auth routes (protected)
-	mux.Handle("POST /auth/logout", mw.Auth(http.HandlerFunc(authHandler.Logout)))
 	mux.Handle("GET /auth/me", mw.Auth(http.HandlerFunc(authHandler.Me)))
 
 	// Post routes

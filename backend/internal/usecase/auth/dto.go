@@ -11,7 +11,6 @@ type RegisterRequest struct {
 	FirstName   string  `json:"first_name"`
 	LastName    string  `json:"last_name"`
 	DateOfBirth string  `json:"date_of_birth"` // "DD/MM/YYYY" format
-	AvatarPath  *string `json:"avatar_path,omitempty"`
 	Nickname    *string `json:"nickname,omitempty"`
 	About       *string `json:"about,omitempty"`
 }
@@ -30,7 +29,7 @@ type UserDTO struct {
 	Email       string    `json:"email"`
 	FirstName   string    `json:"first_name"`
 	LastName    string    `json:"last_name"`
-	DateOfBirth time.Time `json:"date_of_birth"`
+	DateOfBirth string    `json:"date_of_birth"` // "DD/MM/YYYY" format
 	AvatarPath  *string   `json:"avatar_path,omitempty"`
 	Nickname    *string   `json:"nickname,omitempty"`
 	About       *string   `json:"about,omitempty"`

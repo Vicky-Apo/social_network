@@ -32,16 +32,14 @@ func Auth(validator SessionValidator, cookieName string, log logger.Logger) func
 			ip := utils.ExtractIPAddress(r)
 
 			// Extract session token from cookie
+			var sessionToken string
 			cookie, err := r.Cookie(cookieName)
-			if err != nil {
-				log.Debug("missing session cookie", logger.F("ip", ip), logger.F("path", r.URL.Path))
-				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
-				return
+			if err == nil {
+				sessionToken = cookie.Value
 			}
 
-			sessionToken := cookie.Value
 			if sessionToken == "" {
-				log.Debug("empty session token", logger.F("ip", ip), logger.F("path", r.URL.Path))
+				log.Debug("missing session token", logger.F("ip", ip), logger.F("path", r.URL.Path))
 				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
