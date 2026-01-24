@@ -16,6 +16,7 @@ func NewRouter(
 	authHandler *handler.AuthHandler,
 	profileHandler *handler.ProfileHandler,
 	followHandler *handler.FollowHandler,
+	userHandler *handler.UserHandler,
 	authMiddleware Middleware,
 ) http.Handler {
 	mux := http.NewServeMux()
@@ -76,6 +77,10 @@ func NewRouter(
 		}
 	})))
 	mux.Handle("/unfollow", authMiddleware(http.HandlerFunc(followHandler.Unfollow)))
+
+	// User routes (protected)
+	mux.Handle("/users", authMiddleware(http.HandlerFunc(userHandler.ListUsers)))
+	mux.Handle("/users/search", authMiddleware(http.HandlerFunc(userHandler.SearchUsers)))
 
 	return mux
 }

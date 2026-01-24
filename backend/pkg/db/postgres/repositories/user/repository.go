@@ -126,8 +126,34 @@ func (r *Repository) ListFollowing(ctx context.Context, userID int64) ([]domainu
 	return r.listUsers(ctx, query, userID)
 }
 
+// ListUsers returns all user profiles.
+func (r *Repository) ListUsers(ctx context.Context) ([]domainuser.User, error) {
+	const query = `
+		SELECT id, email, first_name, last_name, date_of_birth, avatar_path, nickname, about, is_public, created_at, updated_at
+		FROM users
+		ORDER BY id
+	`
+	return r.listUsersWithArgs(ctx, query)
+}
+
+// SearchUsers returns users matching the query in first name, last name, or nickname.
+func (r *Repository) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+	const sqlQuery = `
+		SELECT id, email, first_name, last_name, date_of_birth, avatar_path, nickname, about, is_public, created_at, updated_at
+		FROM users
+		WHERE first_name ILIKE $1 OR last_name ILIKE $1 OR nickname ILIKE $1
+		ORDER BY id
+	`
+	pattern := "%" + query + "%"
+	return r.listUsersWithArgs(ctx, sqlQuery, pattern)
+}
+
 func (r *Repository) listUsers(ctx context.Context, query string, userID int64) ([]domainuser.User, error) {
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	return r.listUsersWithArgs(ctx, query, userID)
+}
+
+func (r *Repository) listUsersWithArgs(ctx context.Context, query string, args ...any) ([]domainuser.User, error) {
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}

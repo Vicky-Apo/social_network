@@ -16,6 +16,7 @@ import (
 	followusecase "social-network/backend/internal/usecase/follow"
 	postusecase "social-network/backend/internal/usecase/post"
 	profileusecase "social-network/backend/internal/usecase/profile"
+	userusecase "social-network/backend/internal/usecase/user"
 	"social-network/backend/pkg/db/postgres"
 	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
 	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
@@ -77,9 +78,11 @@ func Run(ctx context.Context) error {
 
 	profileService := profileusecase.NewService(userRepository, followRepository)
 	followService := followusecase.NewService(userRepository, followRepository)
+	userService := userusecase.NewService(userRepository)
 
 	profileHandler := handler.NewProfileHandler(profileService)
 	followHandler := handler.NewFollowHandler(followService)
+	userHandler := handler.NewUserHandler(userService)
 
 	authCfg := authConfigFromEnv()
 	authService := authusecase.NewService(authRepository, authCfg, logging)
@@ -90,7 +93,7 @@ func Run(ctx context.Context) error {
 	authHandler := handler.NewAuthHandler(authService, logging, authHandlerCfg)
 	authMiddleware := middleware.Auth(authService, authCfg.SessionCookieName, logging)
 
-	router := transporthttp.NewRouter(postHandler, authHandler, profileHandler, followHandler, authMiddleware)
+	router := transporthttp.NewRouter(postHandler, authHandler, profileHandler, followHandler, userHandler, authMiddleware)
 
 	addr, err := requiredString("SERVER_ADDR")
 	if err != nil {

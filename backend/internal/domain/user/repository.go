@@ -16,4 +16,6 @@ type Repository interface {
 	CountFollowing(ctx context.Context, userID int64) (int64, error)
 	ListFollowers(ctx context.Context, userID int64) ([]User, error)
 	ListFollowing(ctx context.Context, userID int64) ([]User, error)
+	ListUsers(ctx context.Context) ([]User, error)
+	SearchUsers(ctx context.Context, query string) ([]User, error)
 }
