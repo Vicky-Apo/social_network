@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	domaincomment "social-network/backend/internal/domain/comment"
+	"social-network/backend/internal/transport/http/utils"
 	usecasecomment "social-network/backend/internal/usecase/comment"
 )
 
@@ -38,7 +39,7 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	var req usecasecomment.CreateCommentRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -47,11 +48,11 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Create comment
 	comment, err := h.service.Create(r.Context(), req)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to create comment")
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, comment)
+	utils.RespondWithSuccess(w, http.StatusCreated, comment)
 }
 
 // GetByPostID handles GET /posts/{id}/comments
@@ -72,14 +73,14 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 	comments, err := h.service.GetByPostID(r.Context(), postID)
 	if err != nil {
 		if errors.Is(err, domaincomment.ErrNotFound) {
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "comments not found")
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get comments")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, comments)
+	utils.RespondWithSuccess(w, http.StatusOK, comments)
 }
 
 // Helper to parse post ID from /posts/123/comments

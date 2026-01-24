@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"social-network/backend/internal/transport/http/utils"
 	usecasereaction "social-network/backend/internal/usecase/reaction"
 )
 
@@ -34,16 +35,16 @@ func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request
 
 	var req usecasereaction.AddReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if err := h.service.AddPostReaction(r.Context(), postID, req); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to add reaction")
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	utils.RespondWithSuccess(w, http.StatusCreated, map[string]string{"message": "reaction added"})
 }
 
 // GetPostReactions handles GET /posts/{id}/reactions
@@ -61,11 +62,11 @@ func (h *ReactionHandler) GetPostReactions(w http.ResponseWriter, r *http.Reques
 
 	reactions, err := h.service.GetPostReactions(r.Context(), postID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get reactions")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reactions)
+	utils.RespondWithSuccess(w, http.StatusOK, reactions)
 }
 
 // AddCommentReaction handles POST /comments/{id}/reactions
@@ -83,16 +84,16 @@ func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Requ
 
 	var req usecasereaction.AddReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if err := h.service.AddCommentReaction(r.Context(), commentID, req); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to add reaction")
 		return
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	utils.RespondWithSuccess(w, http.StatusCreated, map[string]string{"message": "reaction added"})
 }
 
 // GetCommentReactions handles GET /comments/{id}/reactions
@@ -110,11 +111,11 @@ func (h *ReactionHandler) GetCommentReactions(w http.ResponseWriter, r *http.Req
 
 	reactions, err := h.service.GetCommentReactions(r.Context(), commentID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		utils.RespondWithError(w, http.StatusInternalServerError, "failed to get reactions")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, reactions)
+	utils.RespondWithSuccess(w, http.StatusOK, reactions)
 }
 
 // Helper to parse post ID from /posts/123/reactions
