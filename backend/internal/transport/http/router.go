@@ -65,6 +65,8 @@ func NewRouter(
 	})))
 	mux.Handle("/follow-requests/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
+		case strings.HasSuffix(r.URL.Path, "/sent"):
+			followHandler.ListSentRequests(w, r)
 		case strings.HasSuffix(r.URL.Path, "/accept"):
 			followHandler.AcceptRequest(w, r)
 		case strings.HasSuffix(r.URL.Path, "/decline"):

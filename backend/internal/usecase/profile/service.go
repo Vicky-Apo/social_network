@@ -46,10 +46,27 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 		return ProfileDTO{}, fmt.Errorf("count following: %w", err)
 	}
 
+	isFollowing := false
+	isFollowedBy := false
+	if viewerID != 0 && viewerID != user.ID {
+		if follow, err := s.followRepo.IsFollowing(ctx, viewerID, user.ID); err != nil {
+			return ProfileDTO{}, fmt.Errorf("check follow: %w", err)
+		} else {
+			isFollowing = follow
+		}
+		if follow, err := s.followRepo.IsFollowing(ctx, user.ID, viewerID); err != nil {
+			return ProfileDTO{}, fmt.Errorf("check follow: %w", err)
+		} else {
+			isFollowedBy = follow
+		}
+	}
+
 	return ProfileDTO{
 		User:           mapUser(user),
 		FollowersCount: followers,
 		FollowingCount: following,
+		IsFollowing:    isFollowing,
+		IsFollowedBy:   isFollowedBy,
 	}, nil
 }
 

@@ -88,6 +88,28 @@ func (h *FollowHandler) ListRequests(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, requests)
 }
 
+// ListSentRequests handles GET /follow-requests/sent.
+func (h *FollowHandler) ListSentRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	requesterID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	requests, err := h.service.ListSentRequests(r.Context(), requesterID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, requests)
+}
+
 // AcceptRequest handles POST /follow-requests/{id}/accept.
 func (h *FollowHandler) AcceptRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

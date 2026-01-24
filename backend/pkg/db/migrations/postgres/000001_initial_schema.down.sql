@@ -12,8 +12,6 @@ DROP TRIGGER IF EXISTS trg_posts_updated_at ON posts;
 DROP TRIGGER IF EXISTS trg_group_join_requests_updated_at ON group_join_requests;
 DROP TRIGGER IF EXISTS trg_group_invitations_updated_at ON group_invitations;
 DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
-DROP TRIGGER IF EXISTS trg_follows_updated_at ON follows;
-DROP TRIGGER IF EXISTS trg_follow_requests_updated_at ON follow_requests;
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 
 

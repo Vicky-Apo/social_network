@@ -60,7 +60,7 @@ func (r *Repository) CreateRequest(ctx context.Context, requesterID, targetID in
 	const query = `
 		INSERT INTO follow_requests (requester_id, target_id)
 		VALUES ($1, $2)
-		RETURNING id, requester_id, target_id, created_at, updated_at
+		RETURNING id, requester_id, target_id, created_at
 	`
 	var req domainfollow.FollowRequest
 	if err := r.db.QueryRowContext(ctx, query, requesterID, targetID).Scan(
@@ -68,7 +68,6 @@ func (r *Repository) CreateRequest(ctx context.Context, requesterID, targetID in
 		&req.RequesterID,
 		&req.TargetID,
 		&req.CreatedAt,
-		&req.UpdatedAt,
 	); err != nil {
 		return domainfollow.FollowRequest{}, fmt.Errorf("create follow request: %w", err)
 	}
@@ -78,7 +77,7 @@ func (r *Repository) CreateRequest(ctx context.Context, requesterID, targetID in
 // GetRequestByID returns a follow request by ID.
 func (r *Repository) GetRequestByID(ctx context.Context, id int64) (domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, created_at, updated_at
+		SELECT id, requester_id, target_id, created_at
 		FROM follow_requests
 		WHERE id = $1
 	`
@@ -88,7 +87,6 @@ func (r *Repository) GetRequestByID(ctx context.Context, id int64) (domainfollow
 		&req.RequesterID,
 		&req.TargetID,
 		&req.CreatedAt,
-		&req.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -114,7 +112,7 @@ func (r *Repository) DeleteRequest(ctx context.Context, id int64) error {
 // ListRequestsByTarget returns pending follow requests for a target user.
 func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) ([]domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, created_at, updated_at
+		SELECT id, requester_id, target_id, created_at
 		FROM follow_requests
 		WHERE target_id = $1
 		ORDER BY created_at DESC
@@ -128,7 +126,35 @@ func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) (
 	var requests []domainfollow.FollowRequest
 	for rows.Next() {
 		var req domainfollow.FollowRequest
-		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.CreatedAt, &req.UpdatedAt); err != nil {
+		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.CreatedAt); err != nil {
+			return nil, fmt.Errorf("list follow requests: %w", err)
+		}
+		requests = append(requests, req)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list follow requests: %w", err)
+	}
+	return requests, nil
+}
+
+// ListRequestsByRequester returns pending follow requests created by a requester.
+func (r *Repository) ListRequestsByRequester(ctx context.Context, requesterID int64) ([]domainfollow.FollowRequest, error) {
+	const query = `
+		SELECT id, requester_id, target_id, created_at
+		FROM follow_requests
+		WHERE requester_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, requesterID)
+	if err != nil {
+		return nil, fmt.Errorf("list follow requests: %w", err)
+	}
+	defer rows.Close()
+
+	var requests []domainfollow.FollowRequest
+	for rows.Next() {
+		var req domainfollow.FollowRequest
+		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.CreatedAt); err != nil {
 			return nil, fmt.Errorf("list follow requests: %w", err)
 		}
 		requests = append(requests, req)

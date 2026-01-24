@@ -84,7 +84,6 @@ CREATE TABLE follow_requests (
   requester_id BIGINT NOT NULL,
   target_id BIGINT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -93,7 +92,6 @@ CREATE TABLE follows (
   follower_id BIGINT NOT NULL,
   following_id BIGINT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   PRIMARY KEY (follower_id, following_id),
   FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -396,18 +394,6 @@ $$ LANGUAGE plpgsql;
 /* USERS */
 CREATE TRIGGER trg_users_updated_at
 BEFORE UPDATE ON users
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
-
-/* FOLLOW REQUESTS */
-CREATE TRIGGER trg_follow_requests_updated_at
-BEFORE UPDATE ON follow_requests
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
-
-/* FOLLOWS */
-CREATE TRIGGER trg_follows_updated_at
-BEFORE UPDATE ON follows
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

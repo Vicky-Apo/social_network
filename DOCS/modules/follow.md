@@ -34,8 +34,7 @@ Response (200):
     "id": 10,
     "requester_id": 1,
     "target_id": 2,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
+    "created_at": "2025-01-24T12:34:56Z"
   }
 }
 ```
@@ -60,8 +59,24 @@ Response (200):
     "id": 10,
     "requester_id": 1,
     "target_id": 2,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
+    "created_at": "2025-01-24T12:34:56Z"
+  }
+]
+```
+
+### List sent requests
+
+`GET /follow-requests/sent`
+
+Response (200):
+
+```json
+[
+  {
+    "id": 11,
+    "requester_id": 1,
+    "target_id": 3,
+    "created_at": "2025-01-24T12:34:56Z"
   }
 ]
 ```

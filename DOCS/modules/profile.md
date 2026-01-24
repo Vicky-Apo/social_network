@@ -34,7 +34,9 @@ Response (200):
     "updated_at": "2025-01-24T12:34:56Z"
   },
   "followers_count": 10,
-  "following_count": 5
+  "following_count": 5,
+  "is_following": true,
+  "is_followed_by": false
 }
 ```
 

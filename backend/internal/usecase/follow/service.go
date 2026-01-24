@@ -134,6 +134,21 @@ func (s *Service) ListRequests(ctx context.Context, targetID int64) ([]FollowReq
 	return out, nil
 }
 
+// ListSentRequests lists follow requests created by a requester.
+func (s *Service) ListSentRequests(ctx context.Context, requesterID int64) ([]FollowRequestDTO, error) {
+	requests, err := s.followRepo.ListRequestsByRequester(ctx, requesterID)
+	if err != nil {
+		return nil, fmt.Errorf("list requests: %w", err)
+	}
+	out := make([]FollowRequestDTO, 0, len(requests))
+	for _, req := range requests {
+		if dto := mapRequest(req); dto != nil {
+			out = append(out, *dto)
+		}
+	}
+	return out, nil
+}
+
 // Unfollow removes a follow relationship.
 func (s *Service) Unfollow(ctx context.Context, followerID, followingID int64) error {
 	if followerID == followingID {
@@ -158,6 +173,5 @@ func mapRequest(req domainfollow.FollowRequest) *FollowRequestDTO {
 		RequesterID: req.RequesterID,
 		TargetID:    req.TargetID,
 		CreatedAt:   req.CreatedAt,
-		UpdatedAt:   req.UpdatedAt,
 	}
 }

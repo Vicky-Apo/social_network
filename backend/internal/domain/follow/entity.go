@@ -8,7 +8,6 @@ type FollowRequest struct {
 	RequesterID int64
 	TargetID    int64
 	CreatedAt   time.Time
-	UpdatedAt   time.Time
 }
 
 // Follow represents a follower -> following relationship.
@@ -16,5 +15,4 @@ type Follow struct {
 	FollowerID  int64
 	FollowingID int64
 	CreatedAt   time.Time
-	UpdatedAt   time.Time
 }

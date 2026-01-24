@@ -8,7 +8,6 @@ type FollowRequestDTO struct {
 	RequesterID int64     `json:"requester_id"`
 	TargetID    int64     `json:"target_id"`
 	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // FollowResultDTO describes the outcome of a follow attempt.

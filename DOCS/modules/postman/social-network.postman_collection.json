@@ -194,7 +194,7 @@
           }
         },
         {
-          "name": "List Follow Requests",
+          "name": "List Follow Requests (Incoming)",
           "request": {
             "method": "GET",
             "header": [],
@@ -205,6 +205,23 @@
               ],
               "path": [
                 "follow-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Follow Requests (Sent)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests/sent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests",
+                "sent"
               ]
             }
           }

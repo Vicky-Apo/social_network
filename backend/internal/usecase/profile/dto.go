@@ -22,4 +22,6 @@ type ProfileDTO struct {
 	User           UserDTO `json:"user"`
 	FollowersCount int64   `json:"followers_count"`
 	FollowingCount int64   `json:"following_count"`
+	IsFollowing    bool    `json:"is_following"`
+	IsFollowedBy   bool    `json:"is_followed_by"`
 }

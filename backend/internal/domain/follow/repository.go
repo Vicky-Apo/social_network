@@ -16,6 +16,7 @@ type Repository interface {
 	GetRequestByID(ctx context.Context, id int64) (FollowRequest, error)
 	DeleteRequest(ctx context.Context, id int64) error
 	ListRequestsByTarget(ctx context.Context, targetID int64) ([]FollowRequest, error)
+	ListRequestsByRequester(ctx context.Context, requesterID int64) ([]FollowRequest, error)
 	CreateFollow(ctx context.Context, followerID, followingID int64) error
 	DeleteFollow(ctx context.Context, followerID, followingID int64) error
 }
