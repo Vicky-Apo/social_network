@@ -34,10 +34,10 @@ CREATE TYPE notification_type AS ENUM (
   'follow_request',
   'group_invitation',
   'group_join_request',
-  'event_created'
+  'event_created',
   'post_reaction',
   'comment_reaction',
-  'comment_on_post',
+  'comment_on_post'
 );
 
 
