@@ -10,10 +10,14 @@ import (
 
 	"social-network/backend/internal/transport/http/handler"
 	transporthttp "social-network/backend/internal/transport/http"
+	commentusecase "social-network/backend/internal/usecase/comment"
 	postusecase "social-network/backend/internal/usecase/post"
 	"social-network/backend/pkg/db/postgres"
+	reactionusecase "social-network/backend/internal/usecase/reaction"
+	commentrepo "social-network/backend/pkg/db/postgres/repositories/comment"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
 	"social-network/backend/pkg/utils"
+	reactionrepo "social-network/backend/pkg/db/postgres/repositories/reaction"
 )
 
 const envFileName = ".env"
@@ -56,11 +60,23 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
+	// Initialize repositories
 	postRepository := postrepo.NewRepository(db)
-	postService := postusecase.NewService(postRepository)
-	postHandler := handler.NewPostHandler(postService)
+	commentRepository := commentrepo.NewRepository(db)
+	reactionRepository := reactionrepo.NewRepository(db)
 
-	router := transporthttp.NewRouter(postHandler)
+	// Initialize services
+	postService := postusecase.NewService(postRepository)
+	commentService := commentusecase.NewService(commentRepository)
+	reactionService := reactionusecase.NewService(reactionRepository)
+
+	// Initialize handlers
+	postHandler := handler.NewPostHandler(postService)
+	commentHandler := handler.NewCommentHandler(commentService)
+	reactionHandler := handler.NewReactionHandler(reactionService)
+
+	// Create router with all handlers
+	router := transporthttp.NewRouter(postHandler, commentHandler, reactionHandler)
 
 	addr, err := requiredString("SERVER_ADDR")
 	if err != nil {
