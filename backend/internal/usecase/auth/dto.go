@@ -6,11 +6,14 @@ import "time"
 
 // RegisterRequest represents the user registration payload
 type RegisterRequest struct {
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	FirstName   string `json:"first_name"`
-	LastName    string `json:"last_name"`
-	DateOfBirth string `json:"date_of_birth"` // "DD/MM/YYYY" format
+	Email       string  `json:"email"`
+	Password    string  `json:"password"`
+	FirstName   string  `json:"first_name"`
+	LastName    string  `json:"last_name"`
+	DateOfBirth string  `json:"date_of_birth"` // "DD/MM/YYYY" format
+	AvatarPath  *string `json:"avatar_path,omitempty"`
+	Nickname    *string `json:"nickname,omitempty"`
+	About       *string `json:"about,omitempty"`
 }
 
 // LoginRequest represents the login credentials

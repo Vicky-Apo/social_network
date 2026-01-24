@@ -11,6 +11,14 @@ import (
 	domainauth "social-network/backend/internal/domain/auth"
 )
 
+// Common column definitions to avoid duplication
+const (
+	userColumns = `id, email, password_hash, first_name, last_name, date_of_birth,
+	               avatar_path, nickname, about, is_public, created_at, updated_at`
+
+	sessionColumns = `id, user_id, session_token, user_agent, ip_address, expires_at, created_at`
+)
+
 // Repository implements the auth repository interface for PostgreSQL
 type Repository struct {
 	db *sql.DB
@@ -21,11 +29,52 @@ func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
 
+// scanner interface for scanning rows
+type scanner interface {
+	Scan(dest ...any) error
+}
+
+// scanUser scans a row into a User struct
+func scanUser(s scanner) (domainauth.User, error) {
+	var user domainauth.User
+	err := s.Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FirstName,
+		&user.LastName,
+		&user.DateOfBirth,
+		&user.AvatarPath,
+		&user.Nickname,
+		&user.About,
+		&user.IsPublic,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	return user, err
+}
+
+// scanSession scans a row into a Session struct
+func scanSession(s scanner) (domainauth.Session, error) {
+	var session domainauth.Session
+	err := s.Scan(
+		&session.ID,
+		&session.UserID,
+		&session.SessionToken,
+		&session.UserAgent,
+		&session.IPAddress,
+		&session.ExpiresAt,
+		&session.CreatedAt,
+	)
+	return session, err
+}
+
 // CreateUser inserts a new user record
 func (r *Repository) CreateUser(ctx context.Context, user domainauth.User) (int64, error) {
 	query := `
-		INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth, is_public, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO users (email, password_hash, first_name, last_name, date_of_birth,
+		                   avatar_path, nickname, about, is_public, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id
 	`
 
@@ -38,6 +87,9 @@ func (r *Repository) CreateUser(ctx context.Context, user domainauth.User) (int6
 		user.FirstName,
 		user.LastName,
 		user.DateOfBirth,
+		user.AvatarPath,
+		user.Nickname,
+		user.About,
 		user.IsPublic,
 		user.CreatedAt,
 		user.UpdatedAt,
@@ -57,29 +109,9 @@ func (r *Repository) CreateUser(ctx context.Context, user domainauth.User) (int6
 
 // GetUserByEmail retrieves a user by email
 func (r *Repository) GetUserByEmail(ctx context.Context, email string) (domainauth.User, error) {
-	query := `
-		SELECT id, email, password_hash, first_name, last_name, date_of_birth,
-		       avatar_path, nickname, about, is_public, created_at, updated_at
-		FROM users
-		WHERE email = $1
-	`
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE email = $1`, userColumns)
 
-	var user domainauth.User
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
-		&user.ID,
-		&user.Email,
-		&user.PasswordHash,
-		&user.FirstName,
-		&user.LastName,
-		&user.DateOfBirth,
-		&user.AvatarPath,
-		&user.Nickname,
-		&user.About,
-		&user.IsPublic,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, email))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domainauth.User{}, domainauth.ErrUserNotFound
@@ -92,29 +124,9 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (domainau
 
 // GetUserByID retrieves a user by ID
 func (r *Repository) GetUserByID(ctx context.Context, id int64) (domainauth.User, error) {
-	query := `
-		SELECT id, email, password_hash, first_name, last_name, date_of_birth,
-		       avatar_path, nickname, about, is_public, created_at, updated_at
-		FROM users
-		WHERE id = $1
-	`
+	query := fmt.Sprintf(`SELECT %s FROM users WHERE id = $1`, userColumns)
 
-	var user domainauth.User
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&user.ID,
-		&user.Email,
-		&user.PasswordHash,
-		&user.FirstName,
-		&user.LastName,
-		&user.DateOfBirth,
-		&user.AvatarPath,
-		&user.Nickname,
-		&user.About,
-		&user.IsPublic,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
+	user, err := scanUser(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domainauth.User{}, domainauth.ErrUserNotFound
@@ -154,23 +166,9 @@ func (r *Repository) CreateSession(ctx context.Context, session domainauth.Sessi
 
 // GetSessionByToken retrieves a session by token
 func (r *Repository) GetSessionByToken(ctx context.Context, token string) (domainauth.Session, error) {
-	query := `
-		SELECT id, user_id, session_token, user_agent, ip_address, expires_at, created_at
-		FROM sessions
-		WHERE session_token = $1 AND expires_at > NOW()
-	`
+	query := fmt.Sprintf(`SELECT %s FROM sessions WHERE session_token = $1 AND expires_at > NOW()`, sessionColumns)
 
-	var session domainauth.Session
-	err := r.db.QueryRowContext(ctx, query, token).Scan(
-		&session.ID,
-		&session.UserID,
-		&session.SessionToken,
-		&session.UserAgent,
-		&session.IPAddress,
-		&session.ExpiresAt,
-		&session.CreatedAt,
-	)
-
+	session, err := scanSession(r.db.QueryRowContext(ctx, query, token))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domainauth.Session{}, domainauth.ErrSessionNotFound

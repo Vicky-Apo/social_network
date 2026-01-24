@@ -3,34 +3,42 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strings"
 
-	"social-network/backend/internal/transport/http/response"
+	"social-network/backend/internal/transport/http/middleware"
+	"social-network/backend/internal/transport/http/utils"
 	domainauth "social-network/backend/internal/domain/auth"
 	usecaseauth "social-network/backend/internal/usecase/auth"
+	"social-network/backend/pkg/logger"
 )
 
-const (
-	sessionCookieName = "session_token"
-	sessionMaxAge     = 30 * 24 * 60 * 60 // 30 days in seconds
-)
+// AuthHandlerConfig holds configuration for the auth handler
+type AuthHandlerConfig struct {
+	CookieName string
+	MaxAge     int
+}
 
 // AuthHandler serves REST endpoints for authentication
 type AuthHandler struct {
 	service *usecaseauth.Service
+	log     logger.Logger
+	config  AuthHandlerConfig
 }
 
 // NewAuthHandler creates a new auth handler
-func NewAuthHandler(service *usecaseauth.Service) *AuthHandler {
-	return &AuthHandler{service: service}
+func NewAuthHandler(service *usecaseauth.Service, log logger.Logger, cfg AuthHandlerConfig) *AuthHandler {
+	return &AuthHandler{
+		service: service,
+		log:     log.WithFields(logger.F("handler", "auth")),
+		config:  cfg,
+	}
 }
 
 // Register handles POST /auth/register
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
-
 	var req usecaseauth.RegisterRequest
-	if err := response.ReadJSON(r, &req); err != nil {
-		response.RespondWithError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadJSON(r, &req); err != nil {
+		h.log.Debug("invalid request body", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
@@ -38,128 +46,119 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domainauth.ErrEmailAlreadyExists):
-			response.RespondWithError(w, http.StatusConflict, "email already exists")
+			h.log.Debug("registration failed: email exists", logger.F("email", req.Email))
+			utils.RespondWithError(w, http.StatusConflict, "email already exists")
 		case errors.Is(err, usecaseauth.ErrInvalidEmail):
-			response.RespondWithError(w, http.StatusBadRequest, err.Error())
+			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, usecaseauth.ErrWeakPassword):
-			response.RespondWithError(w, http.StatusBadRequest, err.Error())
+			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, usecaseauth.ErrInvalidDateFormat),
 			errors.Is(err, usecaseauth.ErrInvalidDateOfBirth),
 			errors.Is(err, usecaseauth.ErrUserTooYoung):
-			response.RespondWithError(w, http.StatusBadRequest, err.Error())
+			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		default:
-			response.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			h.log.Error("registration failed", err, logger.F("email", req.Email))
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
 
-	response.RespondWithSuccess(w, http.StatusCreated, user)
+	utils.RespondWithSuccess(w, http.StatusCreated, user)
 }
 
 // Login handles POST /auth/login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-
 	var req usecaseauth.LoginRequest
-	if err := response.ReadJSON(r, &req); err != nil {
-		response.RespondWithError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadJSON(r, &req); err != nil {
+		h.log.Debug("invalid request body", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	// Extract user agent and IP address from request
 	userAgent := r.UserAgent()
-	ipAddress := extractIPAddress(r)
+	ipAddress := utils.ExtractIPAddress(r)
 
 	loginResp, err := h.service.Login(r.Context(), req, userAgent, ipAddress)
 	if err != nil {
 		if errors.Is(err, usecaseauth.ErrInvalidCredentials) {
-			response.RespondWithError(w, http.StatusUnauthorized, "invalid credentials")
+			h.log.Debug("login failed: invalid credentials", logger.F("email", req.Email), logger.F("ip", ipAddress))
+			utils.RespondWithError(w, http.StatusUnauthorized, "invalid credentials")
 		} else {
-			response.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			h.log.Error("login failed", err, logger.F("email", req.Email), logger.F("ip", ipAddress))
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
 
 	// Set session cookie
-	setSessionCookie(w, loginResp.Token)
+	h.setSessionCookie(w, loginResp.Token)
 
-	response.RespondWithSuccess(w, http.StatusOK, loginResp)
+	utils.RespondWithSuccess(w, http.StatusOK, loginResp)
 }
 
 // Logout handles POST /auth/logout
+// Expects Auth middleware to have validated the session
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-
-	// Extract session token from cookie
-	sessionToken := extractSessionToken(r)
-
-	if err := h.service.Logout(r.Context(), sessionToken); err != nil {
-		response.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+	// Get session token from context (middleware already validated it)
+	sessionToken, ok := middleware.GetSessionToken(r.Context())
+	if !ok {
+		h.log.Warn("logout attempt without session token")
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	// Clear session cookie
-	clearSessionCookie(w)
+	userID, _ := middleware.GetUserID(r.Context())
 
-	response.RespondWithSuccess(w, http.StatusOK, nil)
+	if err := h.service.Logout(r.Context(), sessionToken); err != nil {
+		h.log.Error("logout failed", err, logger.F("user_id", userID))
+		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	h.log.Info("user logged out", logger.F("user_id", userID))
+
+	// Clear session cookie
+	h.clearSessionCookie(w)
+
+	utils.RespondWithSuccess(w, http.StatusOK, nil)
 }
 
 // Me handles GET /auth/me
+// Expects Auth middleware to have validated the session
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (middleware already validated session)
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		h.log.Warn("me endpoint called without user context")
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
-	// Extract session token from cookie
-	sessionToken := extractSessionToken(r)
-
-	user, err := h.service.GetCurrentUser(r.Context(), sessionToken)
+	user, err := h.service.GetUserByID(r.Context(), userID)
 	if err != nil {
-		if errors.Is(err, domainauth.ErrSessionNotFound) ||
-			errors.Is(err, domainauth.ErrSessionExpired) {
-			response.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		if errors.Is(err, domainauth.ErrUserNotFound) {
+			h.log.Warn("user not found for valid session", logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusNotFound, "user not found")
 		} else {
-			response.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			h.log.Error("failed to get user", err, logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
 
-	response.RespondWithSuccess(w, http.StatusOK, user)
+	utils.RespondWithSuccess(w, http.StatusOK, user)
 }
 
 // Helper functions
 
-// extractSessionToken retrieves session token from cookie
-func extractSessionToken(r *http.Request) string {
-	cookie, err := r.Cookie(sessionCookieName)
-	if err != nil {
-		return ""
-	}
-	return cookie.Value
-}
-
-// extractIPAddress extracts client IP from request
-func extractIPAddress(r *http.Request) string {
-	// Check X-Forwarded-For header first (for proxies)
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP in the list
-		ips := strings.Split(xff, ",")
-		if len(ips) > 0 {
-			return strings.TrimSpace(ips[0])
-		}
-	}
-
-	// Check X-Real-IP header
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
-	return r.RemoteAddr
-}
-
 // setSessionCookie sets the session cookie
-func setSessionCookie(w http.ResponseWriter, token string) {
+func (h *AuthHandler) setSessionCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     h.config.CookieName,
 		Value:    token,
 		Path:     "/",
-		MaxAge:   sessionMaxAge,
+		MaxAge:   h.config.MaxAge,
 		HttpOnly: true,
 		Secure:   false, // Set to true in production with HTTPS
 		SameSite: http.SameSiteStrictMode,
@@ -167,9 +166,9 @@ func setSessionCookie(w http.ResponseWriter, token string) {
 }
 
 // clearSessionCookie removes the session cookie
-func clearSessionCookie(w http.ResponseWriter) {
+func (h *AuthHandler) clearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     h.config.CookieName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1, // Delete cookie

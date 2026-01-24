@@ -6,78 +6,78 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
+	"social-network/backend/internal/config"
 	domainauth "social-network/backend/internal/domain/auth"
+	"social-network/backend/pkg/logger"
 )
 
-const (
-	bcryptCost        = 12                      // Security/performance balance
-	sessionTokenBytes = 32                      // 256-bit entropy
-	sessionDuration   = 30 * 24 * time.Hour     // 30 days
-	minPasswordLength = 8                       // Minimum password length
-	minAge            = 13                      // Minimum age in years
-)
-
+// Service-level errors
 var (
-	// Email validation regex (basic validation)
-	emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
-
-	// Common errors
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidEmail       = errors.New("invalid email format")
-	ErrWeakPassword       = errors.New("password must be at least 8 characters")
-	ErrInvalidDateFormat  = errors.New("invalid date format, expected DD/MM/YYYY")
-	ErrInvalidDateOfBirth = errors.New("invalid date of birth")
-	ErrUserTooYoung       = errors.New("user must be at least 13 years old")
 )
 
 // Service orchestrates authentication use cases
 type Service struct {
-	repo domainauth.Repository
+	repo   domainauth.Repository
+	config config.AuthConfig
+	log    logger.Logger
 }
 
 // NewService creates a new authentication service
-func NewService(repo domainauth.Repository) *Service {
-	return &Service{repo: repo}
+func NewService(repo domainauth.Repository, cfg config.AuthConfig, log logger.Logger) *Service {
+	return &Service{
+		repo:   repo,
+		config: cfg,
+		log:    log.WithFields(logger.F("service", "auth")),
+	}
 }
 
 // Register creates a new user account
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (UserDTO, error) {
-	// Validate input
-	req.Email = strings.TrimSpace(req.Email)
-	req.FirstName = strings.TrimSpace(req.FirstName)
-	req.LastName = strings.TrimSpace(req.LastName)
+	s.log.Debug("registration attempt", logger.F("email", req.Email))
 
-	if err := validateEmail(req.Email); err != nil {
+	// Trim whitespace from input
+	TrimStrings(&req.Email, &req.FirstName, &req.LastName)
+
+	// Validate email
+	if err := ValidateEmail(req.Email); err != nil {
+		s.log.Debug("registration failed: invalid email", logger.F("email", req.Email))
 		return UserDTO{}, err
 	}
 
-	if len(req.Password) < minPasswordLength {
-		return UserDTO{}, ErrWeakPassword
+	// Validate password
+	if err := ValidatePassword(req.Password, s.config.MinPasswordLength); err != nil {
+		s.log.Debug("registration failed: weak password", logger.F("email", req.Email))
+		return UserDTO{}, err
 	}
 
-	if req.FirstName == "" || req.LastName == "" {
-		return UserDTO{}, errors.New("first name and last name are required")
+	// Validate name
+	if err := ValidateName(req.FirstName, req.LastName); err != nil {
+		s.log.Debug("registration failed: missing name", logger.F("email", req.Email))
+		return UserDTO{}, err
 	}
 
 	// Parse and validate date of birth
-	dateOfBirth, err := parseDate(req.DateOfBirth)
+	dateOfBirth, err := ParseDate(req.DateOfBirth)
 	if err != nil {
+		s.log.Debug("registration failed: invalid date format", logger.F("email", req.Email))
 		return UserDTO{}, err
 	}
 
-	if err := validateDateOfBirth(dateOfBirth); err != nil {
+	if err := ValidateDateOfBirth(dateOfBirth, s.config.MinUserAge); err != nil {
+		s.log.Debug("registration failed: invalid date of birth", logger.F("email", req.Email))
 		return UserDTO{}, err
 	}
 
 	// Hash password
-	passwordHash, err := hashPassword(req.Password)
+	passwordHash, err := hashPassword(req.Password, s.config.BcryptCost)
 	if err != nil {
+		s.log.Error("registration failed: password hashing error", err, logger.F("email", req.Email))
 		return UserDTO{}, fmt.Errorf("hash password: %w", err)
 	}
 
@@ -88,6 +88,9 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (UserDTO, e
 		FirstName:    req.FirstName,
 		LastName:     req.LastName,
 		DateOfBirth:  dateOfBirth,
+		AvatarPath:   req.AvatarPath,
+		Nickname:     req.Nickname,
+		About:        req.About,
 		IsPublic:     false,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -97,18 +100,23 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (UserDTO, e
 	userID, err := s.repo.CreateUser(ctx, user)
 	if err != nil {
 		if errors.Is(err, domainauth.ErrEmailAlreadyExists) {
+			s.log.Debug("registration failed: email exists", logger.F("email", req.Email))
 			return UserDTO{}, domainauth.ErrEmailAlreadyExists
 		}
+		s.log.Error("registration failed: database error", err, logger.F("email", req.Email))
 		return UserDTO{}, fmt.Errorf("create user: %w", err)
 	}
 
 	user.ID = userID
+	s.log.Info("user registered successfully", logger.F("user_id", userID), logger.F("email", req.Email))
 
 	return mapUserToDTO(user), nil
 }
 
 // Login authenticates user and creates session
 func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddress string) (LoginResponse, error) {
+	s.log.Debug("login attempt", logger.F("email", req.Email), logger.F("ip", ipAddress))
+
 	// Trim whitespace
 	req.Email = strings.TrimSpace(req.Email)
 
@@ -116,19 +124,23 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddr
 	user, err := s.repo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		if errors.Is(err, domainauth.ErrUserNotFound) {
+			s.log.Debug("login failed: user not found", logger.F("email", req.Email))
 			return LoginResponse{}, ErrInvalidCredentials
 		}
+		s.log.Error("login failed: database error", err, logger.F("email", req.Email))
 		return LoginResponse{}, fmt.Errorf("get user: %w", err)
 	}
 
 	// Verify password
 	if err := comparePassword(user.PasswordHash, req.Password); err != nil {
+		s.log.Debug("login failed: invalid password", logger.F("email", req.Email))
 		return LoginResponse{}, ErrInvalidCredentials
 	}
 
 	// Generate session token
-	sessionToken, err := generateSessionToken()
+	sessionToken, err := generateSessionToken(s.config.SessionTokenBytes)
 	if err != nil {
+		s.log.Error("login failed: token generation error", err, logger.F("email", req.Email))
 		return LoginResponse{}, fmt.Errorf("generate session token: %w", err)
 	}
 
@@ -141,6 +153,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddr
 		ipAddressPtr = &ipAddress
 	}
 
+	sessionDuration := time.Duration(s.config.SessionDurationDays) * 24 * time.Hour
 	session := domainauth.Session{
 		UserID:       user.ID,
 		SessionToken: sessionToken,
@@ -152,10 +165,12 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddr
 
 	sessionID, err := s.repo.CreateSession(ctx, session)
 	if err != nil {
+		s.log.Error("login failed: session creation error", err, logger.F("email", req.Email))
 		return LoginResponse{}, fmt.Errorf("create session: %w", err)
 	}
 
 	session.ID = sessionID
+	s.log.Info("user logged in successfully", logger.F("user_id", user.ID), logger.F("session_id", sessionID))
 
 	return LoginResponse{
 		User:  mapUserToDTO(user),
@@ -166,38 +181,22 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, userAgent, ipAddr
 // Logout destroys the current session
 func (s *Service) Logout(ctx context.Context, sessionToken string) error {
 	if sessionToken == "" {
+		s.log.Debug("logout called with empty session token")
 		return nil // Already logged out
 	}
 
 	if err := s.repo.DeleteSession(ctx, sessionToken); err != nil {
+		s.log.Error("failed to delete session", err)
 		return fmt.Errorf("delete session: %w", err)
 	}
 
+	s.log.Debug("session deleted successfully")
 	return nil
 }
 
-// GetCurrentUser retrieves user by session token
-func (s *Service) GetCurrentUser(ctx context.Context, sessionToken string) (UserDTO, error) {
-	if sessionToken == "" {
-		return UserDTO{}, domainauth.ErrSessionNotFound
-	}
-
-	// Get session
-	session, err := s.repo.GetSessionByToken(ctx, sessionToken)
-	if err != nil {
-		if errors.Is(err, domainauth.ErrSessionNotFound) {
-			return UserDTO{}, domainauth.ErrSessionNotFound
-		}
-		return UserDTO{}, fmt.Errorf("get session: %w", err)
-	}
-
-	// Check expiry (database query already filters, but double-check)
-	if time.Now().After(session.ExpiresAt) {
-		return UserDTO{}, domainauth.ErrSessionExpired
-	}
-
-	// Get user
-	user, err := s.repo.GetUserByID(ctx, session.UserID)
+// GetUserByID retrieves a user by their ID (assumes session already validated)
+func (s *Service) GetUserByID(ctx context.Context, userID int64) (UserDTO, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, domainauth.ErrUserNotFound) {
 			return UserDTO{}, domainauth.ErrUserNotFound
@@ -211,6 +210,7 @@ func (s *Service) GetCurrentUser(ctx context.Context, sessionToken string) (User
 // ValidateSession checks if session is valid and returns user ID
 func (s *Service) ValidateSession(ctx context.Context, sessionToken string) (int64, error) {
 	if sessionToken == "" {
+		s.log.Debug("session validation failed: empty token")
 		return 0, domainauth.ErrSessionNotFound
 	}
 
@@ -218,13 +218,16 @@ func (s *Service) ValidateSession(ctx context.Context, sessionToken string) (int
 	session, err := s.repo.GetSessionByToken(ctx, sessionToken)
 	if err != nil {
 		if errors.Is(err, domainauth.ErrSessionNotFound) {
+			s.log.Debug("session validation failed: session not found")
 			return 0, domainauth.ErrSessionNotFound
 		}
+		s.log.Error("session validation failed: database error", err)
 		return 0, fmt.Errorf("get session: %w", err)
 	}
 
 	// Check expiry
 	if time.Now().After(session.ExpiresAt) {
+		s.log.Debug("session validation failed: session expired", logger.F("user_id", session.UserID))
 		return 0, domainauth.ErrSessionExpired
 	}
 
@@ -234,8 +237,8 @@ func (s *Service) ValidateSession(ctx context.Context, sessionToken string) (int
 // Helper functions
 
 // generateSessionToken creates a secure random session token
-func generateSessionToken() (string, error) {
-	bytes := make([]byte, sessionTokenBytes)
+func generateSessionToken(tokenBytes int) (string, error) {
+	bytes := make([]byte, tokenBytes)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", fmt.Errorf("generate random bytes: %w", err)
 	}
@@ -243,8 +246,8 @@ func generateSessionToken() (string, error) {
 }
 
 // hashPassword hashes a password using bcrypt
-func hashPassword(password string) (string, error) {
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+func hashPassword(password string, cost int) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), cost)
 	if err != nil {
 		return "", err
 	}
@@ -254,48 +257,6 @@ func hashPassword(password string) (string, error) {
 // comparePassword verifies a password against a hash
 func comparePassword(hash, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-}
-
-// validateEmail checks if email format is valid
-func validateEmail(email string) error {
-	if !emailRegex.MatchString(email) {
-		return ErrInvalidEmail
-	}
-	return nil
-}
-
-// parseDate converts "DD/MM/YYYY" string to time.Time
-func parseDate(dateStr string) (time.Time, error) {
-	dateStr = strings.TrimSpace(dateStr)
-	t, err := time.Parse("02/01/2006", dateStr)
-	if err != nil {
-		return time.Time{}, ErrInvalidDateFormat
-	}
-	return t, nil
-}
-
-// validateDateOfBirth checks if date of birth is valid
-func validateDateOfBirth(dob time.Time) error {
-	now := time.Now()
-
-	// Check if date is in the future
-	if dob.After(now) {
-		return ErrInvalidDateOfBirth
-	}
-
-	// Check minimum age
-	minDate := now.AddDate(-minAge, 0, 0)
-	if dob.After(minDate) {
-		return ErrUserTooYoung
-	}
-
-	// Check reasonable maximum age (150 years)
-	maxDate := now.AddDate(-150, 0, 0)
-	if dob.Before(maxDate) {
-		return ErrInvalidDateOfBirth
-	}
-
-	return nil
 }
 
 // mapUserToDTO converts domain User to UserDTO

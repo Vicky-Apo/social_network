@@ -3,74 +3,61 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 
-	"social-network/backend/internal/transport/http/response"
 	domainpost "social-network/backend/internal/domain/post"
+	"social-network/backend/internal/transport/http/utils"
 	usecasepost "social-network/backend/internal/usecase/post"
+	"social-network/backend/pkg/logger"
 )
 
 // PostHandler serves REST endpoints for posts.
 type PostHandler struct {
 	service *usecasepost.Service
+	log     logger.Logger
 }
 
 // NewPostHandler builds a PostHandler.
-func NewPostHandler(service *usecasepost.Service) *PostHandler {
-	return &PostHandler{service: service}
+func NewPostHandler(service *usecasepost.Service, log logger.Logger) *PostHandler {
+	return &PostHandler{
+		service: service,
+		log:     log.WithFields(logger.F("handler", "post")),
+	}
 }
 
 // List handles GET /posts.
 func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
-
 	posts, err := h.service.List(r.Context())
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Error("failed to list posts", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
-	response.RespondWithSuccess(w, http.StatusOK, posts)
+	utils.RespondWithSuccess(w, http.StatusOK, posts)
 }
 
 // GetByID handles GET /posts/{id}.
 func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-
-	id, ok := parseID(r.URL.Path, "/posts/")
+	id, ok := utils.ParsePathID(r.URL.Path, "/posts/")
 	if !ok {
-		w.WriteHeader(http.StatusNotFound)
+		h.log.Debug("invalid post id in path", logger.F("path", r.URL.Path))
+		utils.RespondWithError(w, http.StatusNotFound, "post not found")
 		return
 	}
 
 	post, err := h.service.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, domainpost.ErrNotFound) {
-			w.WriteHeader(http.StatusNotFound)
+			h.log.Debug("post not found", logger.F("post_id", id))
+			utils.RespondWithError(w, http.StatusNotFound, "post not found")
 			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
+		h.log.Error("failed to get post", err, logger.F("post_id", id))
+		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		return
 	}
 
-	response.RespondWithSuccess(w, http.StatusOK, post)
-}
-
-func parseID(path, prefix string) (int64, bool) {
-	if !strings.HasPrefix(path, prefix) {
-		return 0, false
-	}
-	raw := strings.TrimPrefix(path, prefix)
-	if raw == "" {
-		return 0, false
-	}
-	if strings.Contains(raw, "/") {
-		return 0, false
-	}
-	id, err := strconv.ParseInt(raw, 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return id, true
+	utils.RespondWithSuccess(w, http.StatusOK, post)
 }
 
 

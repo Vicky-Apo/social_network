@@ -1,30 +1,25 @@
-package response
+package utils
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
-	"errors"
 )
 
 // RespondWithError writes a JSON error response
 func RespondWithError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		log.Printf("failed to encode error response: %v", err)
+	}
 }
 
 // RespondWithSuccess writes a JSON success response
 func RespondWithSuccess(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
-}
-
-// readJSON decodes JSON request body
-func ReadJSON(r *http.Request, dst any) error {
-	if r.Body == nil {
-		return errors.New("request body is empty")
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		log.Printf("failed to encode success response: %v", err)
 	}
-	defer r.Body.Close()
-	return json.NewDecoder(r.Body).Decode(dst)
 }

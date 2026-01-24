@@ -2,52 +2,61 @@ package middleware
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"net/http"
 
-	domainauth "social-network/backend/internal/domain/auth"
-	usecaseauth "social-network/backend/internal/usecase/auth"
+	"social-network/backend/internal/transport/http/utils"
+	"social-network/backend/pkg/logger"
 )
 
 type contextKey string
 
 const (
-	userIDKey         contextKey = "userID"
-	sessionCookieName            = "session_token"
+	userIDKey       contextKey = "userID"
+	sessionTokenKey contextKey = "sessionToken"
 )
 
-// Auth returns middleware that validates sessions and protects routes
-func Auth(authService *usecaseauth.Service) func(http.Handler) http.Handler {
+// SessionValidator defines what the auth middleware needs to validate sessions.
+// This interface allows the middleware to remain decoupled from the usecase layer.
+type SessionValidator interface {
+	ValidateSession(ctx context.Context, token string) (userID int64, err error)
+}
+
+// Auth returns middleware that validates sessions and protects routes.
+// It accepts any SessionValidator implementation, keeping the transport layer
+// decoupled from the usecase layer.
+func Auth(validator SessionValidator, cookieName string, log logger.Logger) func(http.Handler) http.Handler {
+	log = log.WithFields(logger.F("middleware", "auth"))
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := utils.ExtractIPAddress(r)
+
 			// Extract session token from cookie
-			cookie, err := r.Cookie(sessionCookieName)
+			cookie, err := r.Cookie(cookieName)
 			if err != nil {
-				writeUnauthorized(w, "unauthorized")
+				log.Debug("missing session cookie", logger.F("ip", ip), logger.F("path", r.URL.Path))
+				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
 			sessionToken := cookie.Value
 			if sessionToken == "" {
-				writeUnauthorized(w, "unauthorized")
+				log.Debug("empty session token", logger.F("ip", ip), logger.F("path", r.URL.Path))
+				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
 			// Validate session and get user ID
-			userID, err := authService.ValidateSession(r.Context(), sessionToken)
+			userID, err := validator.ValidateSession(r.Context(), sessionToken)
 			if err != nil {
-				if errors.Is(err, domainauth.ErrSessionNotFound) ||
-					errors.Is(err, domainauth.ErrSessionExpired) {
-					writeUnauthorized(w, "unauthorized")
-				} else {
-					writeInternalError(w, "internal server error")
-				}
+				log.Debug("session validation failed", logger.F("ip", ip), logger.F("path", r.URL.Path), logger.F("error", err.Error()))
+				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 				return
 			}
 
-			// Inject user ID into context
+			// Inject user ID and session token into context
 			ctx := context.WithValue(r.Context(), userIDKey, userID)
+			ctx = context.WithValue(ctx, sessionTokenKey, sessionToken)
 
 			// Call next handler
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -61,16 +70,8 @@ func GetUserID(ctx context.Context) (int64, bool) {
 	return userID, ok
 }
 
-// Helper functions
-
-func writeUnauthorized(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusUnauthorized)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
-}
-
-func writeInternalError(w http.ResponseWriter, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusInternalServerError)
-	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
+// GetSessionToken extracts the session token from the request context
+func GetSessionToken(ctx context.Context) (string, bool) {
+	token, ok := ctx.Value(sessionTokenKey).(string)
+	return token, ok
 }
