@@ -7,6 +7,8 @@ import (
 
 	domainfollow "social-network/backend/internal/domain/follow"
 	domainuser "social-network/backend/internal/domain/user"
+	"social-network/backend/internal/transport/http/middleware"
+	"social-network/backend/internal/transport/http/utils"
 	usecasefollow "social-network/backend/internal/usecase/follow"
 )
 
@@ -23,35 +25,40 @@ func NewFollowHandler(service *usecasefollow.Service) *FollowHandler {
 // CreateRequest handles POST /follow-requests.
 func (h *FollowHandler) CreateRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	requesterID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	var payload struct {
-		RequesterID int64 `json:"requester_id"`
-		TargetID    int64 `json:"target_id"`
+		TargetID int64 `json:"target_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if payload.RequesterID == 0 || payload.TargetID == 0 {
-		w.WriteHeader(http.StatusBadRequest)
+	if payload.TargetID == 0 {
+		utils.RespondWithError(w, http.StatusBadRequest, "target_id is required")
 		return
 	}
 
-	result, err := h.service.RequestFollow(r.Context(), payload.RequesterID, payload.TargetID)
+	result, err := h.service.RequestFollow(r.Context(), requesterID, payload.TargetID)
 	if err != nil {
 		switch {
 		case errors.Is(err, domainuser.ErrNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "user not found")
 		case errors.Is(err, usecasefollow.ErrAlreadyFollowing),
 			errors.Is(err, usecasefollow.ErrRequestExists):
-			w.WriteHeader(http.StatusConflict)
+			utils.RespondWithError(w, http.StatusConflict, "follow request already exists")
 		case errors.Is(err, usecasefollow.ErrCannotFollowSelf):
-			w.WriteHeader(http.StatusBadRequest)
+			utils.RespondWithError(w, http.StatusBadRequest, "cannot follow self")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
@@ -59,110 +66,132 @@ func (h *FollowHandler) CreateRequest(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// ListRequests handles GET /follow-requests.
+func (h *FollowHandler) ListRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	targetID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	requests, err := h.service.ListRequests(r.Context(), targetID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, requests)
+}
+
 // AcceptRequest handles POST /follow-requests/{id}/accept.
 func (h *FollowHandler) AcceptRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	id, remainder, ok := parseIDAndRemainder(r.URL.Path, "/follow-requests/")
 	if !ok || remainder != "accept" {
-		w.WriteHeader(http.StatusNotFound)
+		utils.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
-	var payload struct {
-		ActorID int64 `json:"actor_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if payload.ActorID == 0 {
-		w.WriteHeader(http.StatusBadRequest)
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	if err := h.service.AcceptRequest(r.Context(), id, payload.ActorID); err != nil {
+	if err := h.service.AcceptRequest(r.Context(), id, actorID); err != nil {
 		switch {
 		case errors.Is(err, domainfollow.ErrRequestNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "follow request not found")
 		case errors.Is(err, usecasefollow.ErrForbidden):
-			w.WriteHeader(http.StatusForbidden)
+			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "accepted"})
 }
 
 // DeclineRequest handles POST /follow-requests/{id}/decline.
 func (h *FollowHandler) DeclineRequest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	id, remainder, ok := parseIDAndRemainder(r.URL.Path, "/follow-requests/")
 	if !ok || remainder != "decline" {
-		w.WriteHeader(http.StatusNotFound)
+		utils.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
-	var payload struct {
-		ActorID int64 `json:"actor_id"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	if payload.ActorID == 0 {
-		w.WriteHeader(http.StatusBadRequest)
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
-	if err := h.service.DeclineRequest(r.Context(), id, payload.ActorID); err != nil {
+	if err := h.service.DeclineRequest(r.Context(), id, actorID); err != nil {
 		switch {
 		case errors.Is(err, domainfollow.ErrRequestNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "follow request not found")
 		case errors.Is(err, usecasefollow.ErrForbidden):
-			w.WriteHeader(http.StatusForbidden)
+			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "declined"})
 }
 
 // Unfollow handles POST /unfollow.
 func (h *FollowHandler) Unfollow(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	followerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	var payload struct {
-		FollowerID  int64 `json:"follower_id"`
 		FollowingID int64 `json:"following_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if payload.FollowerID == 0 || payload.FollowingID == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if err := h.service.Unfollow(r.Context(), payload.FollowerID, payload.FollowingID); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if payload.FollowingID == 0 {
+		utils.RespondWithError(w, http.StatusBadRequest, "following_id is required")
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	if err := h.service.Unfollow(r.Context(), followerID, payload.FollowingID); err != nil {
+		switch {
+		case errors.Is(err, usecasefollow.ErrCannotFollowSelf):
+			utils.RespondWithError(w, http.StatusBadRequest, "cannot unfollow self")
+		case errors.Is(err, usecasefollow.ErrNotFollowing):
+			utils.RespondWithError(w, http.StatusConflict, "not following")
+		default:
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "unfollowed"})
 }

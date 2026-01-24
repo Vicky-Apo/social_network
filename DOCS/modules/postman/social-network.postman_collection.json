@@ -2,7 +2,7 @@
   "info": {
     "name": "Social Network API",
     "_postman_id": "b6a1c54f-45fe-47f6-9c6b-7a3f5b5d9c0e",
-    "description": "Postman collection for Social Network backend (auth + health).",
+    "description": "Postman collection for Social Network backend (auth + follow + profile + health).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -26,7 +26,7 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Register",
+          "name": "Register User A",
           "request": {
             "method": "POST",
             "header": [
@@ -37,7 +37,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"first_name\": \"{{firstName}}\",\n  \"last_name\": \"{{lastName}}\",\n  \"date_of_birth\": \"{{dateOfBirth}}\",\n  \"nickname\": \"{{nickname}}\",\n  \"about\": \"{{about}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\",\n  \"first_name\": \"{{firstNameA}}\",\n  \"last_name\": \"{{lastNameA}}\",\n  \"date_of_birth\": \"{{dateOfBirthA}}\",\n  \"nickname\": \"{{nicknameA}}\",\n  \"about\": \"{{aboutA}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
@@ -52,7 +52,7 @@
           }
         },
         {
-          "name": "Login",
+          "name": "Register User B",
           "request": {
             "method": "POST",
             "header": [
@@ -63,7 +63,59 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\",\n  \"first_name\": \"{{firstNameB}}\",\n  \"last_name\": \"{{lastNameB}}\",\n  \"date_of_birth\": \"{{dateOfBirthB}}\",\n  \"nickname\": \"{{nicknameB}}\",\n  \"about\": \"{{aboutB}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
@@ -107,6 +159,198 @@
               "path": [
                 "auth",
                 "logout"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Follow",
+      "item": [
+        {
+          "name": "Request Follow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": {{targetId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Follow Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept Follow Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests/{{requestId}}/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests",
+                "{{requestId}}",
+                "accept"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Decline Follow Request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests/{{requestId}}/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests",
+                "{{requestId}}",
+                "decline"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unfollow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"following_id\": {{targetId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/unfollow",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "unfollow"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Followers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/followers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "followers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Following",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/following",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "following"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Visibility",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_public\": {{isPublic}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/visibility",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "visibility"
               ]
             }
           }

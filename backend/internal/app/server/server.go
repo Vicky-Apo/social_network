@@ -8,15 +8,20 @@ import (
 	"path/filepath"
 	"time"
 
+	"social-network/backend/internal/config"
 	"social-network/backend/internal/transport/http/handler"
 	transporthttp "social-network/backend/internal/transport/http"
+	"social-network/backend/internal/transport/http/middleware"
+	authusecase "social-network/backend/internal/usecase/auth"
 	followusecase "social-network/backend/internal/usecase/follow"
 	postusecase "social-network/backend/internal/usecase/post"
 	profileusecase "social-network/backend/internal/usecase/profile"
 	"social-network/backend/pkg/db/postgres"
+	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
 	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
 	userrepo "social-network/backend/pkg/db/postgres/repositories/user"
+	"social-network/backend/pkg/logger"
 	"social-network/backend/pkg/utils"
 )
 
@@ -60,12 +65,15 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
+	logging := logger.NewDefault(utils.GetBool("DEBUG", false))
+
 	postRepository := postrepo.NewRepository(db)
-	postService := postusecase.NewService(postRepository)
-	postHandler := handler.NewPostHandler(postService)
+	postService := postusecase.NewService(postRepository, logging)
+	postHandler := handler.NewPostHandler(postService, logging)
 
 	userRepository := userrepo.NewRepository(db)
 	followRepository := followrepo.NewRepository(db)
+	authRepository := authrepo.NewRepository(db)
 
 	profileService := profileusecase.NewService(userRepository, followRepository)
 	followService := followusecase.NewService(userRepository, followRepository)
@@ -73,7 +81,16 @@ func Run(ctx context.Context) error {
 	profileHandler := handler.NewProfileHandler(profileService)
 	followHandler := handler.NewFollowHandler(followService)
 
-	router := transporthttp.NewRouter(postHandler, profileHandler, followHandler)
+	authCfg := authConfigFromEnv()
+	authService := authusecase.NewService(authRepository, authCfg, logging)
+	authHandlerCfg := handler.AuthHandlerConfig{
+		CookieName: authCfg.SessionCookieName,
+		MaxAge:     authCfg.SessionMaxAge,
+	}
+	authHandler := handler.NewAuthHandler(authService, logging, authHandlerCfg)
+	authMiddleware := middleware.Auth(authService, authCfg.SessionCookieName, logging)
+
+	router := transporthttp.NewRouter(postHandler, authHandler, profileHandler, followHandler, authMiddleware)
 
 	addr, err := requiredString("SERVER_ADDR")
 	if err != nil {
@@ -113,6 +130,19 @@ func Run(ctx context.Context) error {
 		log.Printf("graceful shutdown failed: %v", err)
 	}
 	return nil
+}
+
+func authConfigFromEnv() config.AuthConfig {
+	cfg := config.AuthConfig{
+		BcryptCost:          utils.GetInt("BCRYPT_COST", 12),
+		SessionTokenBytes:   utils.GetInt("SESSION_TOKEN_BYTES", 32),
+		SessionDurationDays: utils.GetInt("SESSION_DURATION_DAYS", 30),
+		SessionCookieName:   utils.GetString("SESSION_COOKIE_NAME", "session_token"),
+		MinPasswordLength:   utils.GetInt("MIN_PASSWORD_LENGTH", 8),
+		MinUserAge:          utils.GetInt("MIN_USER_AGE", 13),
+	}
+	cfg.SessionMaxAge = cfg.SessionDurationDays * 24 * 60 * 60
+	return cfg
 }
 
 func requiredString(key string) (string, error) {

@@ -18,6 +18,9 @@ var ErrRequestExists = errors.New("follow request already exists")
 // ErrCannotFollowSelf is returned when a user tries to follow themselves.
 var ErrCannotFollowSelf = errors.New("cannot follow self")
 
+// ErrNotFollowing is returned when trying to unfollow without an existing follow.
+var ErrNotFollowing = errors.New("not following")
+
 // ErrForbidden is returned when the action is not allowed.
 var ErrForbidden = errors.New("follow action forbidden")
 
@@ -116,8 +119,33 @@ func (s *Service) DeclineRequest(ctx context.Context, requestID, actorID int64) 
 	return nil
 }
 
+// ListRequests lists pending follow requests for a target user.
+func (s *Service) ListRequests(ctx context.Context, targetID int64) ([]FollowRequestDTO, error) {
+	requests, err := s.followRepo.ListRequestsByTarget(ctx, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("list requests: %w", err)
+	}
+	out := make([]FollowRequestDTO, 0, len(requests))
+	for _, req := range requests {
+		if dto := mapRequest(req); dto != nil {
+			out = append(out, *dto)
+		}
+	}
+	return out, nil
+}
+
 // Unfollow removes a follow relationship.
 func (s *Service) Unfollow(ctx context.Context, followerID, followingID int64) error {
+	if followerID == followingID {
+		return ErrCannotFollowSelf
+	}
+	isFollowing, err := s.followRepo.IsFollowing(ctx, followerID, followingID)
+	if err != nil {
+		return fmt.Errorf("check follow: %w", err)
+	}
+	if !isFollowing {
+		return ErrNotFollowing
+	}
 	if err := s.followRepo.DeleteFollow(ctx, followerID, followingID); err != nil {
 		return fmt.Errorf("delete follow: %w", err)
 	}

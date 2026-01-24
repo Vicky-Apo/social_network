@@ -111,6 +111,34 @@ func (r *Repository) DeleteRequest(ctx context.Context, id int64) error {
 	return nil
 }
 
+// ListRequestsByTarget returns pending follow requests for a target user.
+func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) ([]domainfollow.FollowRequest, error) {
+	const query = `
+		SELECT id, requester_id, target_id, created_at, updated_at
+		FROM follow_requests
+		WHERE target_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, targetID)
+	if err != nil {
+		return nil, fmt.Errorf("list follow requests: %w", err)
+	}
+	defer rows.Close()
+
+	var requests []domainfollow.FollowRequest
+	for rows.Next() {
+		var req domainfollow.FollowRequest
+		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.CreatedAt, &req.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("list follow requests: %w", err)
+		}
+		requests = append(requests, req)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list follow requests: %w", err)
+	}
+	return requests, nil
+}
+
 // CreateFollow creates a follow relationship.
 func (r *Repository) CreateFollow(ctx context.Context, followerID, followingID int64) error {
 	const query = `

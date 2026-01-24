@@ -7,11 +7,16 @@ import (
 	"social-network/backend/internal/transport/http/handler"
 )
 
+// Middleware is a function that wraps an http.Handler.
+type Middleware func(http.Handler) http.Handler
+
 // NewRouter builds the HTTP router with all handlers.
 func NewRouter(
 	postHandler *handler.PostHandler,
+	authHandler *handler.AuthHandler,
 	profileHandler *handler.ProfileHandler,
 	followHandler *handler.FollowHandler,
+	authMiddleware Middleware,
 ) http.Handler {
 	mux := http.NewServeMux()
 
@@ -24,8 +29,17 @@ func NewRouter(
 	mux.HandleFunc("/posts", postHandler.List)
 	mux.HandleFunc("/posts/", postHandler.GetByID)
 
-	mux.HandleFunc("/profiles", profileHandler.GetProfile)
-	mux.HandleFunc("/profiles/", func(w http.ResponseWriter, r *http.Request) {
+	// Auth routes (public)
+	mux.HandleFunc("POST /auth/register", authHandler.Register)
+	mux.HandleFunc("POST /auth/login", authHandler.Login)
+	mux.HandleFunc("POST /auth/logout", authHandler.Logout)
+
+	// Auth routes (protected)
+	mux.Handle("GET /auth/me", authMiddleware(http.HandlerFunc(authHandler.Me)))
+
+	// Profile routes (protected)
+	mux.Handle("/profiles", authMiddleware(http.HandlerFunc(profileHandler.GetProfile)))
+	mux.Handle("/profiles/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/followers"):
 			profileHandler.ListFollowers(w, r)
@@ -36,10 +50,20 @@ func NewRouter(
 		default:
 			profileHandler.GetProfile(w, r)
 		}
-	})
+	})))
 
-	mux.HandleFunc("/follow-requests", followHandler.CreateRequest)
-	mux.HandleFunc("/follow-requests/", func(w http.ResponseWriter, r *http.Request) {
+	// Follow routes (protected)
+	mux.Handle("/follow-requests", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			followHandler.ListRequests(w, r)
+		case http.MethodPost:
+			followHandler.CreateRequest(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/follow-requests/", authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.HasSuffix(r.URL.Path, "/accept"):
 			followHandler.AcceptRequest(w, r)
@@ -48,8 +72,8 @@ func NewRouter(
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
-	})
-	mux.HandleFunc("/unfollow", followHandler.Unfollow)
+	})))
+	mux.Handle("/unfollow", authMiddleware(http.HandlerFunc(followHandler.Unfollow)))
 
 	return mux
 }

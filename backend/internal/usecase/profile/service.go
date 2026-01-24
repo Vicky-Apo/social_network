@@ -36,6 +36,7 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 		return ProfileDTO{}, err
 	}
 
+	// TODO: Add user activity and posts once post timelines are implemented for profiles.
 	followers, err := s.userRepo.CountFollowers(ctx, profileID)
 	if err != nil {
 		return ProfileDTO{}, fmt.Errorf("count followers: %w", err)
@@ -85,7 +86,10 @@ func (s *Service) ListFollowing(ctx context.Context, profileID, viewerID int64) 
 }
 
 // SetVisibility updates the public/private flag for a user profile.
-func (s *Service) SetVisibility(ctx context.Context, profileID int64, isPublic bool) error {
+func (s *Service) SetVisibility(ctx context.Context, profileID, actorID int64, isPublic bool) error {
+	if profileID != actorID {
+		return ErrForbidden
+	}
 	if err := s.userRepo.SetVisibility(ctx, profileID, isPublic); err != nil {
 		return err
 	}
@@ -123,7 +127,7 @@ func mapUser(u domainuser.User) UserDTO {
 		Email:       u.Email,
 		FirstName:   u.FirstName,
 		LastName:    u.LastName,
-		DateOfBirth: u.DateOfBirth,
+		DateOfBirth: u.DateOfBirth.Format("02/01/2006"),
 		AvatarPath:  u.AvatarPath,
 		Nickname:    u.Nickname,
 		About:       u.About,

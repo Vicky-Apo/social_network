@@ -25,6 +25,11 @@ func parseIDAndRemainder(path, prefix string) (int64, string, bool) {
 	return id, remainder, true
 }
 
+func parseID(path, prefix string) (int64, bool) {
+	id, _, ok := parseIDAndRemainder(path, prefix)
+	return id, ok
+}
+
 func parseOptionalID(value string) (int64, bool) {
 	if value == "" {
 		return 0, true

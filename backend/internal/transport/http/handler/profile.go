@@ -6,6 +6,8 @@ import (
 	"net/http"
 
 	domainuser "social-network/backend/internal/domain/user"
+	"social-network/backend/internal/transport/http/middleware"
+	"social-network/backend/internal/transport/http/utils"
 	usecaseprofile "social-network/backend/internal/usecase/profile"
 )
 
@@ -22,19 +24,19 @@ func NewProfileHandler(service *usecaseprofile.Service) *ProfileHandler {
 // GetProfile handles GET /profiles/{id}.
 func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	id, ok := parseID(r.URL.Path, "/profiles/")
 	if !ok {
-		w.WriteHeader(http.StatusNotFound)
+		utils.RespondWithError(w, http.StatusNotFound, "profile not found")
 		return
 	}
 
-	viewerID, ok := parseOptionalID(r.URL.Query().Get("viewer_id"))
+	viewerID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
@@ -42,11 +44,11 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domainuser.ErrNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "profile not found")
 		case errors.Is(err, usecaseprofile.ErrForbidden):
-			w.WriteHeader(http.StatusForbidden)
+			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
@@ -57,19 +59,19 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 // ListFollowers handles GET /profiles/{id}/followers.
 func (h *ProfileHandler) ListFollowers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	id, remainder, ok := parseIDAndRemainder(r.URL.Path, "/profiles/")
 	if !ok || remainder != "followers" {
-		w.WriteHeader(http.StatusNotFound)
+		utils.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
-	viewerID, ok := parseOptionalID(r.URL.Query().Get("viewer_id"))
+	viewerID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
@@ -77,11 +79,11 @@ func (h *ProfileHandler) ListFollowers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domainuser.ErrNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "profile not found")
 		case errors.Is(err, usecaseprofile.ErrForbidden):
-			w.WriteHeader(http.StatusForbidden)
+			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
@@ -92,19 +94,19 @@ func (h *ProfileHandler) ListFollowers(w http.ResponseWriter, r *http.Request) {
 // ListFollowing handles GET /profiles/{id}/following.
 func (h *ProfileHandler) ListFollowing(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	id, remainder, ok := parseIDAndRemainder(r.URL.Path, "/profiles/")
 	if !ok || remainder != "following" {
-		w.WriteHeader(http.StatusNotFound)
+		utils.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
-	viewerID, ok := parseOptionalID(r.URL.Query().Get("viewer_id"))
+	viewerID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
@@ -112,11 +114,11 @@ func (h *ProfileHandler) ListFollowing(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domainuser.ErrNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "profile not found")
 		case errors.Is(err, usecaseprofile.ErrForbidden):
-			w.WriteHeader(http.StatusForbidden)
+			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
@@ -127,13 +129,13 @@ func (h *ProfileHandler) ListFollowing(w http.ResponseWriter, r *http.Request) {
 // UpdateVisibility handles PATCH /profiles/{id}/visibility.
 func (h *ProfileHandler) UpdateVisibility(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPatch {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
 	id, remainder, ok := parseIDAndRemainder(r.URL.Path, "/profiles/")
 	if !ok || remainder != "visibility" {
-		w.WriteHeader(http.StatusNotFound)
+		utils.RespondWithError(w, http.StatusNotFound, "not found")
 		return
 	}
 
@@ -141,19 +143,27 @@ func (h *ProfileHandler) UpdateVisibility(w http.ResponseWriter, r *http.Request
 		IsPublic bool `json:"is_public"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
-	if err := h.service.SetVisibility(r.Context(), id, payload.IsPublic); err != nil {
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if err := h.service.SetVisibility(r.Context(), id, actorID, payload.IsPublic); err != nil {
 		switch {
 		case errors.Is(err, domainuser.ErrNotFound):
-			w.WriteHeader(http.StatusNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, "profile not found")
+		case errors.Is(err, usecaseprofile.ErrForbidden):
+			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
 		default:
-			w.WriteHeader(http.StatusInternalServerError)
+			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		}
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
