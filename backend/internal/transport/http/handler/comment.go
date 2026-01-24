@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	domaincomment "social-network/backend/internal/domain/comment"
 	"social-network/backend/internal/transport/http/utils"
@@ -24,15 +23,11 @@ func NewCommentHandler(service *usecasecomment.Service) *CommentHandler {
 
 // Create handles POST /posts/{id}/comments
 func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Parse post ID from URL like /posts/123/comments
-	postID, ok := parsePostIDFromCommentsPath(r.URL.Path)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+	// Parse post ID from path parameter
+	postIDStr := r.PathValue("id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid post id")
 		return
 	}
 
@@ -57,18 +52,13 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GetByPostID handles GET /posts/{id}/comments
 func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	// Parse post ID from path parameter
+	postIDStr := r.PathValue("id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid post id")
 		return
 	}
-
-	// Parse post ID from URL
-	postID, ok := parsePostIDFromCommentsPath(r.URL.Path)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	// Get comments
 	comments, err := h.service.GetByPostID(r.Context(), postID)
 	if err != nil {
@@ -81,26 +71,4 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.RespondWithSuccess(w, http.StatusOK, comments)
-}
-
-// Helper to parse post ID from /posts/123/comments
-func parsePostIDFromCommentsPath(path string) (int64, bool) {
-	// Expected format: /posts/123/comments
-	if !strings.HasPrefix(path, "/posts/") {
-		return 0, false
-	}
-
-	trimmed := strings.TrimPrefix(path, "/posts/")
-	parts := strings.Split(trimmed, "/")
-
-	if len(parts) < 2 || parts[0] == "" || parts[1] != "comments" {
-		return 0, false
-	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return 0, false
-	}
-
-	return id, true
 }

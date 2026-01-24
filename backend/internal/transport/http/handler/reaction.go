@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"social-network/backend/internal/transport/http/utils"
 	usecasereaction "social-network/backend/internal/usecase/reaction"
@@ -22,14 +21,11 @@ func NewReactionHandler(service *usecasereaction.Service) *ReactionHandler {
 
 // AddPostReaction handles POST /posts/{id}/reactions
 func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	postID, ok := parsePostIDFromReactionsPath(r.URL.Path)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+	// Parse post ID from path parameter
+	postIDStr := r.PathValue("id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid post id")
 		return
 	}
 
@@ -49,14 +45,11 @@ func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request
 
 // GetPostReactions handles GET /posts/{id}/reactions
 func (h *ReactionHandler) GetPostReactions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	postID, ok := parsePostIDFromReactionsPath(r.URL.Path)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+	// Parse post ID from path parameter
+	postIDStr := r.PathValue("id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid post id")
 		return
 	}
 
@@ -71,14 +64,11 @@ func (h *ReactionHandler) GetPostReactions(w http.ResponseWriter, r *http.Reques
 
 // AddCommentReaction handles POST /comments/{id}/reactions
 func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	commentID, ok := parseCommentIDFromReactionsPath(r.URL.Path)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+	// Parse comment ID from path parameter
+	commentIDStr := r.PathValue("id")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid comment id")
 		return
 	}
 
@@ -98,14 +88,11 @@ func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Requ
 
 // GetCommentReactions handles GET /comments/{id}/reactions
 func (h *ReactionHandler) GetCommentReactions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
-	commentID, ok := parseCommentIDFromReactionsPath(r.URL.Path)
-	if !ok {
-		w.WriteHeader(http.StatusBadRequest)
+	// Parse comment ID from path parameter
+	commentIDStr := r.PathValue("id")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "invalid comment id")
 		return
 	}
 
@@ -116,46 +103,4 @@ func (h *ReactionHandler) GetCommentReactions(w http.ResponseWriter, r *http.Req
 	}
 
 	utils.RespondWithSuccess(w, http.StatusOK, reactions)
-}
-
-// Helper to parse post ID from /posts/123/reactions
-func parsePostIDFromReactionsPath(path string) (int64, bool) {
-	if !strings.HasPrefix(path, "/posts/") {
-		return 0, false
-	}
-
-	trimmed := strings.TrimPrefix(path, "/posts/")
-	parts := strings.Split(trimmed, "/")
-
-	if len(parts) < 2 || parts[0] == "" || parts[1] != "reactions" {
-		return 0, false
-	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return 0, false
-	}
-
-	return id, true
-}
-
-// Helper to parse comment ID from /comments/123/reactions
-func parseCommentIDFromReactionsPath(path string) (int64, bool) {
-	if !strings.HasPrefix(path, "/comments/") {
-		return 0, false
-	}
-
-	trimmed := strings.TrimPrefix(path, "/comments/")
-	parts := strings.Split(trimmed, "/")
-
-	if len(parts) < 2 || parts[0] == "" || parts[1] != "reactions" {
-		return 0, false
-	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		return 0, false
-	}
-
-	return id, true
 }
