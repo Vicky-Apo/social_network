@@ -19,7 +19,7 @@ type Middlewares struct {
 
 // NewRouter builds the HTTP router with all handlers.
 // Middlewares are injected from outside, keeping the router decoupled from the usecase layer.
-func NewRouter(postHandler *handler.PostHandler, authHandler *handler.AuthHandler, mw Middlewares) http.Handler {
+func NewRouter(postHandler *handler.PostHandler, authHandler *handler.AuthHandler, commentHandler *handler.CommentHandler, reactionHandler *handler.ReactionHandler, mw Middlewares) http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check
@@ -39,7 +39,19 @@ func NewRouter(postHandler *handler.PostHandler, authHandler *handler.AuthHandle
 
 	// Post routes
 	mux.HandleFunc("GET /posts", postHandler.List)
-	mux.HandleFunc("GET /posts/", postHandler.GetByID)
+	mux.HandleFunc("GET /posts/{id}", postHandler.GetByID)
+
+	// Comment routes
+	mux.HandleFunc("POST /posts/{id}/comments", commentHandler.Create)
+	mux.HandleFunc("GET /posts/{id}/comments", commentHandler.GetByPostID)
+
+	// Post reaction routes
+	mux.HandleFunc("POST /posts/{id}/reactions", reactionHandler.AddPostReaction)
+	mux.HandleFunc("GET /posts/{id}/reactions", reactionHandler.GetPostReactions)
+
+	// Comment reaction routes
+	mux.HandleFunc("POST /comments/{id}/reactions", reactionHandler.AddCommentReaction)
+	mux.HandleFunc("GET /comments/{id}/reactions", reactionHandler.GetCommentReactions)
 
 	// Apply global middlewares (order: security headers -> CORS -> rate limiting)
 	// Security headers are applied first so they're present on all responses
