@@ -2,7 +2,7 @@
   "info": {
     "name": "Social Network API",
     "_postman_id": "b6a1c54f-45fe-47f6-9c6b-7a3f5b5d9c0e",
-    "description": "Postman collection for Social Network backend (auth + follow + profile + health).",
+    "description": "Postman collection for Social Network backend (auth + follow + profile + users + health).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -368,6 +368,50 @@
                 "profiles",
                 "{{profileId}}",
                 "visibility"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/search?q={{searchQuery}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{searchQuery}}"
+                }
               ]
             }
           }
