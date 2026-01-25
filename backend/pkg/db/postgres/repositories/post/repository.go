@@ -21,13 +21,16 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 // List returns all posts ordered by creation time (newest first).
-func (r *Repository) List(ctx context.Context, limit, offset int) ([]domainpost.Post, error) {
+func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	const query = `
 		SELECT p.id, p.author_id, p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(c.comment_count, 0) AS comment_count,
 		       COALESCE(l.like_count, 0) AS like_count,
 		       COALESCE(d.dislike_count, 0) AS dislike_count
 		FROM posts p
+		JOIN users u ON u.id = p.author_id
+		LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.author_id
+		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $1
 		LEFT JOIN (
 			SELECT post_id, COUNT(*) AS comment_count
 			FROM comments
@@ -45,11 +48,21 @@ func (r *Repository) List(ctx context.Context, limit, offset int) ([]domainpost.
 			WHERE reaction = 'dislike'
 			GROUP BY post_id
 		) d ON d.post_id = p.id
-		WHERE p.visibility = 'public'
+		WHERE (
+			u.is_public = TRUE
+			OR p.author_id = $1
+			OR f.follower_id IS NOT NULL
+		)
+		AND (
+			p.author_id = $1
+			OR p.visibility = 'public'
+			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
+			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+		)
 		ORDER BY created_at DESC
-		LIMIT $1 OFFSET $2
+		LIMIT $2 OFFSET $3
 	`
-	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, viewerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list posts: %w", err)
 	}
@@ -254,7 +267,7 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 }
 
 // ListByCategory returns posts for a category with pagination.
-func (r *Repository) ListByCategory(ctx context.Context, categoryID int64, limit, offset int) ([]domainpost.Post, error) {
+func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	const query = `
 		SELECT p.id, p.author_id, p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(c.comment_count, 0) AS comment_count,
@@ -262,6 +275,9 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID int64, limit
 		       COALESCE(d.dislike_count, 0) AS dislike_count
 		FROM posts p
 		JOIN post_categories pc ON pc.post_id = p.id
+		JOIN users u ON u.id = p.author_id
+		LEFT JOIN follows f ON f.follower_id = $2 AND f.following_id = p.author_id
+		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $2
 		LEFT JOIN (
 			SELECT post_id, COUNT(*) AS comment_count
 			FROM comments
@@ -279,11 +295,22 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID int64, limit
 			WHERE reaction = 'dislike'
 			GROUP BY post_id
 		) d ON d.post_id = p.id
-		WHERE pc.category_id = $1 AND p.visibility = 'public'
+		WHERE pc.category_id = $1
+		AND (
+			u.is_public = TRUE
+			OR p.author_id = $2
+			OR f.follower_id IS NOT NULL
+		)
+		AND (
+			p.author_id = $2
+			OR p.visibility = 'public'
+			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
+			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+		)
 		ORDER BY p.created_at DESC
-		LIMIT $2 OFFSET $3
+		LIMIT $3 OFFSET $4
 	`
-	rows, err := r.db.QueryContext(ctx, query, categoryID, limit, offset)
+	rows, err := r.db.QueryContext(ctx, query, categoryID, viewerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list posts by category: %w", err)
 	}

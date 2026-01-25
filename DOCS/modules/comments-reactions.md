@@ -44,16 +44,13 @@ Creates a new comment on a post.
 
 ```json
 {
-  "success": true,
-  "data": {
-    "id": 1,
-    "post_id": 1,
-    "author_id": 1,
-    "content": "This is a great post!",
-    "media_path": null,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  }
+  "id": 1,
+  "post_id": 1,
+  "author_id": 1,
+  "content": "This is a great post!",
+  "media_path": null,
+  "created_at": "2025-01-24T12:34:56Z",
+  "updated_at": "2025-01-24T12:34:56Z"
 }
 ```
 
@@ -73,29 +70,26 @@ Retrieves all comments for a specific post.
 **Response (200):**
 
 ```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "post_id": 1,
-      "author_id": 1,
-      "content": "This is a great post!",
-      "media_path": null,
-      "created_at": "2025-01-24T12:34:56Z",
-      "updated_at": "2025-01-24T12:34:56Z"
-    },
-    {
-      "id": 2,
-      "post_id": 1,
-      "author_id": 2,
-      "content": "I agree!",
-      "media_path": null,
-      "created_at": "2025-01-24T12:35:10Z",
-      "updated_at": "2025-01-24T12:35:10Z"
-    }
-  ]
-}
+[
+  {
+    "id": 1,
+    "post_id": 1,
+    "author_id": 1,
+    "content": "This is a great post!",
+    "media_path": null,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T12:34:56Z"
+  },
+  {
+    "id": 2,
+    "post_id": 1,
+    "author_id": 2,
+    "content": "I agree!",
+    "media_path": null,
+    "created_at": "2025-01-24T12:35:10Z",
+    "updated_at": "2025-01-24T12:35:10Z"
+  }
+]
 ```
 
 **Notes:**
@@ -104,11 +98,11 @@ Retrieves all comments for a specific post.
 
 ## Reactions Endpoints
 
-### Add Post Reaction
+### Toggle Post Reaction
 
 `POST /posts/{id}/reactions`
 
-Adds or updates a reaction to a post. If the user already has a reaction, it will be updated.
+Adds, updates, or removes a reaction to a post.
 
 **URL Parameters:**
 - `id` - The post ID (integer)
@@ -130,10 +124,7 @@ Adds or updates a reaction to a post. If the user already has a reaction, it wil
 
 ```json
 {
-  "success": true,
-  "data": {
-    "status": "added"
-  }
+  "status": "added"
 }
 ```
 
@@ -156,28 +147,25 @@ Retrieves all reactions for a specific post.
 **Response (200):**
 
 ```json
-{
-  "success": true,
-  "data": [
-    {
-      "user_id": 1,
-      "reaction": "like",
-      "created_at": "2025-01-24T12:34:56Z"
-    },
-    {
-      "user_id": 2,
-      "reaction": "dislike",
-      "created_at": "2025-01-24T12:35:10Z"
-    }
-  ]
-}
+[
+  {
+    "user_id": 1,
+    "reaction": "like",
+    "created_at": "2025-01-24T12:34:56Z"
+  },
+  {
+    "user_id": 2,
+    "reaction": "dislike",
+    "created_at": "2025-01-24T12:35:10Z"
+  }
+]
 ```
 
 **Notes:**
 - Returns an empty array `[]` if the post has no reactions
 - Each user can only have one reaction per post (upsert behavior)
 
-### Add Comment Reaction
+### Toggle Comment Reaction
 
 `POST /comments/{id}/reactions`
 
@@ -203,10 +191,7 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 
 ```json
 {
-  "success": true,
-  "data": {
-    "status": "added"
-  }
+  "status": "added"
 }
 ```
 
@@ -229,21 +214,18 @@ Retrieves all reactions for a specific comment.
 **Response (200):**
 
 ```json
-{
-  "success": true,
-  "data": [
-    {
-      "user_id": 1,
-      "reaction": "like",
-      "created_at": "2025-01-24T12:34:56Z"
-    },
-    {
-      "user_id": 2,
-      "reaction": "like",
-      "created_at": "2025-01-24T12:35:10Z"
-    }
-  ]
-}
+[
+  {
+    "user_id": 1,
+    "reaction": "like",
+    "created_at": "2025-01-24T12:34:56Z"
+  },
+  {
+    "user_id": 2,
+    "reaction": "like",
+    "created_at": "2025-01-24T12:35:10Z"
+  }
+]
 ```
 
 **Notes:**

@@ -31,8 +31,8 @@ func NewService(repo domainpost.Repository, userRepo domainuser.Repository, foll
 }
 
 // List returns paginated posts as DTOs.
-func (s *Service) List(ctx context.Context, limit, offset int) ([]PostDTO, error) {
-	posts, err := s.repo.List(ctx, limit, offset)
+func (s *Service) List(ctx context.Context, viewerID int64, limit, offset int) ([]PostDTO, error) {
+	posts, err := s.repo.List(ctx, viewerID, limit, offset)
 	if err != nil {
 		s.log.Error("failed to list posts", err)
 		return nil, fmt.Errorf("list posts: %w", err)
@@ -119,8 +119,8 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 }
 
 // ListByCategory returns posts for a category with pagination.
-func (s *Service) ListByCategory(ctx context.Context, categoryID int64, limit, offset int) ([]PostDTO, error) {
-	posts, err := s.repo.ListByCategory(ctx, categoryID, limit, offset)
+func (s *Service) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]PostDTO, error) {
+	posts, err := s.repo.ListByCategory(ctx, categoryID, viewerID, limit, offset)
 	if err != nil {
 		s.log.Error("failed to list posts by category", err, logger.F("category_id", categoryID))
 		return nil, fmt.Errorf("list posts by category: %w", err)
@@ -156,11 +156,24 @@ func mapPost(p domainpost.Post) PostDTO {
 var ErrForbidden = errors.New("post access forbidden")
 
 func (s *Service) canViewPost(ctx context.Context, post domainpost.Post, viewerID int64) (bool, error) {
+	author, err := s.userRepo.GetByID(ctx, post.AuthorID)
+	if err != nil {
+		return false, err
+	}
 	if viewerID == 0 {
-		return post.Privacy == "public", nil
+		return author.IsPublic && post.Privacy == "public", nil
 	}
 	if viewerID == post.AuthorID {
 		return true, nil
+	}
+	if !author.IsPublic {
+		follows, err := s.followRepo.IsFollowing(ctx, viewerID, post.AuthorID)
+		if err != nil {
+			return false, fmt.Errorf("check follow: %w", err)
+		}
+		if !follows {
+			return false, nil
+		}
 	}
 	switch post.Privacy {
 	case "public":

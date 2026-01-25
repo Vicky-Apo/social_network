@@ -35,13 +35,15 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	viewerID, _ := middleware.GetUserID(r.Context())
+
 	if rawCategory := r.URL.Query().Get("category_id"); rawCategory != "" {
 		categoryID, err := strconv.ParseInt(rawCategory, 10, 64)
 		if err != nil || categoryID <= 0 {
 			utils.RespondWithError(w, http.StatusBadRequest, "invalid category_id")
 			return
 		}
-		posts, err := h.service.ListByCategory(r.Context(), categoryID, limit, offset)
+		posts, err := h.service.ListByCategory(r.Context(), categoryID, viewerID, limit, offset)
 		if err != nil {
 			h.log.Error("failed to list posts by category", err, logger.F("category_id", categoryID))
 			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
@@ -61,7 +63,7 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	posts, err := h.service.List(r.Context(), limit, offset)
+	posts, err := h.service.List(r.Context(), viewerID, limit, offset)
 	if err != nil {
 		h.log.Error("failed to list posts", err)
 		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")

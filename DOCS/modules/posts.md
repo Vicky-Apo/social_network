@@ -98,6 +98,9 @@ Response (201):
 
 `GET /posts?author_id={id}&limit=20&offset=0`
 
+Notes:
+- Results respect the author's profile privacy and post visibility.
+
 Response (200):
 
 ```json
