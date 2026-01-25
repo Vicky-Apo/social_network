@@ -35,12 +35,13 @@ func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.service.AddPostReaction(r.Context(), postID, req); err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "failed to add reaction")
+	status, err := h.service.AddPostReaction(r.Context(), postID, req)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	utils.RespondWithSuccess(w, http.StatusCreated, map[string]string{"message": "reaction added"})
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": status})
 }
 
 // GetPostReactions handles GET /posts/{id}/reactions
@@ -78,12 +79,13 @@ func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := h.service.AddCommentReaction(r.Context(), commentID, req); err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "failed to add reaction")
+	status, err := h.service.AddCommentReaction(r.Context(), commentID, req)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	utils.RespondWithSuccess(w, http.StatusCreated, map[string]string{"message": "reaction added"})
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": status})
 }
 
 // GetCommentReactions handles GET /comments/{id}/reactions

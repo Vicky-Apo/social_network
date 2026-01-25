@@ -18,4 +18,5 @@ type CreateCommentRequest struct {
 	PostID   int64  `json:"post_id"`
 	AuthorID int64  `json:"author_id"`
 	Content  string `json:"content"`
+	MediaPath string `json:"media_path,omitempty"`
 }

@@ -18,36 +18,23 @@ func NewUserHandler(service *usecaseuser.Service) *UserHandler {
 	return &UserHandler{service: service}
 }
 
-// ListUsers handles GET /users.
+// ListUsers handles GET /users (optional search with ?q=).
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 
-	users, err := h.service.ListUsers(r.Context())
-	if err != nil {
-		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
-		return
-	}
-
-	utils.RespondWithSuccess(w, http.StatusOK, users)
-}
-
-// SearchUsers handles GET /users/search?q=...
-func (h *UserHandler) SearchUsers(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	var (
+		users []usecaseuser.UserListItemDTO
+		err   error
+	)
 	if query == "" {
-		utils.RespondWithError(w, http.StatusBadRequest, "q is required")
-		return
+		users, err = h.service.ListUsers(r.Context())
+	} else {
+		users, err = h.service.SearchUsers(r.Context(), query)
 	}
-
-	users, err := h.service.SearchUsers(r.Context(), query)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
 		return

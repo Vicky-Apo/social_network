@@ -22,6 +22,7 @@ func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (Comment
 		PostID:   req.PostID,
 		AuthorID: req.AuthorID,
 		Content:  req.Content,
+		MediaPath: req.MediaPath,
 	}
 
 	created, err := s.repo.Create(ctx, comment)

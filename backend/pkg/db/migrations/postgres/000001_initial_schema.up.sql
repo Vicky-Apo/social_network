@@ -192,6 +192,18 @@ CREATE TABLE categories (
   description TEXT
 );
 
+INSERT INTO categories (name, description) VALUES
+  ('Programming & Software Development', 'Languages, frameworks, algorithms, design patterns, code reviews.'),
+  ('Web Development', 'Frontend, backend, APIs, performance, accessibility, browsers.'),
+  ('DevOps & Infrastructure', 'Linux, Docker, Kubernetes, CI/CD, cloud, monitoring, scaling.'),
+  ('Databases & Data Engineering', 'SQL/NoSQL, schema design, migrations, performance, backups.'),
+  ('Cybersecurity & Privacy', 'Vulnerabilities, authentication, encryption, secure coding, audits.'),
+  ('AI, Machine Learning & Data Science', 'Models, training, inference, tooling, real-world applications.'),
+  ('Operating Systems & Low-Level Tech', 'Linux, kernels, memory, processes, networking internals.'),
+  ('Hardware & Embedded Systems', 'CPUs, GPUs, IoT, microcontrollers, performance tuning.'),
+  ('Tools, Editors & Productivity', 'IDEs, CLIs, workflows, automation, developer ergonomics.'),
+  ('Architecture, Scalability & System Design', 'Distributed systems, microservices, trade-offs, failures.');
+
 CREATE TABLE post_categories (
   post_id BIGINT NOT NULL,
   category_id BIGINT NOT NULL,

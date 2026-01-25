@@ -5,9 +5,13 @@ import "time"
 // Post represents a social post in the domain layer.
 type Post struct {
 	ID        int64
-	AuthorID  string
+	AuthorID  int64
 	Content   string
+	MediaPath *string
 	Privacy   string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	CommentCount int64
+	LikeCount    int64
+	DislikeCount int64
 }

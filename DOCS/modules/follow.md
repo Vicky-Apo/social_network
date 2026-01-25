@@ -81,11 +81,19 @@ Response (200):
 ]
 ```
 
-### Accept follow request
+### Update follow request status
 
-`POST /follow-requests/{id}/accept`
+`PATCH /follow-requests/{id}`
 
-No body required. The authenticated user must be the target of the request.
+Request body (JSON):
+
+```json
+{
+  "status": "accepted"
+}
+```
+
+Allowed values: `accepted`, `declined`.
 
 Response (200):
 
@@ -95,31 +103,9 @@ Response (200):
 }
 ```
 
-### Decline follow request
-
-`POST /follow-requests/{id}/decline`
-
-No body required. The authenticated user must be the target of the request.
-
-Response (200):
-
-```json
-{
-  "status": "declined"
-}
-```
-
 ### Unfollow
 
-`POST /unfollow`
-
-Request body (JSON):
-
-```json
-{
-  "following_id": 2
-}
-```
+`DELETE /users/{id}/followers`
 
 Response (200):
 
@@ -153,28 +139,20 @@ export async function listFollowRequests() {
   return res.json();
 }
 
-export async function acceptRequest(id: number) {
-  const res = await fetch(`${API_BASE}/follow-requests/${id}/accept`, {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Accept failed");
-}
-
-export async function declineRequest(id: number) {
-  const res = await fetch(`${API_BASE}/follow-requests/${id}/decline`, {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok) throw new Error("Decline failed");
-}
-
-export async function unfollow(followingId: number) {
-  const res = await fetch(`${API_BASE}/unfollow`, {
-    method: "POST",
+export async function updateFollowRequest(id: number, status: "accepted" | "declined") {
+  const res = await fetch(`${API_BASE}/follow-requests/${id}`, {
+    method: "PATCH",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ following_id: followingId }),
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error("Update request failed");
+}
+
+export async function unfollow(userId: number) {
+  const res = await fetch(`${API_BASE}/users/${userId}/followers`, {
+    method: "DELETE",
+    credentials: "include",
   });
   if (!res.ok) throw new Error("Unfollow failed");
 }

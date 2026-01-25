@@ -119,6 +119,18 @@ func (s *Service) DeclineRequest(ctx context.Context, requestID, actorID int64) 
 	return nil
 }
 
+// UpdateRequest updates a follow request status.
+func (s *Service) UpdateRequest(ctx context.Context, requestID, actorID int64, status string) error {
+	switch status {
+	case "accepted":
+		return s.AcceptRequest(ctx, requestID, actorID)
+	case "declined":
+		return s.DeclineRequest(ctx, requestID, actorID)
+	default:
+		return errors.New("invalid status")
+	}
+}
+
 // ListRequests lists pending follow requests for a target user.
 func (s *Service) ListRequests(ctx context.Context, targetID int64) ([]FollowRequestDTO, error) {
 	requests, err := s.followRepo.ListRequestsByTarget(ctx, targetID)

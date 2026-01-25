@@ -92,6 +92,27 @@ func (r *Repository) GetPostReactions(ctx context.Context, postID int64) ([]doma
 	return reactions, nil
 }
 
+// GetPostReaction gets a user's reaction for a post.
+func (r *Repository) GetPostReaction(ctx context.Context, postID, userID int64) (domainreaction.PostReaction, error) {
+	query := `
+		SELECT post_id, user_id, reaction, created_at
+		FROM post_reactions
+		WHERE post_id = $1 AND user_id = $2
+	`
+
+	var pr domainreaction.PostReaction
+	var reactionStr string
+	err := r.db.QueryRowContext(ctx, query, postID, userID).Scan(&pr.PostID, &pr.UserID, &reactionStr, &pr.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return domainreaction.PostReaction{}, sql.ErrNoRows
+		}
+		return domainreaction.PostReaction{}, fmt.Errorf("get post reaction: %w", err)
+	}
+	pr.Reaction = domainreaction.ReactionType(reactionStr)
+	return pr, nil
+}
+
 // AddCommentReaction adds or updates a reaction to a comment
 func (r *Repository) AddCommentReaction(ctx context.Context, reaction domainreaction.CommentReaction) error {
 	query := `
@@ -163,4 +184,25 @@ func (r *Repository) GetCommentReactions(ctx context.Context, commentID int64) (
 	}
 
 	return reactions, nil
+}
+
+// GetCommentReaction gets a user's reaction for a comment.
+func (r *Repository) GetCommentReaction(ctx context.Context, commentID, userID int64) (domainreaction.CommentReaction, error) {
+	query := `
+		SELECT comment_id, user_id, reaction, created_at
+		FROM comment_reactions
+		WHERE comment_id = $1 AND user_id = $2
+	`
+
+	var cr domainreaction.CommentReaction
+	var reactionStr string
+	err := r.db.QueryRowContext(ctx, query, commentID, userID).Scan(&cr.CommentID, &cr.UserID, &reactionStr, &cr.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return domainreaction.CommentReaction{}, sql.ErrNoRows
+		}
+		return domainreaction.CommentReaction{}, fmt.Errorf("get comment reaction: %w", err)
+	}
+	cr.Reaction = domainreaction.ReactionType(reactionStr)
+	return cr, nil
 }

@@ -13,9 +13,13 @@ All user endpoints require a valid session cookie. Use `credentials: "include"` 
 
 ## Endpoints
 
-### List users
+### List users (optional search)
 
 `GET /users`
+
+Search:
+
+`GET /users?q=jo`
 
 Response (200):
 
@@ -30,10 +34,6 @@ Response (200):
   }
 ]
 ```
-
-### Search users
-
-`GET /users/search?q=jo`
 
 Searches `first_name`, `last_name`, and `nickname` (case-insensitive).
 
@@ -65,7 +65,7 @@ export async function listUsers() {
 }
 
 export async function searchUsers(query: string) {
-  const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(query)}`, {
+  const res = await fetch(`${API_BASE}/users?q=${encodeURIComponent(query)}`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error("Search users failed");

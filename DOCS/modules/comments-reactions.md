@@ -29,13 +29,15 @@ Creates a new comment on a post.
 ```json
 {
   "author_id": 1,
-  "content": "This is a great post!"
+  "content": "This is a great post!",
+  "media_path": "/uploads/reply.gif"
 }
 ```
 
 **Notes:**
 - `author_id` is the user ID of the comment author
 - `content` is required and cannot be empty
+- `media_path` is optional (string path to image/GIF)
 - The `post_id` is automatically extracted from the URL path
 
 **Response (201):**
@@ -124,20 +126,23 @@ Adds or updates a reaction to a post. If the user already has a reaction, it wil
 - `"like"` - User likes the post
 - `"dislike"` - User dislikes the post
 
-**Response (201):**
+**Response (200):**
 
 ```json
 {
   "success": true,
   "data": {
-    "message": "reaction added"
+    "status": "added"
   }
 }
 ```
 
+**Notes:**
+- If the same reaction is sent again, it is removed (`status: "removed"`).
+- If the opposite reaction is sent, it is updated (`status: "updated"`).
+
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID, invalid reaction type, or invalid request body
-- `500 Internal Server Error` - Failed to add reaction (e.g., post doesn't exist)
 
 ### Get Post Reactions
 
@@ -194,20 +199,23 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 - `"like"` - User likes the comment
 - `"dislike"` - User dislikes the comment
 
-**Response (201):**
+**Response (200):**
 
 ```json
 {
   "success": true,
   "data": {
-    "message": "reaction added"
+    "status": "added"
   }
 }
 ```
 
+**Notes:**
+- If the same reaction is sent again, it is removed (`status: "removed"`).
+- If the opposite reaction is sent, it is updated (`status: "updated"`).
+
 **Error Responses:**
 - `400 Bad Request` - Invalid comment ID, invalid reaction type, or invalid request body
-- `500 Internal Server Error` - Failed to add reaction (e.g., comment doesn't exist)
 
 ### Get Comment Reactions
 
@@ -248,7 +256,7 @@ Retrieves all reactions for a specific comment.
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 // Create a comment on a post
-export async function createComment(postId: number, authorId: number, content: string) {
+export async function createComment(postId: number, authorId: number, content: string, mediaPath?: string) {
   const res = await fetch(`${API_BASE}/posts/${postId}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -256,6 +264,7 @@ export async function createComment(postId: number, authorId: number, content: s
     body: JSON.stringify({
       author_id: authorId,
       content: content,
+      media_path: mediaPath,
     }),
   });
 
@@ -355,10 +364,11 @@ const api = axios.create({
 });
 
 // Create a comment on a post
-export async function createComment(postId: number, authorId: number, content: string) {
+export async function createComment(postId: number, authorId: number, content: string, mediaPath?: string) {
   const { data } = await api.post(`/posts/${postId}/comments`, {
     author_id: authorId,
     content: content,
+    media_path: mediaPath,
   });
   return data;
 }
