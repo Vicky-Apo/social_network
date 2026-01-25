@@ -56,7 +56,7 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainuser.User, er
 // SetVisibility updates a user's public flag.
 func (r *Repository) SetVisibility(ctx context.Context, id int64, isPublic bool) error {
 	const query = `
-		UPDATE 	
+		UPDATE users
 		SET is_public = $1
 		WHERE id = $2
 	`

@@ -165,5 +165,8 @@ func (h *ProfileHandler) UpdateVisibility(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":    "updated",
+		"is_public": payload.IsPublic,
+	})
 }

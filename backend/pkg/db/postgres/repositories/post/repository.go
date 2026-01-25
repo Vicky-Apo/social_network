@@ -23,7 +23,8 @@ func NewRepository(db *sql.DB) *Repository {
 // List returns all posts ordered by creation time (newest first).
 func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	const query = `
-		SELECT p.id, p.author_id, p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
+		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(c.comment_count, 0) AS comment_count,
 		       COALESCE(l.like_count, 0) AS like_count,
 		       COALESCE(d.dislike_count, 0) AS dislike_count
@@ -72,9 +73,15 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 	for rows.Next() {
 		var p domainpost.Post
 		var mediaPath sql.NullString
+		var nickname sql.NullString
+		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&p.AuthorFirstName,
+			&p.AuthorLastName,
+			&nickname,
+			&avatarPath,
 			&p.Content,
 			&mediaPath,
 			&p.Privacy,
@@ -87,6 +94,8 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
 		p.MediaPath = nullableString(mediaPath)
+		p.AuthorNickname = nullableString(nickname)
+		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -98,11 +107,13 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 // GetByID returns a post by ID.
 func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	const query = `
-		SELECT p.id, p.author_id, p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
+		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(c.comment_count, 0) AS comment_count,
 		       COALESCE(l.like_count, 0) AS like_count,
 		       COALESCE(d.dislike_count, 0) AS dislike_count
 		FROM posts p
+		JOIN users u ON u.id = p.author_id
 		LEFT JOIN (
 			SELECT post_id, COUNT(*) AS comment_count
 			FROM comments
@@ -124,9 +135,15 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 	`
 	var p domainpost.Post
 	var mediaPath sql.NullString
+	var nickname sql.NullString
+	var avatarPath sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID,
 		&p.AuthorID,
+		&p.AuthorFirstName,
+		&p.AuthorLastName,
+		&nickname,
+		&avatarPath,
 		&p.Content,
 		&mediaPath,
 		&p.Privacy,
@@ -143,6 +160,8 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 		return domainpost.Post{}, fmt.Errorf("get post: %w", err)
 	}
 	p.MediaPath = nullableString(mediaPath)
+	p.AuthorNickname = nullableString(nickname)
+	p.AuthorAvatarPath = nullableString(avatarPath)
 	return p, nil
 }
 
@@ -201,11 +220,13 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 // ListByAuthor returns posts for a specific author with pagination.
 func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	const query = `
-		SELECT p.id, p.author_id, p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
+		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(c.comment_count, 0) AS comment_count,
 		       COALESCE(l.like_count, 0) AS like_count,
 		       COALESCE(d.dislike_count, 0) AS dislike_count
 		FROM posts p
+		JOIN users u ON u.id = p.author_id
 		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $2
 		LEFT JOIN (
 			SELECT post_id, COUNT(*) AS comment_count
@@ -243,9 +264,15 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 	for rows.Next() {
 		var p domainpost.Post
 		var mediaPath sql.NullString
+		var nickname sql.NullString
+		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&p.AuthorFirstName,
+			&p.AuthorLastName,
+			&nickname,
+			&avatarPath,
 			&p.Content,
 			&mediaPath,
 			&p.Privacy,
@@ -258,6 +285,8 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
 		p.MediaPath = nullableString(mediaPath)
+		p.AuthorNickname = nullableString(nickname)
+		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -269,7 +298,8 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 // ListByCategory returns posts for a category with pagination.
 func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	const query = `
-		SELECT p.id, p.author_id, p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
+		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(c.comment_count, 0) AS comment_count,
 		       COALESCE(l.like_count, 0) AS like_count,
 		       COALESCE(d.dislike_count, 0) AS dislike_count
@@ -320,9 +350,15 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 	for rows.Next() {
 		var p domainpost.Post
 		var mediaPath sql.NullString
+		var nickname sql.NullString
+		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&p.AuthorFirstName,
+			&p.AuthorLastName,
+			&nickname,
+			&avatarPath,
 			&p.Content,
 			&mediaPath,
 			&p.Privacy,
@@ -335,6 +371,8 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
 		p.MediaPath = nullableString(mediaPath)
+		p.AuthorNickname = nullableString(nickname)
+		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {

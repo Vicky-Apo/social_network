@@ -24,15 +24,18 @@ Search:
 Response (200):
 
 ```json
-[
-  {
-    "id": 1,
-    "first_name": "Jane",
-    "last_name": "Doe",
-    "nickname": "jdoe",
-    "avatar_path": "/uploads/avatars/jane.png"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "nickname": "jdoe",
+      "avatar_path": "/uploads/avatars/jane.png"
+    }
+  ]
+}
 ```
 
 Searches `first_name`, `last_name`, and `nickname` (case-insensitive).
@@ -40,15 +43,18 @@ Searches `first_name`, `last_name`, and `nickname` (case-insensitive).
 Response (200):
 
 ```json
-[
-  {
-    "id": 3,
-    "first_name": "John",
-    "last_name": "Smith",
-    "nickname": null,
-    "avatar_path": null
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 3,
+      "first_name": "John",
+      "last_name": "Smith",
+      "nickname": null,
+      "avatar_path": null
+    }
+  ]
+}
 ```
 
 ## React fetch example

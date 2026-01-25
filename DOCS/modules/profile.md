@@ -21,22 +21,25 @@ Response (200):
 
 ```json
 {
-  "user": {
-    "id": 2,
-    "email": "jane@example.com",
-    "first_name": "Jane",
-    "last_name": "Doe",
-    "date_of_birth": "31/12/2000",
-    "nickname": "jdoe",
-    "about": "Hi there",
-    "is_public": true,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  },
-  "followers_count": 10,
-  "following_count": 5,
-  "is_following": true,
-  "is_followed_by": false
+  "success": true,
+  "data": {
+    "user": {
+      "id": 2,
+      "email": "jane@example.com",
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "date_of_birth": "31/12/2000",
+      "nickname": "jdoe",
+      "about": "Hi there",
+      "is_public": true,
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
+    },
+    "followers_count": 10,
+    "following_count": 5,
+    "is_following": true,
+    "is_followed_by": false
+  }
 }
 ```
 
@@ -51,20 +54,23 @@ Notes:
 Response (200):
 
 ```json
-[
-  {
-    "id": 1,
-    "email": "john@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "date_of_birth": "01/01/1999",
-    "nickname": null,
-    "about": null,
-    "is_public": true,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "email": "john@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "date_of_birth": "01/01/1999",
+      "nickname": null,
+      "about": null,
+      "is_public": true,
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
 ```
 
 ### List following
@@ -74,20 +80,23 @@ Response (200):
 Response (200):
 
 ```json
-[
-  {
-    "id": 3,
-    "email": "alice@example.com",
-    "first_name": "Alice",
-    "last_name": "Smith",
-    "date_of_birth": "02/02/2001",
-    "nickname": null,
-    "about": null,
-    "is_public": true,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 3,
+      "email": "alice@example.com",
+      "first_name": "Alice",
+      "last_name": "Smith",
+      "date_of_birth": "02/02/2001",
+      "nickname": null,
+      "about": null,
+      "is_public": true,
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
 ```
 
 ### Update visibility
@@ -106,7 +115,11 @@ Response (200):
 
 ```json
 {
-  "status": "updated"
+  "success": true,
+  "data": {
+    "status": "updated",
+    "is_public": true
+  }
 }
 ```
 

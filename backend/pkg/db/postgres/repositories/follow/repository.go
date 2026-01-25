@@ -42,7 +42,7 @@ func (r *Repository) RequestExists(ctx context.Context, requesterID, targetID in
 	const query = `
 		SELECT 1
 		FROM follow_requests
-		WHERE requester_id = $1 AND target_id = $2
+		WHERE requester_id = $1 AND target_id = $2 AND status = 'pending'
 	`
 	var exists int
 	err := r.db.QueryRowContext(ctx, query, requesterID, targetID).Scan(&exists)
@@ -58,15 +58,16 @@ func (r *Repository) RequestExists(ctx context.Context, requesterID, targetID in
 // CreateRequest creates a follow request.
 func (r *Repository) CreateRequest(ctx context.Context, requesterID, targetID int64) (domainfollow.FollowRequest, error) {
 	const query = `
-		INSERT INTO follow_requests (requester_id, target_id)
-		VALUES ($1, $2)
-		RETURNING id, requester_id, target_id, created_at
+		INSERT INTO follow_requests (requester_id, target_id, status)
+		VALUES ($1, $2, 'pending')
+		RETURNING id, requester_id, target_id, status, created_at
 	`
 	var req domainfollow.FollowRequest
 	if err := r.db.QueryRowContext(ctx, query, requesterID, targetID).Scan(
 		&req.ID,
 		&req.RequesterID,
 		&req.TargetID,
+		&req.Status,
 		&req.CreatedAt,
 	); err != nil {
 		return domainfollow.FollowRequest{}, fmt.Errorf("create follow request: %w", err)
@@ -77,7 +78,7 @@ func (r *Repository) CreateRequest(ctx context.Context, requesterID, targetID in
 // GetRequestByID returns a follow request by ID.
 func (r *Repository) GetRequestByID(ctx context.Context, id int64) (domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, created_at
+		SELECT id, requester_id, target_id, status, created_at
 		FROM follow_requests
 		WHERE id = $1
 	`
@@ -86,6 +87,7 @@ func (r *Repository) GetRequestByID(ctx context.Context, id int64) (domainfollow
 		&req.ID,
 		&req.RequesterID,
 		&req.TargetID,
+		&req.Status,
 		&req.CreatedAt,
 	)
 	if err != nil {
@@ -97,14 +99,19 @@ func (r *Repository) GetRequestByID(ctx context.Context, id int64) (domainfollow
 	return req, nil
 }
 
-// DeleteRequest deletes a follow request by ID.
-func (r *Repository) DeleteRequest(ctx context.Context, id int64) error {
+// UpdateRequestStatus updates a follow request status.
+func (r *Repository) UpdateRequestStatus(ctx context.Context, id int64, status string) error {
 	const query = `
-		DELETE FROM follow_requests
+		UPDATE follow_requests
+		SET status = $2
 		WHERE id = $1
 	`
-	if _, err := r.db.ExecContext(ctx, query, id); err != nil {
-		return fmt.Errorf("delete follow request: %w", err)
+	res, err := r.db.ExecContext(ctx, query, id, status)
+	if err != nil {
+		return fmt.Errorf("update follow request: %w", err)
+	}
+	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+		return domainfollow.ErrRequestNotFound
 	}
 	return nil
 }
@@ -112,9 +119,9 @@ func (r *Repository) DeleteRequest(ctx context.Context, id int64) error {
 // ListRequestsByTarget returns pending follow requests for a target user.
 func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) ([]domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, created_at
+		SELECT id, requester_id, target_id, status, created_at
 		FROM follow_requests
-		WHERE target_id = $1
+		WHERE target_id = $1 AND status = 'pending'
 		ORDER BY created_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, targetID)
@@ -126,7 +133,7 @@ func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) (
 	var requests []domainfollow.FollowRequest
 	for rows.Next() {
 		var req domainfollow.FollowRequest
-		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.CreatedAt); err != nil {
+		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.Status, &req.CreatedAt); err != nil {
 			return nil, fmt.Errorf("list follow requests: %w", err)
 		}
 		requests = append(requests, req)
@@ -140,9 +147,9 @@ func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) (
 // ListRequestsByRequester returns pending follow requests created by a requester.
 func (r *Repository) ListRequestsByRequester(ctx context.Context, requesterID int64) ([]domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, created_at
+		SELECT id, requester_id, target_id, status, created_at
 		FROM follow_requests
-		WHERE requester_id = $1
+		WHERE requester_id = $1 AND status = 'pending'
 		ORDER BY created_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, requesterID)
@@ -154,7 +161,7 @@ func (r *Repository) ListRequestsByRequester(ctx context.Context, requesterID in
 	var requests []domainfollow.FollowRequest
 	for rows.Next() {
 		var req domainfollow.FollowRequest
-		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.CreatedAt); err != nil {
+		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.Status, &req.CreatedAt); err != nil {
 			return nil, fmt.Errorf("list follow requests: %w", err)
 		}
 		requests = append(requests, req)

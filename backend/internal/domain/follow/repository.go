@@ -14,7 +14,7 @@ type Repository interface {
 	RequestExists(ctx context.Context, requesterID, targetID int64) (bool, error)
 	CreateRequest(ctx context.Context, requesterID, targetID int64) (FollowRequest, error)
 	GetRequestByID(ctx context.Context, id int64) (FollowRequest, error)
-	DeleteRequest(ctx context.Context, id int64) error
+	UpdateRequestStatus(ctx context.Context, id int64, status string) error
 	ListRequestsByTarget(ctx context.Context, targetID int64) ([]FollowRequest, error)
 	ListRequestsByRequester(ctx context.Context, requesterID int64) ([]FollowRequest, error)
 	CreateFollow(ctx context.Context, followerID, followingID int64) error

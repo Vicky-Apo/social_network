@@ -44,15 +44,18 @@ Response (201):
 
 ```json
 {
-  "id": 1,
-  "email": "jane@example.com",
-  "first_name": "Jane",
-  "last_name": "Doe",
-  "date_of_birth": "31/12/2000",
-  "nickname": "jdoe",
-  "about": "Hi there",
-  "is_public": false,
-  "created_at": "2025-01-24T12:34:56Z"
+  "success": true,
+  "data": {
+    "id": 1,
+    "email": "jane@example.com",
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "date_of_birth": "31/12/2000",
+    "nickname": "jdoe",
+    "about": "Hi there",
+    "is_public": false,
+    "created_at": "2025-01-24T12:34:56Z"
+  }
 }
 ```
 
@@ -73,18 +76,21 @@ Response (200):
 
 ```json
 {
-  "user": {
-    "id": 1,
-    "email": "jane@example.com",
-    "first_name": "Jane",
-    "last_name": "Doe",
-    "date_of_birth": "31/12/2000",
-    "nickname": "jdoe",
-    "about": "Hi there",
-    "is_public": false,
-    "created_at": "2025-01-24T12:34:56Z"
-  },
-  "token": "session_token_value"
+  "success": true,
+  "data": {
+    "user": {
+      "id": 1,
+      "email": "jane@example.com",
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "date_of_birth": "31/12/2000",
+      "nickname": "jdoe",
+      "about": "Hi there",
+      "is_public": false,
+      "created_at": "2025-01-24T12:34:56Z"
+    },
+    "token": "session_token_value"
+  }
 }
 ```
 
@@ -101,7 +107,10 @@ No body required. This clears the session cookie.
 Response (200):
 
 ```json
-null
+{
+  "success": true,
+  "data": null
+}
 ```
 
 ### Current user
@@ -114,15 +123,18 @@ Response (200):
 
 ```json
 {
-  "id": 1,
-  "email": "jane@example.com",
-  "first_name": "Jane",
-  "last_name": "Doe",
-  "date_of_birth": "31/12/2000",
-  "nickname": "jdoe",
-  "about": "Hi there",
-  "is_public": false,
-  "created_at": "2025-01-24T12:34:56Z"
+  "success": true,
+  "data": {
+    "id": 1,
+    "email": "jane@example.com",
+    "first_name": "Jane",
+    "last_name": "Doe",
+    "date_of_birth": "31/12/2000",
+    "nickname": "jdoe",
+    "about": "Hi there",
+    "is_public": false,
+    "created_at": "2025-01-24T12:34:56Z"
+  }
 }
 ```
 

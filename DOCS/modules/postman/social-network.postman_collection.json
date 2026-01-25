@@ -2,9 +2,27 @@
   "info": {
     "name": "Social Network API",
     "_postman_id": "b6a1c54f-45fe-47f6-9c6b-7a3f5b5d9c0e",
-    "description": "Postman collection for Social Network backend (auth + follow + profile + users + posts + comments + reactions + health).",
+    "description": "Postman collection for Social Network backend (auth + follow + profile + users + posts + comments + reactions + health). All JSON responses use { success, data, error }.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "try {",
+          "  const json = pm.response.json();",
+          "  pm.test(\"response has success flag\", function () {",
+          "    pm.expect(json).to.have.property(\"success\");",
+          "  });",
+          "} catch (e) {",
+          "  // Non-JSON response (e.g. healthz); skip envelope check",
+          "}"
+        ]
+      }
+    }
+  ],
   "item": [
     {
       "name": "Health",

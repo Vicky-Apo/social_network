@@ -88,6 +88,16 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		return PostDTO{}, fmt.Errorf("create post: %w", err)
 	}
 
+	author, err := s.userRepo.GetByID(ctx, authorID)
+	if err != nil {
+		s.log.Error("failed to load author", err, logger.F("author_id", authorID))
+		return PostDTO{}, fmt.Errorf("get author: %w", err)
+	}
+	created.AuthorFirstName = author.FirstName
+	created.AuthorLastName = author.LastName
+	created.AuthorNickname = author.Nickname
+	created.AuthorAvatarPath = author.AvatarPath
+
 	return mapPost(created), nil
 }
 
@@ -141,6 +151,10 @@ func mapPost(p domainpost.Post) PostDTO {
 	return PostDTO{
 		ID:        p.ID,
 		AuthorID:  p.AuthorID,
+		AuthorFirstName: p.AuthorFirstName,
+		AuthorLastName:  p.AuthorLastName,
+		AuthorNickname:  p.AuthorNickname,
+		AuthorAvatarPath: p.AuthorAvatarPath,
 		Content:   p.Content,
 		MediaPath: p.MediaPath,
 		Privacy:   p.Privacy,

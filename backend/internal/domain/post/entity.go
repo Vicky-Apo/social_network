@@ -6,6 +6,10 @@ import "time"
 type Post struct {
 	ID        int64
 	AuthorID  int64
+	AuthorFirstName string
+	AuthorLastName  string
+	AuthorNickname  *string
+	AuthorAvatarPath *string
 	Content   string
 	MediaPath *string
 	Privacy   string

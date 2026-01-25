@@ -29,12 +29,16 @@ Response (200):
 
 ```json
 {
-  "status": "requested",
-  "request": {
-    "id": 10,
-    "requester_id": 1,
-    "target_id": 2,
-    "created_at": "2025-01-24T12:34:56Z"
+  "success": true,
+  "data": {
+    "status": "requested",
+    "request": {
+      "id": 10,
+      "requester_id": 1,
+      "target_id": 2,
+      "status": "pending",
+      "created_at": "2025-01-24T12:34:56Z"
+    }
   }
 }
 ```
@@ -43,7 +47,10 @@ If the target profile is public, the response is:
 
 ```json
 {
-  "status": "followed"
+  "success": true,
+  "data": {
+    "status": "followed"
+  }
 }
 ```
 
@@ -54,15 +61,22 @@ If the target profile is public, the response is:
 Response (200):
 
 ```json
-[
-  {
-    "id": 10,
-    "requester_id": 1,
-    "target_id": 2,
-    "created_at": "2025-01-24T12:34:56Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 10,
+      "requester_id": 1,
+      "target_id": 2,
+      "status": "pending",
+      "created_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
 ```
+
+Notes:
+- Only pending requests are returned.
 
 ### List sent requests
 
@@ -71,15 +85,22 @@ Response (200):
 Response (200):
 
 ```json
-[
-  {
-    "id": 11,
-    "requester_id": 1,
-    "target_id": 3,
-    "created_at": "2025-01-24T12:34:56Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 11,
+      "requester_id": 1,
+      "target_id": 3,
+      "status": "pending",
+      "created_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
 ```
+
+Notes:
+- Only pending requests are returned.
 
 ### Update follow request status
 
@@ -99,7 +120,10 @@ Response (200):
 
 ```json
 {
-  "status": "accepted"
+  "success": true,
+  "data": {
+    "status": "accepted"
+  }
 }
 ```
 
@@ -111,7 +135,10 @@ Response (200):
 
 ```json
 {
-  "status": "unfollowed"
+  "success": true,
+  "data": {
+    "status": "unfollowed"
+  }
 }
 ```
 

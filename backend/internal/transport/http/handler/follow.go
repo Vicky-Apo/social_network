@@ -148,6 +148,8 @@ func (h *FollowHandler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusNotFound, "follow request not found")
 		case errors.Is(err, usecasefollow.ErrForbidden):
 			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
+		case errors.Is(err, usecasefollow.ErrRequestNotPending):
+			utils.RespondWithError(w, http.StatusConflict, "follow request is not pending")
 		default:
 			utils.RespondWithError(w, http.StatusBadRequest, "invalid status")
 		}

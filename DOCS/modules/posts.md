@@ -20,20 +20,27 @@ Listing and creating posts require a valid session cookie. Use `credentials: "in
 Response (200):
 
 ```json
-[
-  {
-    "id": 1,
-    "author_id": 2,
-    "content": "Hello world",
-    "media_path": "/uploads/post-1.png",
-    "privacy": "public",
-    "comment_count": 3,
-    "like_count": 10,
-    "dislike_count": 1,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "author_id": 2,
+      "author_first_name": "Jane",
+      "author_last_name": "Doe",
+      "author_nickname": "jdoe",
+      "author_avatar_path": "/uploads/avatars/jane.png",
+      "content": "Hello world",
+      "media_path": "/uploads/post-1.png",
+      "privacy": "public",
+      "comment_count": 3,
+      "like_count": 10,
+      "dislike_count": 1,
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
 ```
 
 ### Get post by ID
@@ -44,16 +51,23 @@ Response (200):
 
 ```json
 {
-  "id": 1,
-  "author_id": 2,
-  "content": "Hello world",
-  "media_path": "/uploads/post-1.png",
-  "privacy": "public",
-  "comment_count": 3,
-  "like_count": 10,
-  "dislike_count": 1,
-  "created_at": "2025-01-24T12:34:56Z",
-  "updated_at": "2025-01-24T12:34:56Z"
+  "success": true,
+  "data": {
+    "id": 1,
+    "author_id": 2,
+    "author_first_name": "Jane",
+    "author_last_name": "Doe",
+    "author_nickname": "jdoe",
+    "author_avatar_path": "/uploads/avatars/jane.png",
+    "content": "Hello world",
+    "media_path": "/uploads/post-1.png",
+    "privacy": "public",
+    "comment_count": 3,
+    "like_count": 10,
+    "dislike_count": 1,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T12:34:56Z"
+  }
 }
 ```
 
@@ -81,16 +95,23 @@ Response (201):
 
 ```json
 {
-  "id": 10,
-  "author_id": 2,
-  "content": "My post",
-  "media_path": "/uploads/cat.gif",
-  "privacy": "public",
-  "comment_count": 0,
-  "like_count": 0,
-  "dislike_count": 0,
-  "created_at": "2025-01-24T12:34:56Z",
-  "updated_at": "2025-01-24T12:34:56Z"
+  "success": true,
+  "data": {
+    "id": 10,
+    "author_id": 2,
+    "author_first_name": "Jane",
+    "author_last_name": "Doe",
+    "author_nickname": "jdoe",
+    "author_avatar_path": "/uploads/avatars/jane.png",
+    "content": "My post",
+    "media_path": "/uploads/cat.gif",
+    "privacy": "public",
+    "comment_count": 0,
+    "like_count": 0,
+    "dislike_count": 0,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T12:34:56Z"
+  }
 }
 ```
 
@@ -104,20 +125,27 @@ Notes:
 Response (200):
 
 ```json
-[
-  {
-    "id": 2,
-    "author_id": 2,
-    "content": "Second post",
-    "media_path": null,
-    "privacy": "public",
-    "comment_count": 1,
-    "like_count": 2,
-    "dislike_count": 0,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  }
-]
+{
+  "success": true,
+  "data": [
+    {
+      "id": 2,
+      "author_id": 2,
+      "author_first_name": "Jane",
+      "author_last_name": "Doe",
+      "author_nickname": "jdoe",
+      "author_avatar_path": "/uploads/avatars/jane.png",
+      "content": "Second post",
+      "media_path": null,
+      "privacy": "public",
+      "comment_count": 1,
+      "like_count": 2,
+      "dislike_count": 0,
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
 ```
 
 ### Filter posts by category

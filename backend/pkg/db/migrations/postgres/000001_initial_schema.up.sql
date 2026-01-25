@@ -83,6 +83,7 @@ CREATE TABLE follow_requests (
   id BIGSERIAL PRIMARY KEY,
   requester_id BIGINT NOT NULL,
   target_id BIGINT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
@@ -338,8 +339,12 @@ CREATE TABLE notifications (
 
 -- UNIQUE CONSTRAINTS 
 ALTER TABLE follow_requests
-ADD CONSTRAINT unique_follow_request
-UNIQUE (requester_id, target_id);
+ADD CONSTRAINT follow_request_status_check
+CHECK (status IN ('pending', 'accepted', 'declined', 'canceled'));
+
+CREATE UNIQUE INDEX unique_follow_request_pending
+ON follow_requests (requester_id, target_id)
+WHERE status = 'pending';
 
 ALTER TABLE group_invitations
 ADD CONSTRAINT unique_group_invitation

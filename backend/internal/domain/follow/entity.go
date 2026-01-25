@@ -2,11 +2,12 @@ package follow
 
 import "time"
 
-// FollowRequest represents a pending follow request.
+// FollowRequest represents a follow request with status.
 type FollowRequest struct {
 	ID          int64
 	RequesterID int64
 	TargetID    int64
+	Status      string
 	CreatedAt   time.Time
 }
 

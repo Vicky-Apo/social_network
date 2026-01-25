@@ -24,6 +24,9 @@ var ErrNotFollowing = errors.New("not following")
 // ErrForbidden is returned when the action is not allowed.
 var ErrForbidden = errors.New("follow action forbidden")
 
+// ErrRequestNotPending is returned when a follow request is not pending.
+var ErrRequestNotPending = errors.New("follow request is not pending")
+
 // Service orchestrates follow-related use cases.
 type Service struct {
 	userRepo   domainuser.Repository
@@ -89,6 +92,9 @@ func (s *Service) AcceptRequest(ctx context.Context, requestID, actorID int64) e
 	if req.TargetID != actorID {
 		return ErrForbidden
 	}
+	if req.Status != "pending" {
+		return ErrRequestNotPending
+	}
 	alreadyFollowing, err := s.followRepo.IsFollowing(ctx, req.RequesterID, req.TargetID)
 	if err != nil {
 		return fmt.Errorf("check follow: %w", err)
@@ -98,8 +104,8 @@ func (s *Service) AcceptRequest(ctx context.Context, requestID, actorID int64) e
 			return fmt.Errorf("create follow: %w", err)
 		}
 	}
-	if err := s.followRepo.DeleteRequest(ctx, requestID); err != nil {
-		return fmt.Errorf("delete request: %w", err)
+	if err := s.followRepo.UpdateRequestStatus(ctx, requestID, "accepted"); err != nil {
+		return fmt.Errorf("update request status: %w", err)
 	}
 	return nil
 }
@@ -113,8 +119,11 @@ func (s *Service) DeclineRequest(ctx context.Context, requestID, actorID int64) 
 	if req.TargetID != actorID {
 		return ErrForbidden
 	}
-	if err := s.followRepo.DeleteRequest(ctx, requestID); err != nil {
-		return fmt.Errorf("delete request: %w", err)
+	if req.Status != "pending" {
+		return ErrRequestNotPending
+	}
+	if err := s.followRepo.UpdateRequestStatus(ctx, requestID, "declined"); err != nil {
+		return fmt.Errorf("update request status: %w", err)
 	}
 	return nil
 }
@@ -184,6 +193,7 @@ func mapRequest(req domainfollow.FollowRequest) *FollowRequestDTO {
 		ID:          req.ID,
 		RequesterID: req.RequesterID,
 		TargetID:    req.TargetID,
+		Status:      req.Status,
 		CreatedAt:   req.CreatedAt,
 	}
 }

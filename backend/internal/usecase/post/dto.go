@@ -6,6 +6,10 @@ import "time"
 type PostDTO struct {
 	ID        int64     `json:"id"`
 	AuthorID  int64     `json:"author_id"`
+	AuthorFirstName string  `json:"author_first_name"`
+	AuthorLastName  string  `json:"author_last_name"`
+	AuthorNickname  *string `json:"author_nickname,omitempty"`
+	AuthorAvatarPath *string `json:"author_avatar_path,omitempty"`
 	Content   string    `json:"content"`
 	MediaPath *string   `json:"media_path,omitempty"`
 	Privacy   string    `json:"privacy"`
