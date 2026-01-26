@@ -130,6 +130,7 @@ func mapPostReactions(reactions []domainreaction.PostReaction) []ReactionDTO {
 			UserID:    r.UserID,
 			Reaction:  string(r.Reaction),
 			CreatedAt: r.CreatedAt,
+			UpdatedAt: r.UpdatedAt,
 		})
 	}
 	return out
@@ -142,6 +143,7 @@ func mapCommentReactions(reactions []domainreaction.CommentReaction) []ReactionD
 			UserID:    r.UserID,
 			Reaction:  string(r.Reaction),
 			CreatedAt: r.CreatedAt,
+			UpdatedAt: r.UpdatedAt,
 		})
 	}
 	return out

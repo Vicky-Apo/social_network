@@ -333,7 +333,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"author_id\": {{authorId}},\n  \"content\": \"Nice post!\",\n  \"media_path\": \"/uploads/reply.gif\"\n}"
+              "raw": "{\n  \"content\": \"Nice post!\",\n  \"media_path\": \"/uploads/reply.gif\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts/{{postId}}/comments",
@@ -393,7 +393,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": {{reactUserId}},\n  \"reaction\": \"{{reactionType}}\"\n}"
+              "raw": "{\n  \"reaction\": \"{{reactionType}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts/{{postId}}/reactions",
@@ -438,7 +438,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": {{reactUserId}},\n  \"reaction\": \"{{reactionType}}\"\n}"
+              "raw": "{\n  \"reaction\": \"{{reactionType}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/comments/{{commentId}}/reactions",

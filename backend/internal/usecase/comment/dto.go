@@ -18,7 +18,7 @@ type CommentDTO struct {
 // CreateCommentRequest is the request to create a comment
 type CreateCommentRequest struct {
 	PostID    int64  `json:"post_id"`
-	AuthorID  int64  `json:"author_id"`
+	AuthorID  int64  `json:"-"` // Set by handler from authenticated session, not from request body
 	Content   string `json:"content"`
 	MediaPath string `json:"media_path,omitempty"`
 }

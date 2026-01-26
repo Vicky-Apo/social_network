@@ -28,15 +28,14 @@ Creates a new comment on a post.
 
 ```json
 {
-  "author_id": 1,
   "content": "This is a great post!",
   "media_path": "/uploads/reply.gif"
 }
 ```
 
 **Notes:**
-- `author_id` is the user ID of the comment author
 - `content` is required and cannot be empty
+- `author_id` is automatically determined from your authenticated session
 - `media_path` is optional (string path to image/GIF)
 - The `post_id` is automatically extracted from the URL path
 
@@ -127,7 +126,6 @@ Adds, updates, or removes a reaction to a post.
 
 ```json
 {
-  "user_id": 1,
   "reaction": "like"
 }
 ```
@@ -150,9 +148,11 @@ Adds, updates, or removes a reaction to a post.
 **Notes:**
 - If the same reaction is sent again, it is removed (`status: "removed"`).
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
+- `user_id` is automatically determined from your authenticated session
 
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID, invalid reaction type, or invalid request body
+- `401 Unauthorized` - Not logged in or invalid session
 
 ### Get Post Reactions
 
@@ -172,12 +172,14 @@ Retrieves all reactions for a specific post.
     {
       "user_id": 1,
       "reaction": "like",
-      "created_at": "2025-01-24T12:34:56Z"
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
     },
     {
       "user_id": 2,
       "reaction": "dislike",
-      "created_at": "2025-01-24T12:35:10Z"
+      "created_at": "2025-01-24T12:35:10Z",
+      "updated_at": "2025-01-24T12:35:10Z"
     }
   ]
 }
@@ -186,6 +188,8 @@ Retrieves all reactions for a specific post.
 **Notes:**
 - Returns an empty array `[]` if the post has no reactions
 - Each user can only have one reaction per post (upsert behavior)
+- `created_at` - When the user first reacted (never changes)
+- `updated_at` - When the user last changed their reaction
 
 ### Toggle Comment Reaction
 
@@ -200,7 +204,6 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 
 ```json
 {
-  "user_id": 1,
   "reaction": "like"
 }
 ```
@@ -223,9 +226,11 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 **Notes:**
 - If the same reaction is sent again, it is removed (`status: "removed"`).
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
+- `user_id` is automatically determined from your authenticated session
 
 **Error Responses:**
 - `400 Bad Request` - Invalid comment ID, invalid reaction type, or invalid request body
+- `401 Unauthorized` - Not logged in or invalid session
 
 ### Get Comment Reactions
 
@@ -245,12 +250,14 @@ Retrieves all reactions for a specific comment.
     {
       "user_id": 1,
       "reaction": "like",
-      "created_at": "2025-01-24T12:34:56Z"
+      "created_at": "2025-01-24T12:34:56Z",
+      "updated_at": "2025-01-24T12:34:56Z"
     },
     {
       "user_id": 2,
       "reaction": "like",
-      "created_at": "2025-01-24T12:35:10Z"
+      "created_at": "2025-01-24T12:35:10Z",
+      "updated_at": "2025-01-24T12:35:10Z"
     }
   ]
 }
@@ -259,6 +266,8 @@ Retrieves all reactions for a specific comment.
 **Notes:**
 - Returns an empty array `[]` if the comment has no reactions
 - Each user can only have one reaction per comment (upsert behavior)
+- `created_at` - When the user first reacted (never changes)
+- `updated_at` - When the user last changed their reaction
 
 ## React Fetch Examples
 
@@ -266,13 +275,12 @@ Retrieves all reactions for a specific comment.
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
 // Create a comment on a post
-export async function createComment(postId: number, authorId: number, content: string, mediaPath?: string) {
+export async function createComment(postId: number, content: string, mediaPath?: string) {
   const res = await fetch(`${API_BASE}/posts/${postId}/comments`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({
-      author_id: authorId,
       content: content,
       media_path: mediaPath,
     }),
@@ -299,13 +307,12 @@ export async function getPostComments(postId: number) {
 }
 
 // Add a reaction to a post
-export async function addPostReaction(postId: number, userId: number, reaction: "like" | "dislike") {
+export async function addPostReaction(postId: number, reaction: "like" | "dislike") {
   const res = await fetch(`${API_BASE}/posts/${postId}/reactions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({
-      user_id: userId,
       reaction: reaction,
     }),
   });
@@ -331,13 +338,12 @@ export async function getPostReactions(postId: number) {
 }
 
 // Add a reaction to a comment
-export async function addCommentReaction(commentId: number, userId: number, reaction: "like" | "dislike") {
+export async function addCommentReaction(commentId: number, reaction: "like" | "dislike") {
   const res = await fetch(`${API_BASE}/comments/${commentId}/reactions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({
-      user_id: userId,
       reaction: reaction,
     }),
   });
@@ -374,9 +380,8 @@ const api = axios.create({
 });
 
 // Create a comment on a post
-export async function createComment(postId: number, authorId: number, content: string, mediaPath?: string) {
+export async function createComment(postId: number, content: string, mediaPath?: string) {
   const { data } = await api.post(`/posts/${postId}/comments`, {
-    author_id: authorId,
     content: content,
     media_path: mediaPath,
   });
@@ -390,9 +395,8 @@ export async function getPostComments(postId: number) {
 }
 
 // Add a reaction to a post
-export async function addPostReaction(postId: number, userId: number, reaction: "like" | "dislike") {
+export async function addPostReaction(postId: number, reaction: "like" | "dislike") {
   const { data } = await api.post(`/posts/${postId}/reactions`, {
-    user_id: userId,
     reaction: reaction,
   });
   return data;
@@ -405,9 +409,8 @@ export async function getPostReactions(postId: number) {
 }
 
 // Add a reaction to a comment
-export async function addCommentReaction(commentId: number, userId: number, reaction: "like" | "dislike") {
+export async function addCommentReaction(commentId: number, reaction: "like" | "dislike") {
   const { data } = await api.post(`/comments/${commentId}/reactions`, {
-    user_id: userId,
     reaction: reaction,
   });
   return data;
@@ -431,6 +434,9 @@ export async function getCommentReactions(commentId: number) {
    - `201` - Created (POST requests)
    - `400` - Bad Request (invalid input)
    - `404` - Not Found (resource doesn't exist)
+   - `401 Unauthorized` - Not logged in or invalid session
    - `500` - Internal Server Error (database constraint violations, etc.)
 
 4. **Session Cookies**: All endpoints require authentication via session cookies. Make sure your frontend includes `credentials: "include"` (fetch) or `withCredentials: true` (axios).
+
+5. `user_id` is automatically determined from your authenticated session
