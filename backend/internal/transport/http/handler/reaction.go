@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
 	usecasereaction "social-network/backend/internal/usecase/reaction"
 	"social-network/backend/pkg/logger"
@@ -25,6 +26,14 @@ func NewReactionHandler(service *usecasereaction.Service, log logger.Logger) *Re
 
 // AddPostReaction handles POST /posts/{id}/reactions
 func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request) {
+
+	// Get authenticated user ID from context
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "reactions.post.toggle")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
 	// Parse post ID from path parameter
 	postIDStr := r.PathValue("id")
 	postID, err := strconv.ParseInt(postIDStr, 10, 64)
@@ -40,6 +49,7 @@ func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
+	req.UserID = userID // Set user ID from authenticated session!
 
 	status, err := h.service.AddPostReaction(r.Context(), postID, req)
 	if err != nil {

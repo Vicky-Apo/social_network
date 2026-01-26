@@ -25,7 +25,7 @@ func (r *Repository) AddPostReaction(ctx context.Context, reaction domainreactio
 		INSERT INTO post_reactions (post_id, user_id, reaction, created_at)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (post_id, user_id)
-		DO UPDATE SET reaction = $3, created_at = $4
+		DO UPDATE SET reaction = $3
 	`
 
 	_, err := r.db.ExecContext(
@@ -119,7 +119,7 @@ func (r *Repository) AddCommentReaction(ctx context.Context, reaction domainreac
 		INSERT INTO comment_reactions (comment_id, user_id, reaction, created_at)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (comment_id, user_id)
-		DO UPDATE SET reaction = $3, created_at = $4
+		DO UPDATE SET reaction = $3
 	`
 
 	_, err := r.db.ExecContext(

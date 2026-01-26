@@ -52,16 +52,17 @@ func NewRouter(
 	mux.Handle("POST /posts", mw.Auth(http.HandlerFunc(postHandler.Create)))
 
 	// Comment routes
-	mux.HandleFunc("POST /posts/{id}/comments", commentHandler.Create)
-	mux.HandleFunc("GET /posts/{id}/comments", commentHandler.GetByPostID)
+	// Comment routes (protected)
+mux.Handle("POST /posts/{id}/comments", mw.Auth(http.HandlerFunc(commentHandler.Create)))
+mux.HandleFunc("GET /posts/{id}/comments", commentHandler.GetByPostID)  // Can be public
 
-	// Post reaction routes
-	mux.HandleFunc("POST /posts/{id}/reactions", reactionHandler.AddPostReaction)
-	mux.HandleFunc("GET /posts/{id}/reactions", reactionHandler.GetPostReactions)
+// Post reaction routes (protected)
+mux.Handle("POST /posts/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddPostReaction)))
+mux.HandleFunc("GET /posts/{id}/reactions", reactionHandler.GetPostReactions)  // Can be public
 
-	// Comment reaction routes
-	mux.HandleFunc("POST /comments/{id}/reactions", reactionHandler.AddCommentReaction)
-	mux.HandleFunc("GET /comments/{id}/reactions", reactionHandler.GetCommentReactions)
+// Comment reaction routes (protected)
+mux.Handle("POST /comments/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddCommentReaction)))
+mux.HandleFunc("GET /comments/{id}/reactions", reactionHandler.GetCommentReactions)  // Can be public
 
 	// Profile routes (protected)
 	mux.Handle("GET /profiles/{id}", mw.Auth(http.HandlerFunc(profileHandler.GetProfile)))

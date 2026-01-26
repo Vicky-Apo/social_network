@@ -51,7 +51,8 @@ func (s *Service) AddPostReaction(ctx context.Context, postID int64, req AddReac
 	if err := s.repo.AddPostReaction(ctx, reaction); err != nil {
 		return "", err
 	}
-	if err == nil && existing.Reaction != "" && existing.Reaction != reactionType {
+	// Check if we updated an existing reaction or added a new one
+	if existing.Reaction != "" {
 		return "updated", nil
 	}
 	return "added", nil
@@ -105,7 +106,8 @@ func (s *Service) AddCommentReaction(ctx context.Context, commentID int64, req A
 	if err := s.repo.AddCommentReaction(ctx, reaction); err != nil {
 		return "", err
 	}
-	if err == nil && existing.Reaction != "" && existing.Reaction != reactionType {
+	// Check if we updated an existing reaction or added a new one
+	if existing.Reaction != "" {
 		return "updated", nil
 	}
 	return "added", nil
