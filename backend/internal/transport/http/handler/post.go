@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -29,7 +28,7 @@ func NewPostHandler(service *usecasepost.Service, log logger.Logger) *PostHandle
 
 // List handles GET /posts.
 func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
-	limit, offset, err := parsePagination(r)
+	limit, offset, err := utils.ParsePagination(r)
 	if err != nil {
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -40,13 +39,14 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 	if rawCategory := r.URL.Query().Get("category_id"); rawCategory != "" {
 		categoryID, err := strconv.ParseInt(rawCategory, 10, 64)
 		if err != nil || categoryID <= 0 {
-			utils.RespondWithError(w, http.StatusBadRequest, "invalid category_id")
+			logBadRequest(h.log, "posts.list", logger.F("category_id", rawCategory))
+			utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidCategoryID)
 			return
 		}
 		posts, err := h.service.ListByCategory(r.Context(), categoryID, viewerID, limit, offset)
 		if err != nil {
-			h.log.Error("failed to list posts by category", err, logger.F("category_id", categoryID))
-			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			logServerError(h.log, "posts.list", err, logger.F("category_id", categoryID))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 			return
 		}
 		utils.RespondWithSuccess(w, http.StatusOK, posts)
@@ -56,7 +56,8 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 	if rawAuthor := r.URL.Query().Get("author_id"); rawAuthor != "" {
 		authorID, err := strconv.ParseInt(rawAuthor, 10, 64)
 		if err != nil || authorID <= 0 {
-			utils.RespondWithError(w, http.StatusBadRequest, "invalid author_id")
+			logBadRequest(h.log, "posts.list", logger.F("author_id", rawAuthor))
+			utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidAuthorID)
 			return
 		}
 		h.ListByAuthor(w, r, authorID, limit, offset)
@@ -65,8 +66,8 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	posts, err := h.service.List(r.Context(), viewerID, limit, offset)
 	if err != nil {
-		h.log.Error("failed to list posts", err)
-		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		logServerError(h.log, "posts.list", err)
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		return
 	}
 
@@ -75,26 +76,23 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 
 // Create handles POST /posts.
 func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		utils.RespondWithError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
 	authorID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		logUnauthorized(h.log, "posts.create")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
 		return
 	}
 
 	var req usecasepost.CreatePostRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
+	if err := utils.ReadJSON(r, &req); err != nil {
+		logBadRequest(h.log, "posts.create", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
 
 	post, err := h.service.Create(r.Context(), authorID, req)
 	if err != nil {
-		h.log.Error("failed to create post", err, logger.F("author_id", authorID))
+		logBadRequest(h.log, "posts.create", logger.F("author_id", authorID), logger.F("error", err.Error()))
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -106,8 +104,8 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id, ok := utils.ParsePathID(r.URL.Path, "/posts/")
 	if !ok {
-		h.log.Debug("invalid post id in path", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, "post not found")
+		logBadRequest(h.log, "posts.get", logger.F("path", r.URL.Path))
+		utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
 		return
 	}
 
@@ -115,51 +113,21 @@ func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	post, err := h.service.GetByID(r.Context(), id, viewerID)
 	if err != nil {
 		if errors.Is(err, usecasepost.ErrForbidden) {
-			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
+			logForbidden(h.log, "posts.get", logger.F("post_id", id), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
 			return
 		}
 		if errors.Is(err, domainpost.ErrNotFound) {
-			h.log.Debug("post not found", logger.F("post_id", id))
-			utils.RespondWithError(w, http.StatusNotFound, "post not found")
+			logNotFound(h.log, "posts.get", logger.F("post_id", id))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
 			return
 		}
-		h.log.Error("failed to get post", err, logger.F("post_id", id))
-		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		logServerError(h.log, "posts.get", err, logger.F("post_id", id))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		return
 	}
 
 	utils.RespondWithSuccess(w, http.StatusOK, post)
-}
-
-func parsePagination(r *http.Request) (int, int, error) {
-	const (
-		defaultLimit = 20
-		maxLimit     = 100
-	)
-
-	limit := defaultLimit
-	offset := 0
-
-	if raw := r.URL.Query().Get("limit"); raw != "" {
-		val, err := strconv.Atoi(raw)
-		if err != nil || val <= 0 {
-			return 0, 0, errors.New("invalid limit")
-		}
-		if val > maxLimit {
-			val = maxLimit
-		}
-		limit = val
-	}
-
-	if raw := r.URL.Query().Get("offset"); raw != "" {
-		val, err := strconv.Atoi(raw)
-		if err != nil || val < 0 {
-			return 0, 0, errors.New("invalid offset")
-		}
-		offset = val
-	}
-
-	return limit, offset, nil
 }
 
 // ListByAuthor handles GET /posts?author_id=...&limit=&offset=
@@ -168,11 +136,12 @@ func (h *PostHandler) ListByAuthor(w http.ResponseWriter, r *http.Request, autho
 	posts, err := h.service.ListByAuthor(r.Context(), authorID, viewerID, limit, offset)
 	if err != nil {
 		if errors.Is(err, usecasepost.ErrForbidden) {
-			utils.RespondWithError(w, http.StatusForbidden, "forbidden")
+			logForbidden(h.log, "posts.list_by_author", logger.F("author_id", authorID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
 			return
 		}
-		h.log.Error("failed to list posts by author", err, logger.F("author_id", authorID))
-		utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+		logServerError(h.log, "posts.list_by_author", err, logger.F("author_id", authorID))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		return
 	}
 

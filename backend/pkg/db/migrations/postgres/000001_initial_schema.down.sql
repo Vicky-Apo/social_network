@@ -60,6 +60,8 @@ DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS comment_reactions;
 DROP TABLE IF EXISTS post_reactions;
 DROP TABLE IF EXISTS post_categories;
+DROP VIEW IF EXISTS post_reaction_counts;
+DROP VIEW IF EXISTS post_comment_counts;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS post_allowed_users;

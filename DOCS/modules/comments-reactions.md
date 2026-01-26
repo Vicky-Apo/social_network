@@ -65,12 +65,16 @@ Creates a new comment on a post.
 
 ### Get Post Comments
 
-`GET /posts/{id}/comments`
+`GET /posts/{id}/comments?limit=20&offset=0`
 
 Retrieves all comments for a specific post.
 
 **URL Parameters:**
 - `id` - The post ID (integer)
+
+**Query Parameters:**
+- `limit` (optional, default 20, max 100)
+- `offset` (optional, default 0)
 
 **Response (200):**
 

@@ -165,33 +165,6 @@ func (s *Service) ListByCategory(ctx context.Context, categoryID, viewerID int64
 	return mapPosts(posts), nil
 }
 
-func mapPosts(posts []domainpost.Post) []PostDTO {
-	out := make([]PostDTO, 0, len(posts))
-	for _, p := range posts {
-		out = append(out, mapPost(p))
-	}
-	return out
-}
-
-func mapPost(p domainpost.Post) PostDTO {
-	return PostDTO{
-		ID:        p.ID,
-		AuthorID:  p.AuthorID,
-		AuthorFirstName: p.AuthorFirstName,
-		AuthorLastName:  p.AuthorLastName,
-		AuthorNickname:  p.AuthorNickname,
-		AuthorAvatarPath: p.AuthorAvatarPath,
-		Content:   p.Content,
-		MediaPath: p.MediaPath,
-		Privacy:   p.Privacy,
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
-		CommentCount: p.CommentCount,
-		LikeCount:    p.LikeCount,
-		DislikeCount: p.DislikeCount,
-	}
-}
-
 // ErrForbidden is returned when a viewer cannot access a post.
 var ErrForbidden = errors.New("post access forbidden")
 

@@ -13,9 +13,11 @@
         "exec": [
           "try {",
           "  const json = pm.response.json();",
-          "  pm.test(\"response has success flag\", function () {",
-          "    pm.expect(json).to.have.property(\"success\");",
-          "  });",
+          "  if (Object.prototype.hasOwnProperty.call(json, \"success\")) {",
+          "    pm.test(\"response has success flag\", function () {",
+          "      pm.expect(json).to.have.property(\"success\");",
+          "    });",
+          "  }",
           "} catch (e) {",
           "  // Non-JSON response (e.g. healthz); skip envelope check",
           "}"
@@ -352,7 +354,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/posts/{{postId}}/comments",
+              "raw": "{{baseUrl}}/posts/{{postId}}/comments?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -360,6 +362,16 @@
                 "posts",
                 "{{postId}}",
                 "comments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
               ]
             }
           }

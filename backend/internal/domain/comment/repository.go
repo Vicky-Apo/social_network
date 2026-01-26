@@ -11,7 +11,7 @@ var ErrNotFound = errors.New("comment not found")
 // Repository defines data access for comments
 type Repository interface {
 	Create(ctx context.Context, comment Comment) (Comment, error)
-	GetByPostID(ctx context.Context, postID int64) ([]Comment, error)
+	GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]Comment, error)
 	GetByID(ctx context.Context, id int64) (Comment, error)
 	Delete(ctx context.Context, id int64) error
 }

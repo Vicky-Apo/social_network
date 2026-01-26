@@ -22,47 +22,10 @@ func NewRepository(db *sql.DB) *Repository {
 
 // List returns all posts ordered by creation time (newest first).
 func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
-	const query = `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
-		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
-		       COALESCE(c.comment_count, 0) AS comment_count,
-		       COALESCE(l.like_count, 0) AS like_count,
-		       COALESCE(d.dislike_count, 0) AS dislike_count
-		FROM posts p
-		JOIN users u ON u.id = p.author_id
-		LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = p.author_id
-		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $1
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS comment_count
-			FROM comments
-			GROUP BY post_id
-		) c ON c.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS like_count
-			FROM post_reactions
-			WHERE reaction = 'like'
-			GROUP BY post_id
-		) l ON l.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS dislike_count
-			FROM post_reactions
-			WHERE reaction = 'dislike'
-			GROUP BY post_id
-		) d ON d.post_id = p.id
-		WHERE (
-			u.is_public = TRUE
-			OR p.author_id = $1
-			OR f.follower_id IS NOT NULL
-		)
-		AND (
-			p.author_id = $1
-			OR p.visibility = 'public'
-			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
-			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
-		)
-		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`
+	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +
+		"WHERE " + visibilityWhereForFeed(1) + "\n" +
+		"ORDER BY p.created_at DESC\n" +
+		"LIMIT $2 OFFSET $3"
 	rows, err := r.db.QueryContext(ctx, query, viewerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list posts: %w", err)
@@ -109,28 +72,13 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 	const query = `
 		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
-		       COALESCE(c.comment_count, 0) AS comment_count,
-		       COALESCE(l.like_count, 0) AS like_count,
-		       COALESCE(d.dislike_count, 0) AS dislike_count
+		       COALESCE(cc.comment_count, 0) AS comment_count,
+		       COALESCE(rc.like_count, 0) AS like_count,
+		       COALESCE(rc.dislike_count, 0) AS dislike_count
 		FROM posts p
 		JOIN users u ON u.id = p.author_id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS comment_count
-			FROM comments
-			GROUP BY post_id
-		) c ON c.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS like_count
-			FROM post_reactions
-			WHERE reaction = 'like'
-			GROUP BY post_id
-		) l ON l.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS dislike_count
-			FROM post_reactions
-			WHERE reaction = 'dislike'
-			GROUP BY post_id
-		) d ON d.post_id = p.id
+		LEFT JOIN post_comment_counts cc ON cc.post_id = p.id
+		LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id
 		WHERE p.id = $1
 	`
 	var p domainpost.Post
@@ -234,41 +182,10 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 
 // ListByAuthor returns posts for a specific author with pagination.
 func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
-	const query = `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
-		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
-		       COALESCE(c.comment_count, 0) AS comment_count,
-		       COALESCE(l.like_count, 0) AS like_count,
-		       COALESCE(d.dislike_count, 0) AS dislike_count
-		FROM posts p
-		JOIN users u ON u.id = p.author_id
-		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $2
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS comment_count
-			FROM comments
-			GROUP BY post_id
-		) c ON c.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS like_count
-			FROM post_reactions
-			WHERE reaction = 'like'
-			GROUP BY post_id
-		) l ON l.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS dislike_count
-			FROM post_reactions
-			WHERE reaction = 'dislike'
-			GROUP BY post_id
-		) d ON d.post_id = p.id
-		WHERE p.author_id = $1 AND (
-			$4 = TRUE
-			OR p.visibility = 'public'
-			OR ($3 = TRUE AND p.visibility = 'followers')
-			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
-		)
-		ORDER BY created_at DESC
-		LIMIT $5 OFFSET $6
-	`
+	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(2) + "\n" +
+		"WHERE p.author_id = $1 AND " + visibilityWhereForAuthor(3, 4) + "\n" +
+		"ORDER BY p.created_at DESC\n" +
+		"LIMIT $5 OFFSET $6"
 	rows, err := r.db.QueryContext(ctx, query, authorID, viewerID, isFollower, isOwner, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list posts by author: %w", err)
@@ -312,49 +229,12 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 
 // ListByCategory returns posts for a category with pagination.
 func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
-	const query = `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
-		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
-		       COALESCE(c.comment_count, 0) AS comment_count,
-		       COALESCE(l.like_count, 0) AS like_count,
-		       COALESCE(d.dislike_count, 0) AS dislike_count
-		FROM posts p
-		JOIN post_categories pc ON pc.post_id = p.id
-		JOIN users u ON u.id = p.author_id
-		LEFT JOIN follows f ON f.follower_id = $2 AND f.following_id = p.author_id
-		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $2
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS comment_count
-			FROM comments
-			GROUP BY post_id
-		) c ON c.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS like_count
-			FROM post_reactions
-			WHERE reaction = 'like'
-			GROUP BY post_id
-		) l ON l.post_id = p.id
-		LEFT JOIN (
-			SELECT post_id, COUNT(*) AS dislike_count
-			FROM post_reactions
-			WHERE reaction = 'dislike'
-			GROUP BY post_id
-		) d ON d.post_id = p.id
-		WHERE pc.category_id = $1
-		AND (
-			u.is_public = TRUE
-			OR p.author_id = $2
-			OR f.follower_id IS NOT NULL
-		)
-		AND (
-			p.author_id = $2
-			OR p.visibility = 'public'
-			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
-			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
-		)
-		ORDER BY p.created_at DESC
-		LIMIT $3 OFFSET $4
-	`
+	query := baseSelect() + "\n" + baseFrom() + "\n" +
+		"JOIN post_categories pc ON pc.post_id = p.id\n" +
+		baseJoins(2) + "\n" +
+		"WHERE pc.category_id = $1 AND " + visibilityWhereForFeed(2) + "\n" +
+		"ORDER BY p.created_at DESC\n" +
+		"LIMIT $3 OFFSET $4"
 	rows, err := r.db.QueryContext(ctx, query, categoryID, viewerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list posts by category: %w", err)
@@ -418,4 +298,57 @@ func nullableString(value sql.NullString) *string {
 	}
 	v := value.String
 	return &v
+}
+
+func baseSelect() string {
+	return `
+		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
+		       COALESCE(cc.comment_count, 0) AS comment_count,
+		       COALESCE(rc.like_count, 0) AS like_count,
+		       COALESCE(rc.dislike_count, 0) AS dislike_count
+	`
+}
+
+func baseFrom() string {
+	return `
+		FROM posts p
+		JOIN users u ON u.id = p.author_id
+	`
+}
+
+func baseJoins(viewerParam int) string {
+	return fmt.Sprintf(`
+		LEFT JOIN follows f ON f.follower_id = $%d AND f.following_id = p.author_id
+		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $%d
+		LEFT JOIN post_comment_counts cc ON cc.post_id = p.id
+		LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id
+	`, viewerParam, viewerParam)
+}
+
+func visibilityWhereForFeed(viewerParam int) string {
+	return fmt.Sprintf(`
+		(
+			u.is_public = TRUE
+			OR p.author_id = $%d
+			OR f.follower_id IS NOT NULL
+		)
+		AND (
+			p.author_id = $%d
+			OR p.visibility = 'public'
+			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
+			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+		)
+	`, viewerParam, viewerParam)
+}
+
+func visibilityWhereForAuthor(isFollowerParam, isOwnerParam int) string {
+	return fmt.Sprintf(`
+		(
+			$%d = TRUE
+			OR p.visibility = 'public'
+			OR ($%d = TRUE AND p.visibility = 'followers')
+			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+		)
+	`, isOwnerParam, isFollowerParam)
 }

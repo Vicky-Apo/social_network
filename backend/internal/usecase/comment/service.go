@@ -34,33 +34,11 @@ func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (Comment
 }
 
 // GetByPostID gets all comments for a post
-func (s *Service) GetByPostID(ctx context.Context, postID int64) ([]CommentDTO, error) {
-	comments, err := s.repo.GetByPostID(ctx, postID)
+func (s *Service) GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]CommentDTO, error) {
+	comments, err := s.repo.GetByPostID(ctx, postID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
 
 	return mapComments(comments), nil
-}
-
-func mapComments(comments []domaincomment.Comment) []CommentDTO {
-	out := make([]CommentDTO, 0, len(comments))
-	for _, c := range comments {
-		out = append(out, mapComment(c))
-	}
-	return out
-}
-
-func mapComment(c domaincomment.Comment) CommentDTO {
-	return CommentDTO{
-		ID:           c.ID,
-		PostID:       c.PostID,
-		AuthorID:     c.AuthorID,
-		Content:      c.Content,
-		MediaPath:    c.MediaPath,
-		LikeCount:    c.LikeCount,
-		DislikeCount: c.DislikeCount,
-		CreatedAt:    c.CreatedAt,
-		UpdatedAt:    c.UpdatedAt,
-	}
 }

@@ -27,6 +27,9 @@ var ErrForbidden = errors.New("follow action forbidden")
 // ErrRequestNotPending is returned when a follow request is not pending.
 var ErrRequestNotPending = errors.New("follow request is not pending")
 
+// ErrInvalidStatus is returned when a follow request status is invalid.
+var ErrInvalidStatus = errors.New("invalid status")
+
 // Service orchestrates follow-related use cases.
 type Service struct {
 	userRepo   domainuser.Repository
@@ -136,7 +139,7 @@ func (s *Service) UpdateRequest(ctx context.Context, requestID, actorID int64, s
 	case "declined":
 		return s.DeclineRequest(ctx, requestID, actorID)
 	default:
-		return errors.New("invalid status")
+		return ErrInvalidStatus
 	}
 }
 

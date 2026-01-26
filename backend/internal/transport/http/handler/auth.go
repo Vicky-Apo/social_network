@@ -37,8 +37,8 @@ func NewAuthHandler(service *usecaseauth.Service, log logger.Logger, cfg AuthHan
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req usecaseauth.RegisterRequest
 	if err := utils.ReadJSON(r, &req); err != nil {
-		h.log.Debug("invalid request body", logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
+		logBadRequest(h.log, "auth.register", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
 
@@ -46,19 +46,22 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch {
 		case errors.Is(err, domainauth.ErrEmailAlreadyExists):
-			h.log.Debug("registration failed: email exists", logger.F("email", req.Email))
+			logBadRequest(h.log, "auth.register", logger.F("reason", "email_exists"), logger.F("email", req.Email))
 			utils.RespondWithError(w, http.StatusConflict, "email already exists")
 		case errors.Is(err, usecaseauth.ErrInvalidEmail):
+			logBadRequest(h.log, "auth.register", logger.F("reason", "invalid_email"), logger.F("email", req.Email))
 			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, usecaseauth.ErrWeakPassword):
+			logBadRequest(h.log, "auth.register", logger.F("reason", "weak_password"))
 			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, usecaseauth.ErrInvalidDateFormat),
 			errors.Is(err, usecaseauth.ErrInvalidDateOfBirth),
 			errors.Is(err, usecaseauth.ErrUserTooYoung):
+			logBadRequest(h.log, "auth.register", logger.F("reason", "invalid_birthdate"))
 			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		default:
-			h.log.Error("registration failed", err, logger.F("email", req.Email))
-			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			logServerError(h.log, "auth.register", err, logger.F("email", req.Email))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		}
 		return
 	}
@@ -70,8 +73,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req usecaseauth.LoginRequest
 	if err := utils.ReadJSON(r, &req); err != nil {
-		h.log.Debug("invalid request body", logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, "invalid request body")
+		logBadRequest(h.log, "auth.login", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
 
@@ -82,11 +85,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	loginResp, err := h.service.Login(r.Context(), req, userAgent, ipAddress)
 	if err != nil {
 		if errors.Is(err, usecaseauth.ErrInvalidCredentials) {
-			h.log.Debug("login failed: invalid credentials", logger.F("email", req.Email), logger.F("ip", ipAddress))
-			utils.RespondWithError(w, http.StatusUnauthorized, "invalid credentials")
+			logUnauthorized(h.log, "auth.login", logger.F("reason", "invalid_credentials"), logger.F("email", req.Email), logger.F("ip", ipAddress))
+			utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgInvalidCredentials)
 		} else {
-			h.log.Error("login failed", err, logger.F("email", req.Email), logger.F("ip", ipAddress))
-			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			logServerError(h.log, "auth.login", err, logger.F("email", req.Email), logger.F("ip", ipAddress))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		}
 		return
 	}
@@ -105,11 +108,11 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 	if sessionToken != "" {
 		if err := h.service.Logout(r.Context(), sessionToken); err != nil {
-			h.log.Error("logout failed", err)
-			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			logServerError(h.log, "auth.logout", err)
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 			return
 		}
-		h.log.Info("user logged out")
+		h.log.Info("logout succeeded", logger.F("action", "auth.logout"))
 	}
 
 	// Clear session cookie
@@ -124,19 +127,19 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (middleware already validated session)
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
-		h.log.Warn("me endpoint called without user context")
-		utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+		logUnauthorized(h.log, "auth.me")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
 		return
 	}
 
 	user, err := h.service.GetUserByID(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, domainauth.ErrUserNotFound) {
-			h.log.Warn("user not found for valid session", logger.F("user_id", userID))
-			utils.RespondWithError(w, http.StatusNotFound, "user not found")
+			logNotFound(h.log, "auth.me", logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgUserNotFound)
 		} else {
-			h.log.Error("failed to get user", err, logger.F("user_id", userID))
-			utils.RespondWithError(w, http.StatusInternalServerError, "internal server error")
+			logServerError(h.log, "auth.me", err, logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		}
 		return
 	}

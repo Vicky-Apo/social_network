@@ -238,6 +238,18 @@ CREATE TABLE comment_reactions (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE VIEW post_comment_counts AS
+SELECT post_id, COUNT(*) AS comment_count
+FROM comments
+GROUP BY post_id;
+
+CREATE VIEW post_reaction_counts AS
+SELECT post_id,
+       COUNT(*) FILTER (WHERE reaction = 'like') AS like_count,
+       COUNT(*) FILTER (WHERE reaction = 'dislike') AS dislike_count
+FROM post_reactions
+GROUP BY post_id;
+
 
 /* =========================
    EVENTS

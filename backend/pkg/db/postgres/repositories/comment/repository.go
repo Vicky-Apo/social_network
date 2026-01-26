@@ -48,7 +48,7 @@ func (r *Repository) Create(ctx context.Context, comment domaincomment.Comment) 
 }
 
 // GetByPostID gets all comments for a post
-func (r *Repository) GetByPostID(ctx context.Context, postID int64) ([]domaincomment.Comment, error) {
+func (r *Repository) GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]domaincomment.Comment, error) {
 	query := `
 		SELECT c.id, c.post_id, c.author_id, c.content, c.media_path, c.created_at, c.updated_at,
 		       COALESCE(rc.like_count, 0) AS like_count,
@@ -63,9 +63,10 @@ func (r *Repository) GetByPostID(ctx context.Context, postID int64) ([]domaincom
 		) rc ON rc.comment_id = c.id
 		WHERE c.post_id = $1
 		ORDER BY c.created_at ASC
+		LIMIT $2 OFFSET $3
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, postID)
+	rows, err := r.db.QueryContext(ctx, query, postID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("get comments by post: %w", err)
 	}

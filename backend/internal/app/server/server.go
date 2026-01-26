@@ -96,11 +96,11 @@ func Run(ctx context.Context) error {
 	}
 	authHandler := handler.NewAuthHandler(authService, log, authHandlerCfg)
 	postHandler := handler.NewPostHandler(postService, log)
-	commentHandler := handler.NewCommentHandler(commentService)
-	reactionHandler := handler.NewReactionHandler(reactionService)
-	profileHandler := handler.NewProfileHandler(profileService)
-	followHandler := handler.NewFollowHandler(followService)
-	userHandler := handler.NewUserHandler(userService)
+	commentHandler := handler.NewCommentHandler(commentService, log)
+	reactionHandler := handler.NewReactionHandler(reactionService, log)
+	profileHandler := handler.NewProfileHandler(profileService, log)
+	followHandler := handler.NewFollowHandler(followService, log)
+	userHandler := handler.NewUserHandler(userService, log)
 
 	// Middleware (authService implements middleware.SessionValidator)
 	authMiddleware := middleware.Auth(authService, cfg.Auth.SessionCookieName, log)
