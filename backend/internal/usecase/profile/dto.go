@@ -17,11 +17,22 @@ type UserDTO struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// LimitedUserDTO is a reduced profile view for private profiles.
+type LimitedUserDTO struct {
+	ID         int64   `json:"id"`
+	FirstName  string  `json:"first_name"`
+	LastName   string  `json:"last_name"`
+	Nickname   *string `json:"nickname,omitempty"`
+	AvatarPath *string `json:"avatar_path,omitempty"`
+	IsPublic   bool    `json:"is_public"`
+}
+
 // ProfileDTO combines a user with follower stats.
 type ProfileDTO struct {
-	User           UserDTO `json:"user"`
-	FollowersCount int64   `json:"followers_count"`
-	FollowingCount int64   `json:"following_count"`
+	User           any    `json:"user"`
+	FollowersCount *int64  `json:"followers_count,omitempty"`
+	FollowingCount *int64  `json:"following_count,omitempty"`
 	IsFollowing    bool    `json:"is_following"`
 	IsFollowedBy   bool    `json:"is_followed_by"`
+	Limited        bool    `json:"limited,omitempty"`
 }

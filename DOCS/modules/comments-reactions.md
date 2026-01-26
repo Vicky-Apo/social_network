@@ -51,6 +51,8 @@ Creates a new comment on a post.
     "author_id": 1,
     "content": "This is a great post!",
     "media_path": null,
+    "like_count": 0,
+    "dislike_count": 0,
     "created_at": "2025-01-24T12:34:56Z",
     "updated_at": "2025-01-24T12:34:56Z"
   }
@@ -82,6 +84,8 @@ Retrieves all comments for a specific post.
       "author_id": 1,
       "content": "This is a great post!",
       "media_path": null,
+      "like_count": 1,
+      "dislike_count": 0,
       "created_at": "2025-01-24T12:34:56Z",
       "updated_at": "2025-01-24T12:34:56Z"
     },
@@ -91,6 +95,8 @@ Retrieves all comments for a specific post.
       "author_id": 2,
       "content": "I agree!",
       "media_path": null,
+      "like_count": 0,
+      "dislike_count": 1,
       "created_at": "2025-01-24T12:35:10Z",
       "updated_at": "2025-01-24T12:35:10Z"
     }

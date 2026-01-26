@@ -301,7 +301,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"category_ids\": [{{categoryId}}]\n}"
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"category_ids\": [{{categoryId}}],\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts",

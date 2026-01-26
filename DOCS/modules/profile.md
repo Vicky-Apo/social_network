@@ -47,6 +47,30 @@ Notes:
 - If the profile is private, only followers or the profile owner can access it.
 - `date_of_birth` format is `DD/MM/YYYY`.
 
+Limited response:
+- If the profile is private and the viewer is not a follower, the API returns a limited profile with only basic fields (id, first_name, last_name, nickname, avatar_path, is_public) and `limited: true`.
+
+Example limited response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": 2,
+      "first_name": "User",
+      "last_name": "Beta",
+      "nickname": "beta",
+      "avatar_path": "/uploads/avatars/beta.png",
+      "is_public": false
+    },
+    "is_following": false,
+    "is_followed_by": false,
+    "limited": true
+  }
+}
+```
+
 ### List followers
 
 `GET /profiles/{id}/followers`

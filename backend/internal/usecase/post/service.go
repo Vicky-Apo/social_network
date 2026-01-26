@@ -75,6 +75,32 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		return PostDTO{}, errors.New("content or media_path is required")
 	}
 
+	if privacy == "private" {
+		if len(req.AllowedUserIDs) == 0 {
+			return PostDTO{}, errors.New("allowed_user_ids is required for private posts")
+		}
+		seen := make(map[int64]struct{}, len(req.AllowedUserIDs))
+		for _, allowedID := range req.AllowedUserIDs {
+			if allowedID <= 0 {
+				return PostDTO{}, errors.New("allowed_user_ids must be positive integers")
+			}
+			if allowedID == authorID {
+				return PostDTO{}, errors.New("author cannot be in allowed_user_ids")
+			}
+			if _, exists := seen[allowedID]; exists {
+				continue
+			}
+			seen[allowedID] = struct{}{}
+			follows, err := s.followRepo.IsFollowing(ctx, allowedID, authorID)
+			if err != nil {
+				return PostDTO{}, fmt.Errorf("check allowed users: %w", err)
+			}
+			if !follows {
+				return PostDTO{}, errors.New("allowed_user_ids must be followers of the author")
+			}
+		}
+	}
+
 	post := domainpost.Post{
 		AuthorID:  authorID,
 		Content:   req.Content,
@@ -82,7 +108,7 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		Privacy:   privacy,
 	}
 
-	created, err := s.repo.Create(ctx, post, req.CategoryIDs)
+	created, err := s.repo.Create(ctx, post, req.CategoryIDs, req.AllowedUserIDs)
 	if err != nil {
 		s.log.Error("failed to create post", err, logger.F("author_id", authorID))
 		return PostDTO{}, fmt.Errorf("create post: %w", err)

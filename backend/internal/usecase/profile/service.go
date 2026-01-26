@@ -33,6 +33,16 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 		return ProfileDTO{}, err
 	}
 	if err := s.ensureAccess(ctx, user, viewerID); err != nil {
+		if errors.Is(err, ErrForbidden) {
+			return ProfileDTO{
+				User:           mapUserLimited(user),
+				FollowersCount: nil,
+				FollowingCount: nil,
+				IsFollowing:    false,
+				IsFollowedBy:   false,
+				Limited:        true,
+			}, nil
+		}
 		return ProfileDTO{}, err
 	}
 
@@ -63,8 +73,8 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 
 	return ProfileDTO{
 		User:           mapUser(user),
-		FollowersCount: followers,
-		FollowingCount: following,
+		FollowersCount: &followers,
+		FollowingCount: &following,
 		IsFollowing:    isFollowing,
 		IsFollowedBy:   isFollowedBy,
 	}, nil
@@ -151,5 +161,16 @@ func mapUser(u domainuser.User) UserDTO {
 		IsPublic:    u.IsPublic,
 		CreatedAt:   u.CreatedAt,
 		UpdatedAt:   u.UpdatedAt,
+	}
+}
+
+func mapUserLimited(u domainuser.User) LimitedUserDTO {
+	return LimitedUserDTO{
+		ID:         u.ID,
+		FirstName:  u.FirstName,
+		LastName:   u.LastName,
+		Nickname:   u.Nickname,
+		AvatarPath: u.AvatarPath,
+		IsPublic:   u.IsPublic,
 	}
 }

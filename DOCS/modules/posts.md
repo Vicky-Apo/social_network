@@ -82,7 +82,8 @@ Request body (JSON):
   "content": "My post",
   "media_path": "/uploads/cat.gif",
   "privacy": "public",
-  "category_ids": [1, 3]
+  "category_ids": [1, 3],
+  "allowed_user_ids": [5, 8]
 }
 ```
 
@@ -90,6 +91,7 @@ Notes:
 - `content` or `media_path` is required (one can be empty, not both).
 - `privacy` must be `public`, `followers`, or `private`.
 - `category_ids` is optional.
+- `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
 
 Response (201):
 

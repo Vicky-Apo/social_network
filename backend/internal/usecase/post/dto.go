@@ -22,8 +22,9 @@ type PostDTO struct {
 
 // CreatePostRequest is the request to create a post.
 type CreatePostRequest struct {
-	Content     string  `json:"content"`
-	MediaPath   *string `json:"media_path,omitempty"`
-	Privacy     string  `json:"privacy"`
-	CategoryIDs []int64 `json:"category_ids,omitempty"`
+	Content        string  `json:"content"`
+	MediaPath      *string `json:"media_path,omitempty"`
+	Privacy        string  `json:"privacy"`
+	CategoryIDs    []int64 `json:"category_ids,omitempty"`
+	AllowedUserIDs []int64 `json:"allowed_user_ids,omitempty"`
 }

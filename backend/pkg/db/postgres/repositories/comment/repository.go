@@ -50,10 +50,19 @@ func (r *Repository) Create(ctx context.Context, comment domaincomment.Comment) 
 // GetByPostID gets all comments for a post
 func (r *Repository) GetByPostID(ctx context.Context, postID int64) ([]domaincomment.Comment, error) {
 	query := `
-		SELECT id, post_id, author_id, content, media_path, created_at, updated_at
-		FROM comments
-		WHERE post_id = $1
-		ORDER BY created_at ASC
+		SELECT c.id, c.post_id, c.author_id, c.content, c.media_path, c.created_at, c.updated_at,
+		       COALESCE(rc.like_count, 0) AS like_count,
+		       COALESCE(rc.dislike_count, 0) AS dislike_count
+		FROM comments c
+		LEFT JOIN (
+			SELECT comment_id,
+			       COUNT(*) FILTER (WHERE reaction = 'like') AS like_count,
+			       COUNT(*) FILTER (WHERE reaction = 'dislike') AS dislike_count
+			FROM comment_reactions
+			GROUP BY comment_id
+		) rc ON rc.comment_id = c.id
+		WHERE c.post_id = $1
+		ORDER BY c.created_at ASC
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, postID)
@@ -73,6 +82,8 @@ func (r *Repository) GetByPostID(ctx context.Context, postID int64) ([]domaincom
 			&c.MediaPath,
 			&c.CreatedAt,
 			&c.UpdatedAt,
+			&c.LikeCount,
+			&c.DislikeCount,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)

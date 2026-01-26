@@ -166,7 +166,7 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 }
 
 // Create inserts a new post and optional categories.
-func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64) (domainpost.Post, error) {
+func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
@@ -206,6 +206,21 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 			}
 			if _, err = tx.ExecContext(ctx, catQuery, post.ID, categoryID); err != nil {
 				return domainpost.Post{}, fmt.Errorf("insert post category: %w", err)
+			}
+		}
+	}
+
+	if len(allowedUserIDs) > 0 {
+		const allowedQuery = `
+			INSERT INTO post_allowed_users (post_id, user_id)
+			VALUES ($1, $2)
+		`
+		for _, userID := range allowedUserIDs {
+			if userID <= 0 {
+				return domainpost.Post{}, fmt.Errorf("invalid allowed user id")
+			}
+			if _, err = tx.ExecContext(ctx, allowedQuery, post.ID, userID); err != nil {
+				return domainpost.Post{}, fmt.Errorf("insert allowed user: %w", err)
 			}
 		}
 	}
