@@ -16,6 +16,7 @@ type PostReaction struct {
 	UserID    int64
 	Reaction  ReactionType
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // CommentReaction represents a reaction to a comment
@@ -24,4 +25,5 @@ type CommentReaction struct {
 	UserID    int64
 	Reaction  ReactionType
 	CreatedAt time.Time
+	UpdatedAt time.Time
 }

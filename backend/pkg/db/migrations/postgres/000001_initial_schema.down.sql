@@ -12,8 +12,6 @@ DROP TRIGGER IF EXISTS trg_posts_updated_at ON posts;
 DROP TRIGGER IF EXISTS trg_group_join_requests_updated_at ON group_join_requests;
 DROP TRIGGER IF EXISTS trg_group_invitations_updated_at ON group_invitations;
 DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
-DROP TRIGGER IF EXISTS trg_follows_updated_at ON follows;
-DROP TRIGGER IF EXISTS trg_follow_requests_updated_at ON follow_requests;
 DROP TRIGGER IF EXISTS trg_users_updated_at ON users;
 
 
@@ -62,6 +60,8 @@ DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS comment_reactions;
 DROP TABLE IF EXISTS post_reactions;
 DROP TABLE IF EXISTS post_categories;
+DROP VIEW IF EXISTS post_reaction_counts;
+DROP VIEW IF EXISTS post_comment_counts;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS comments;
 DROP TABLE IF EXISTS post_allowed_users;

@@ -13,13 +13,18 @@ import (
 	"social-network/backend/internal/transport/http/middleware"
 	authusecase "social-network/backend/internal/usecase/auth"
 	commentusecase "social-network/backend/internal/usecase/comment"
+	followusecase "social-network/backend/internal/usecase/follow"
 	postusecase "social-network/backend/internal/usecase/post"
+	profileusecase "social-network/backend/internal/usecase/profile"
 	reactionusecase "social-network/backend/internal/usecase/reaction"
+	userusecase "social-network/backend/internal/usecase/user"
 	"social-network/backend/pkg/db/postgres"
 	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
 	commentrepo "social-network/backend/pkg/db/postgres/repositories/comment"
+	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
 	reactionrepo "social-network/backend/pkg/db/postgres/repositories/reaction"
+	userrepo "social-network/backend/pkg/db/postgres/repositories/user"
 	"social-network/backend/pkg/logger"
 	"social-network/backend/pkg/utils"
 )
@@ -72,12 +77,17 @@ func Run(ctx context.Context) error {
 	postRepository := postrepo.NewRepository(db)
 	commentRepository := commentrepo.NewRepository(db)
 	reactionRepository := reactionrepo.NewRepository(db)
+	userRepository := userrepo.NewRepository(db)
+	followRepository := followrepo.NewRepository(db)
 
 	// Services
 	authService := authusecase.NewService(authRepository, cfg.Auth, log)
-	postService := postusecase.NewService(postRepository, log)
+	postService := postusecase.NewService(postRepository, userRepository, followRepository, log)
 	commentService := commentusecase.NewService(commentRepository)
 	reactionService := reactionusecase.NewService(reactionRepository)
+	profileService := profileusecase.NewService(userRepository, followRepository)
+	followService := followusecase.NewService(userRepository, followRepository)
+	userService := userusecase.NewService(userRepository)
 
 	// Handlers
 	authHandlerCfg := handler.AuthHandlerConfig{
@@ -86,8 +96,11 @@ func Run(ctx context.Context) error {
 	}
 	authHandler := handler.NewAuthHandler(authService, log, authHandlerCfg)
 	postHandler := handler.NewPostHandler(postService, log)
-	commentHandler := handler.NewCommentHandler(commentService)
-	reactionHandler := handler.NewReactionHandler(reactionService)
+	commentHandler := handler.NewCommentHandler(commentService, log)
+	reactionHandler := handler.NewReactionHandler(reactionService, log)
+	profileHandler := handler.NewProfileHandler(profileService, log)
+	followHandler := handler.NewFollowHandler(followService, log)
+	userHandler := handler.NewUserHandler(userService, log)
 
 	// Middleware (authService implements middleware.SessionValidator)
 	authMiddleware := middleware.Auth(authService, cfg.Auth.SessionCookieName, log)
@@ -120,7 +133,16 @@ func Run(ctx context.Context) error {
 	}
 
 	// Create router with all handlers
-	router := transporthttp.NewRouter(postHandler, authHandler, commentHandler, reactionHandler, mw)
+	router := transporthttp.NewRouter(
+		postHandler,
+		authHandler,
+		commentHandler,
+		reactionHandler,
+		profileHandler,
+		followHandler,
+		userHandler,
+		mw,
+	)
 
 	server := &http.Server{
 		Addr:              cfg.Server.Addr,

@@ -2,9 +2,29 @@
   "info": {
     "name": "Social Network API",
     "_postman_id": "b6a1c54f-45fe-47f6-9c6b-7a3f5b5d9c0e",
-    "description": "Postman collection for Social Network backend (auth + health + comments + reactions).",
+    "description": "Postman collection for Social Network backend (auth + follow + profile + users + posts + comments + reactions + health). All JSON responses use { success, data, error }.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "try {",
+          "  const json = pm.response.json();",
+          "  if (Object.prototype.hasOwnProperty.call(json, \"success\")) {",
+          "    pm.test(\"response has success flag\", function () {",
+          "      pm.expect(json).to.have.property(\"success\");",
+          "    });",
+          "  }",
+          "} catch (e) {",
+          "  // Non-JSON response (e.g. healthz); skip envelope check",
+          "}"
+        ]
+      }
+    }
+  ],
   "item": [
     {
       "name": "Health",
@@ -26,7 +46,7 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Register",
+          "name": "Register User A",
           "request": {
             "method": "POST",
             "header": [
@@ -37,7 +57,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"first_name\": \"{{firstName}}\",\n  \"last_name\": \"{{lastName}}\",\n  \"date_of_birth\": \"{{dateOfBirth}}\",\n  \"nickname\": \"{{nickname}}\",\n  \"about\": \"{{about}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\",\n  \"first_name\": \"{{firstNameA}}\",\n  \"last_name\": \"{{lastNameA}}\",\n  \"date_of_birth\": \"{{dateOfBirthA}}\",\n  \"nickname\": \"{{nicknameA}}\",\n  \"about\": \"{{aboutA}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
@@ -52,7 +72,7 @@
           }
         },
         {
-          "name": "Login",
+          "name": "Register User B",
           "request": {
             "method": "POST",
             "header": [
@@ -63,7 +83,59 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\",\n  \"first_name\": \"{{firstNameB}}\",\n  \"last_name\": \"{{lastNameB}}\",\n  \"date_of_birth\": \"{{dateOfBirthB}}\",\n  \"nickname\": \"{{nicknameB}}\",\n  \"about\": \"{{aboutB}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Login User B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
@@ -114,6 +186,139 @@
       ]
     },
     {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "List Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts?limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Posts by Author",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts?author_id={{authorId}}&limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "author_id",
+                  "value": "{{authorId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Posts by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts?category_id={{categoryId}}&limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "category_id",
+                  "value": "{{categoryId}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Post by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/posts/{{postId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts",
+                "{{postId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"category_ids\": [{{categoryId}}],\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "posts"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "Comments",
       "item": [
         {
@@ -128,7 +333,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"author_id\": {{authorId}},\n  \"content\": \"{{commentContent}}\"\n}"
+              "raw": "{\n  \"content\": \"Nice post!\",\n  \"media_path\": \"/uploads/reply.gif\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts/{{postId}}/comments",
@@ -144,12 +349,12 @@
           }
         },
         {
-          "name": "Get Post Comments",
+          "name": "Get Comments",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/posts/{{postId}}/comments",
+              "raw": "{{baseUrl}}/posts/{{postId}}/comments?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -157,6 +362,16 @@
                 "posts",
                 "{{postId}}",
                 "comments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
               ]
             }
           }
@@ -167,7 +382,7 @@
       "name": "Reactions",
       "item": [
         {
-          "name": "Add Post Reaction",
+          "name": "Toggle Post Reaction",
           "request": {
             "method": "POST",
             "header": [
@@ -178,7 +393,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": {{userId}},\n  \"reaction\": \"{{reactionType}}\"\n}"
+              "raw": "{\n  \"reaction\": \"{{reactionType}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts/{{postId}}/reactions",
@@ -212,7 +427,7 @@
           }
         },
         {
-          "name": "Add Comment Reaction",
+          "name": "Toggle Comment Reaction",
           "request": {
             "method": "POST",
             "header": [
@@ -223,7 +438,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"user_id\": {{userId}},\n  \"reaction\": \"{{reactionType}}\"\n}"
+              "raw": "{\n  \"reaction\": \"{{reactionType}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/comments/{{commentId}}/reactions",
@@ -252,6 +467,241 @@
                 "comments",
                 "{{commentId}}",
                 "reactions"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Follow",
+      "item": [
+        {
+          "name": "Request Follow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"target_id\": {{targetId}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Follow Requests (Incoming)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Follow Requests (Sent)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests/sent",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests",
+                "sent"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Follow Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/follow-requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "follow-requests",
+                "{{requestId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unfollow",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{targetId}}/followers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{targetId}}",
+                "followers"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Followers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/followers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "followers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List Following",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/following",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "following"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Visibility",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_public\": {{isPublic}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/visibility",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "visibility"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users?q={{searchQuery}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "{{searchQuery}}"
+                }
               ]
             }
           }

@@ -40,7 +40,7 @@ func Auth(validator SessionValidator, cookieName string, log logger.Logger) func
 
 			if sessionToken == "" {
 				log.Debug("missing session token", logger.F("ip", ip), logger.F("path", r.URL.Path))
-				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+				utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
 				return
 			}
 
@@ -48,7 +48,7 @@ func Auth(validator SessionValidator, cookieName string, log logger.Logger) func
 			userID, err := validator.ValidateSession(r.Context(), sessionToken)
 			if err != nil {
 				log.Debug("session validation failed", logger.F("ip", ip), logger.F("path", r.URL.Path), logger.F("error", err.Error()))
-				utils.RespondWithError(w, http.StatusUnauthorized, "unauthorized")
+				utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
 				return
 			}
 

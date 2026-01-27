@@ -83,8 +83,8 @@ CREATE TABLE follow_requests (
   id BIGSERIAL PRIMARY KEY,
   requester_id BIGINT NOT NULL,
   target_id BIGINT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   FOREIGN KEY (requester_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (target_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -93,7 +93,6 @@ CREATE TABLE follows (
   follower_id BIGINT NOT NULL,
   following_id BIGINT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
   PRIMARY KEY (follower_id, following_id),
   FOREIGN KEY (follower_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -194,6 +193,18 @@ CREATE TABLE categories (
   description TEXT
 );
 
+INSERT INTO categories (name, description) VALUES
+  ('Programming & Software Development', 'Languages, frameworks, algorithms, design patterns, code reviews.'),
+  ('Web Development', 'Frontend, backend, APIs, performance, accessibility, browsers.'),
+  ('DevOps & Infrastructure', 'Linux, Docker, Kubernetes, CI/CD, cloud, monitoring, scaling.'),
+  ('Databases & Data Engineering', 'SQL/NoSQL, schema design, migrations, performance, backups.'),
+  ('Cybersecurity & Privacy', 'Vulnerabilities, authentication, encryption, secure coding, audits.'),
+  ('AI, Machine Learning & Data Science', 'Models, training, inference, tooling, real-world applications.'),
+  ('Operating Systems & Low-Level Tech', 'Linux, kernels, memory, processes, networking internals.'),
+  ('Hardware & Embedded Systems', 'CPUs, GPUs, IoT, microcontrollers, performance tuning.'),
+  ('Tools, Editors & Productivity', 'IDEs, CLIs, workflows, automation, developer ergonomics.'),
+  ('Architecture, Scalability & System Design', 'Distributed systems, microservices, trade-offs, failures.');
+
 CREATE TABLE post_categories (
   post_id BIGINT NOT NULL,
   category_id BIGINT NOT NULL,
@@ -226,6 +237,18 @@ CREATE TABLE comment_reactions (
   FOREIGN KEY (comment_id) REFERENCES comments(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE VIEW post_comment_counts AS
+SELECT post_id, COUNT(*) AS comment_count
+FROM comments
+GROUP BY post_id;
+
+CREATE VIEW post_reaction_counts AS
+SELECT post_id,
+       COUNT(*) FILTER (WHERE reaction = 'like') AS like_count,
+       COUNT(*) FILTER (WHERE reaction = 'dislike') AS dislike_count
+FROM post_reactions
+GROUP BY post_id;
 
 
 /* =========================
@@ -328,8 +351,12 @@ CREATE TABLE notifications (
 
 -- UNIQUE CONSTRAINTS 
 ALTER TABLE follow_requests
-ADD CONSTRAINT unique_follow_request
-UNIQUE (requester_id, target_id);
+ADD CONSTRAINT follow_request_status_check
+CHECK (status IN ('pending', 'accepted', 'declined', 'canceled'));
+
+CREATE UNIQUE INDEX unique_follow_request_pending
+ON follow_requests (requester_id, target_id)
+WHERE status = 'pending';
 
 ALTER TABLE group_invitations
 ADD CONSTRAINT unique_group_invitation
@@ -396,18 +423,6 @@ $$ LANGUAGE plpgsql;
 /* USERS */
 CREATE TRIGGER trg_users_updated_at
 BEFORE UPDATE ON users
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
-
-/* FOLLOW REQUESTS */
-CREATE TRIGGER trg_follow_requests_updated_at
-BEFORE UPDATE ON follow_requests
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
-
-/* FOLLOWS */
-CREATE TRIGGER trg_follows_updated_at
-BEFORE UPDATE ON follows
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
