@@ -8,7 +8,7 @@ import Button from "../component/ui/button";
 import { useAuth } from "../component/AuthContext";
 
 type FormState = {
-  identifier: string;
+  email: string;
   password: string;
   remember: boolean;
 };
@@ -17,7 +17,7 @@ type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
 
 export default function LoginPage() {
   const [formData, setFormData] = useState<FormState>({
-    identifier: "",
+    email: "",
     password: "",
     remember: false,
   });
@@ -37,8 +37,10 @@ export default function LoginPage() {
 
   const validateForm = (data: FormState) => {
     const nextErrors: FormErrors = {};
-    if (!data.identifier.trim()) {
-      nextErrors.identifier = "Email or username is required.";
+    if (!data.email.trim()) {
+      nextErrors.email = "Email is required.";
+    } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+      nextErrors.email = "Enter a valid email.";
     }
     if (!data.password) {
       nextErrors.password = "Password is required.";
@@ -59,20 +61,15 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setErrors({});
 
-    const identifier = formData.identifier.trim();
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const endpoint = apiBaseUrl ? `${apiBaseUrl}/auth/login` : "/api/auth/login";
+    const apiBaseUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
+      "http://localhost:8080";
+    const endpoint = `${apiBaseUrl}/auth/login`;
 
-    const payload: Record<string, string> = {
-      identifier,
+    const payload = {
+      email: formData.email.trim(),
       password: formData.password,
     };
-
-    if (identifier.includes("@")) {
-      payload.email = identifier;
-    } else {
-      payload.username = identifier;
-    }
 
     try {
       const response = await fetch(endpoint, {
@@ -80,30 +77,35 @@ export default function LoginPage() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; data?: any; error?: string }
+        | null;
+      if (!response.ok || !result?.success) {
         setErrors({
-          submit: data?.message || "Login failed. Please try again.",
+          submit: result?.error || "Login failed. Please try again.",
         });
         return;
       }
 
-      const token = data?.token || data?.accessToken;
+      const token = result?.data?.token;
       if (!token) {
         setErrors({ submit: "Login failed. Missing token in response." });
         return;
       }
 
       const user = {
-        username: data?.username || data?.user?.username,
-        email: data?.email || data?.user?.email,
+        id: result?.data?.user?.id,
+        email: result?.data?.user?.email,
+        firstName: result?.data?.user?.first_name,
+        lastName: result?.data?.user?.last_name,
       };
 
       login(token, user, formData.remember);
-      router.push("/");
+      router.push("/home");
     } catch {
       setErrors({ submit: "Network error. Please try again." });
     } finally {
@@ -127,21 +129,21 @@ export default function LoginPage() {
 
             <form className="space-y-4 text-left" onSubmit={handleSubmit} noValidate>
               <div className="space-y-2">
-                <label htmlFor="identifier" className="text-sm font-medium block">
-                  Email or Username
+                <label htmlFor="email" className="text-sm font-medium block">
+                  Email
                 </label>
                 <Input
-                  id="identifier"
-                  name="identifier"
-                  type="text"
-                  placeholder="Enter your email or username"
-                  autoComplete="username"
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  autoComplete="email"
                   className="w-full h-10 rounded-md border-slate-300 text-sm focus:ring-1 focus:ring-blue-500"
-                  value={formData.identifier}
+                  value={formData.email}
                   onChange={handleInputChange}
                 />
-                {errors.identifier ? (
-                  <p className="text-xs text-red-600">{errors.identifier}</p>
+                {errors.email ? (
+                  <p className="text-xs text-red-600">{errors.email}</p>
                 ) : null}
               </div>
 

@@ -10,19 +10,19 @@ import (
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/sqlite3" // sqlite driver
-	_ "github.com/golang-migrate/migrate/v4/source/file"      // file:// migrations
-	_ "github.com/mattn/go-sqlite3"                           // sqlite driver for database/sql
+	_ "github.com/golang-migrate/migrate/v4/database/postgres" // postgres driver
+	_ "github.com/golang-migrate/migrate/v4/source/file"       // file:// migrations
+	_ "github.com/lib/pq"                                      // postgres driver for database/sql
 )
 
 // A tiny helper to print the current migration version using the bundled drivers.
 func main() {
-	dbURL := flag.String("database", os.Getenv("DATABASE_PATH"), "database URL (e.g. sqlite3:///path/to/db or file:./data/social.db)")
-	migrationsPath := flag.String("path", os.Getenv("MIGRATIONS_PATH"), "migrations directory (e.g. pkg/db/migrations/sqlite)")
+	dbURL := flag.String("database", os.Getenv("DATABASE_URL"), "database URL (e.g. postgres://user:pass@localhost:5432/db?sslmode=disable)")
+	migrationsPath := flag.String("path", os.Getenv("MIGRATIONS_PATH"), "migrations directory (e.g. pkg/db/migrations/postgres)")
 	flag.Parse()
 
 	if *dbURL == "" {
-		log.Fatal("database URL is required (flag -database or env DATABASE_PATH)")
+		log.Fatal("database URL is required (flag -database or env DATABASE_URL)")
 	}
 	if *migrationsPath == "" {
 		log.Fatal("migrations path is required (flag -path or env MIGRATIONS_PATH)")

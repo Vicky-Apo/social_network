@@ -1,8 +1,8 @@
 # Defaults for migration commands. Override as needed, e.g.:
-# DB_URL=sqlite3:///tmp/test.db make migrate-up
-DB_URL ?= sqlite3://$(PWD)/data/social.db
-MIGRATIONS_PATH ?= pkg/db/migrations/sqlite
-MIGRATE ?= CGO_ENABLED=1 go run -tags "sqlite3" github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+# DB_URL=postgres://user:pass@localhost:5433/db?sslmode=disable make migrate-up
+DB_URL ?= postgres://social-network-role:123456@localhost:5433/social-network-db?sslmode=disable
+MIGRATIONS_PATH ?= pkg/db/migrations/postgres
+MIGRATE ?= go run -tags "postgres" github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
 
 migrate-up:
 	$(MIGRATE) -database "$(DB_URL)" -path "$(MIGRATIONS_PATH)" up
@@ -23,3 +23,19 @@ migrate-force:
 
 run-server:
 	go run ./cmd/server
+
+db-up:
+	docker compose -f ../docker-compose.yml up -d
+
+db-down:
+	docker compose -f ../docker-compose.yml down
+
+db-ps:
+	docker compose -f ../docker-compose.yml ps
+
+db-logs:
+	docker compose -f ../docker-compose.yml logs -f postgres
+
+db-reset:
+	docker compose -f ../docker-compose.yml down -v
+	docker compose -f ../docker-compose.yml up -d

@@ -1,20 +1,21 @@
 # Backend Architecture Overview
 
 ## Purpose
-This project implements the backend of a Facebook-like social network using a Clean / Hexagonal Architecture-inspired approach. The goal is to balance clarity, maintainability, and simplicity while respecting the project constraints (SQLite, migrations, Docker, WebSockets, sessions).
+This project implements the backend of a Facebook-like social network using a Clean / Hexagonal Architecture-inspired approach. The goal is to balance clarity, maintainability, and simplicity while respecting the project constraints (Postgres, migrations, Docker, WebSockets, sessions).
 
 The backend is designed as a modular monolith: one backend service, one database, but with strong internal boundaries.
 
 ## High-Level Architecture
-Transport Layer (HTTP / WebSocket)
+Transport Layer (REST / GraphQL / WebSocket)
 ↓
 Application Layer (Use Cases)
 ↓
 Domain Layer (Entities & Rules)
 ↓
-Infrastructure Layer (SQLite, FS)
+Infrastructure Layer (Postgres, FS)
 
 Dependencies always point inward. Inner layers never depend on outer layers.
+Strict rule: Domain and Application must not import DB, HTTP, WebSocket, or framework packages.
 
 ## Architectural Style
 - Modular monolith
@@ -62,11 +63,17 @@ Responsibilities:
 
 All business logic lives here.
 
+Use-case boundaries and DTO flow:
+- Each use case exposes a single entry point per action (e.g., `CreatePost`, `SendMessage`).
+- Inputs are request DTOs defined in the application layer (no HTTP/GraphQL types).
+- Outputs are response DTOs defined in the application layer (no DB models).
+- Transport maps incoming payloads → request DTOs, calls use case, maps response DTOs → transport response.
+
 ### 3) Infrastructure Layer
 The infrastructure layer provides technical implementations for external systems.
 
 Includes:
-- SQLite repositories
+- Postgres repositories
 - Database connection and migrations
 - Filesystem access (images/GIFs)
 - Session and cookie handling
@@ -76,13 +83,14 @@ Characteristics:
 - Replaceable without changing business logic
 - Isolated from application and domain layers
 
-SQLite is used as required by the project.
+Postgres is used as required by the project.
 
 ### 4) Transport Layer
 The transport layer exposes the backend to clients.
 
 Includes:
-- HTTP handlers (REST endpoints)
+- REST handlers
+- GraphQL handlers
 - WebSocket handlers (real-time chat)
 
 Responsibilities:
@@ -92,6 +100,13 @@ Responsibilities:
 - Format responses
 
 This layer contains no business logic and no SQL.
+
+Transport responsibilities and when to use each:
+- REST: commands and simple reads (auth, create/update/delete, small lookups).
+- GraphQL: complex reads (feeds, profiles, dashboards) with client-defined shapes.
+- WebSocket: real-time events only (chat, notifications, presence, typing).
+
+Strict rule: Transport must never call the database directly. It only calls use cases.
 
 ## Dependency Injection
 Dependencies are wired manually in the application entry point (`main.go`):
@@ -103,7 +118,7 @@ Dependencies are wired manually in the application entry point (`main.go`):
 This keeps control explicit and avoids hidden framework behavior.
 
 ## Database Strategy
-- SQLite is the single database
+- Postgres is the single database
 - Schema is designed first (ERD)
 - Versioned migrations manage schema evolution
 - Migrations run automatically on server startup
@@ -137,13 +152,35 @@ Despite internal modularity, the system remains easy to build and run.
 
 ### Alignment with Project Requirements
 The architecture fully supports:
-- SQLite
+- Postgres
 - Migrations
 - Docker
 - Sessions and cookies
 - WebSockets
 - Real-time chat
 - Notifications
+
+## Implementation Guidance (practical rules)
+- Domain never imports `net/http`, GraphQL packages, WebSocket packages, or database drivers.
+- Application never imports transport or database packages. It depends on interfaces only.
+- Infrastructure implements interfaces defined by the domain/application layers.
+- Transport is thin: map input → DTO, call use case, map output → response.
+- Keep DTOs in the application layer; do not reuse DB models or transport payloads.
+- If a rule is broken, fix the layering instead of adding shortcuts.
+
+## REST vs GraphQL vs WebSocket (usage guide)
+- REST endpoints should map 1:1 to use cases (commands and simple reads).
+- GraphQL resolvers should call use cases; resolvers must not execute raw SQL.
+- WebSocket handlers decode messages and call use cases; broadcasting is infrastructure.
+
+## Example Flow (Create Post)
+1) REST handler receives JSON.
+2) Maps JSON to `CreatePostRequest`.
+3) Calls `CreatePost` use case.
+4) Use case validates rules, calls repository interface.
+5) Repository implementation writes to Postgres.
+6) Use case returns `CreatePostResponse`.
+7) Handler maps response to JSON.
 
 ## Final Statement
 This architecture provides a professional-grade structure while remaining appropriate for the scope of the project. It avoids premature optimization and unnecessary microservices, focusing instead on correctness, clarity, and long-term maintainability.
@@ -221,8 +258,8 @@ backend/
 │
 ├── pkg/                         # Infrastructure & shared adapters
 │   ├── db/
-│   │   ├── sqlite/
-│   │   │   ├── sqlite.go        # DB init + migrations
+│   │   ├── postgres/
+│   │   │   ├── postgres.go      # DB init + migrations
 │   │   │   └── repositories/
 │   │   │       ├── user.go
 │   │   │       ├── post.go
@@ -231,9 +268,9 @@ backend/
 │   │   │       └── notification.go
 │   │   │
 │   │   └── migrations/
-│   │       └── sqlite/
-│   │           ├── 000001_create_users.up.sql
-│   │           ├── 000001_create_users.down.sql
+│   │       └── postgres/
+│   │           ├── 000001_create_users_table.up.sql
+│   │           ├── 000001_create_users_table.down.sql
 │   │           ├── ...
 │   │
 │   ├── auth/
@@ -241,9 +278,6 @@ backend/
 │   │
 │   └── utils/
 │       └── env.go
-│
-├── data/
-│   └── social.db
 │
 ├── docs/
 │   ├── migrations.md

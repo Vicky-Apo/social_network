@@ -30,7 +30,6 @@ export default function RegisterPage() {
   };
 
   const [formData, setFormData] = useState<FormState>(initialFormData);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -43,9 +42,10 @@ export default function RegisterPage() {
     }
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    setAvatarFile(file);
+  const formatDateOfBirth = (value: string) => {
+    const [year, month, day] = value.split("-");
+    if (!year || !month || !day) return "";
+    return `${day}/${month}/${year}`;
   };
 
   const validateForm = (data: FormState) => {
@@ -64,13 +64,16 @@ export default function RegisterPage() {
     }
     if (!data.password) {
       nextErrors.password = "Password is required.";
-    } else if (data.password.length < 6) {
-      nextErrors.password = "Password must be at least 6 characters.";
+    } else if (data.password.length < 8) {
+      nextErrors.password = "Password must be at least 8 characters.";
     }
     if (!data.confirmPassword) {
       nextErrors.confirmPassword = "Please confirm your password.";
     } else if (data.password !== data.confirmPassword) {
       nextErrors.confirmPassword = "Passwords do not match.";
+    }
+    if (!data.dob) {
+      nextErrors.dob = "Date of birth is required.";
     }
 
     return nextErrors;
@@ -89,48 +92,46 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     setErrors({});
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "";
-    const endpoint = apiBaseUrl
-      ? `${apiBaseUrl}/auth/register`
-      : "/api/auth/register";
+    const apiBaseUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
+      "http://localhost:8080";
+    const endpoint = `${apiBaseUrl}/auth/register`;
+
+    const dateOfBirth = formatDateOfBirth(formData.dob);
+    const payload = {
+      email: formData.email.trim(),
+      password: formData.password,
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
+      date_of_birth: dateOfBirth,
+      ...(formData.nickname.trim()
+        ? { nickname: formData.nickname.trim() }
+        : {}),
+      ...(formData.about.trim() ? { about: formData.about.trim() } : {}),
+    };
 
     try {
-      let response: Response;
-      if (avatarFile) {
-        const payload = new FormData();
-        payload.append("firstName", formData.firstName);
-        payload.append("lastName", formData.lastName);
-        payload.append("email", formData.email);
-        payload.append("password", formData.password);
-        payload.append("confirmPassword", formData.confirmPassword);
-        payload.append("dob", formData.dob);
-        payload.append("nickname", formData.nickname);
-        payload.append("about", formData.about);
-        payload.append("avatar", avatarFile);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
 
-        response = await fetch(endpoint, {
-          method: "POST",
-          body: payload,
-        });
-      } else {
-        response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(formData),
-        });
-      }
+      const result = (await response.json().catch(() => null)) as
+        | { success?: boolean; data?: any; error?: string }
+        | null;
 
-      if (!response.ok) {
+      if (!response.ok || !result?.success) {
         setErrors({
-          submit: "Registration failed. Please try again.",
+          submit: result?.error || "Registration failed. Please try again.",
         });
         return;
       }
 
       setFormData(initialFormData);
-      setAvatarFile(null);
     } catch (error) {
       setErrors({
         submit: "Network error. Please try again.",
@@ -261,12 +262,15 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Input
                     id="dob"
-                    type="text"
-                    placeholder="MM / DD / YYYY"
+                    type="date"
+                    placeholder="DD / MM / YYYY"
                     className="w-full h-10 rounded-md border-slate-300 pr-10 text-sm focus:ring-1 focus:ring-blue-500"
                     value={formData.dob}
                     onChange={handleInputChange}
                   />
+                  {errors.dob ? (
+                    <p className="text-xs text-red-600">{errors.dob}</p>
+                  ) : null}
                   <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                     <svg
                       aria-hidden="true"
@@ -298,18 +302,6 @@ export default function RegisterPage() {
                     className="w-full h-10 rounded-md border-slate-300 text-sm focus:ring-1 focus:ring-blue-500"
                     value={formData.nickname}
                     onChange={handleInputChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="avatar" className="text-sm font-medium block">
-                    Upload Avatar (Optional)
-                  </label>
-                  <Input
-                    id="avatar"
-                    type="file"
-                    accept="image/*"
-                    className="w-full h-10 rounded-md border-slate-300 text-sm file:border-0 file:bg-slate-100 file:text-slate-700 file:py-2 file:px-3"
-                    onChange={handleAvatarChange}
                   />
                 </div>
               </div>
