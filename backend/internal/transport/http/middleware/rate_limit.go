@@ -76,8 +76,13 @@ func (rl *RateLimiter) Stop() {
 	close(rl.stopCleanup)
 }
 
-// isAllowed checks if a request from the given IP is allowed
-func (rl *RateLimiter) isAllowed(ip string) bool {
+// IsAllowed checks if a request from the given key is allowed within the sliding window.
+// Returns true immediately if rate limiting is disabled.
+func (rl *RateLimiter) IsAllowed(key string) bool {
+	if !rl.enabled {
+		return true
+	}
+
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -85,7 +90,7 @@ func (rl *RateLimiter) isAllowed(ip string) bool {
 	windowStart := now.Add(-time.Minute)
 
 	// Get existing timestamps and filter expired ones
-	timestamps := rl.requests[ip]
+	timestamps := rl.requests[key]
 	valid := make([]time.Time, 0, len(timestamps))
 	for _, t := range timestamps {
 		if t.After(windowStart) {
@@ -95,13 +100,13 @@ func (rl *RateLimiter) isAllowed(ip string) bool {
 
 	// Check if limit exceeded
 	if len(valid) >= rl.requestsPerMinute {
-		rl.requests[ip] = valid
+		rl.requests[key] = valid
 		return false
 	}
 
 	// Add current request timestamp
 	valid = append(valid, now)
-	rl.requests[ip] = valid
+	rl.requests[key] = valid
 
 	return true
 }
@@ -110,17 +115,9 @@ func (rl *RateLimiter) isAllowed(ip string) bool {
 func RateLimit(limiter *RateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip rate limiting if disabled
-			if !limiter.enabled {
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Extract client IP
 			ip := utils.ExtractIPAddress(r)
 
-			// Check if request is allowed
-			if !limiter.isAllowed(ip) {
+			if !limiter.IsAllowed(ip) {
 				limiter.log.Warn("rate limit exceeded",
 					logger.F("ip", ip),
 					logger.F("path", r.URL.Path),

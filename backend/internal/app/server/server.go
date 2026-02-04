@@ -11,7 +11,9 @@ import (
 	transporthttp "social-network/backend/internal/transport/http"
 	"social-network/backend/internal/transport/http/handler"
 	"social-network/backend/internal/transport/http/middleware"
+	transportws "social-network/backend/internal/transport/websocket"
 	authusecase "social-network/backend/internal/usecase/auth"
+	chatusecase "social-network/backend/internal/usecase/chat"
 	commentusecase "social-network/backend/internal/usecase/comment"
 	followusecase "social-network/backend/internal/usecase/follow"
 	postusecase "social-network/backend/internal/usecase/post"
@@ -20,8 +22,10 @@ import (
 	userusecase "social-network/backend/internal/usecase/user"
 	"social-network/backend/pkg/db/postgres"
 	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
+	chatrepo "social-network/backend/pkg/db/postgres/repositories/chat"
 	commentrepo "social-network/backend/pkg/db/postgres/repositories/comment"
 	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
+	grouprepo "social-network/backend/pkg/db/postgres/repositories/group"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
 	reactionrepo "social-network/backend/pkg/db/postgres/repositories/reaction"
 	userrepo "social-network/backend/pkg/db/postgres/repositories/user"
@@ -79,6 +83,8 @@ func Run(ctx context.Context) error {
 	reactionRepository := reactionrepo.NewRepository(db)
 	userRepository := userrepo.NewRepository(db)
 	followRepository := followrepo.NewRepository(db)
+	chatRepository := chatrepo.NewRepository(db)
+	groupRepository := grouprepo.NewRepository(db)
 
 	// Services
 	authService := authusecase.NewService(authRepository, cfg.Auth, log)
@@ -88,6 +94,7 @@ func Run(ctx context.Context) error {
 	profileService := profileusecase.NewService(userRepository, followRepository)
 	followService := followusecase.NewService(userRepository, followRepository)
 	userService := userusecase.NewService(userRepository)
+	chatService := chatusecase.NewService(chatRepository, groupRepository, followRepository, log)
 
 	// Handlers
 	authHandlerCfg := handler.AuthHandlerConfig{
@@ -132,6 +139,13 @@ func Run(ctx context.Context) error {
 		SecurityHeaders: securityHeadersMiddleware,
 	}
 
+	// WebSocket hub and handler
+	wsHub := transportws.NewHub(followRepository, log)
+	go wsHub.Run()
+	defer wsHub.Stop()
+	wsHandler := transportws.NewHandler(wsHub, chatService, rateLimiter, authService, cfg.Auth.SessionCookieName, log)
+	log.Info("websocket hub started")
+
 	// Create router with all handlers
 	router := transporthttp.NewRouter(
 		postHandler,
@@ -141,6 +155,7 @@ func Run(ctx context.Context) error {
 		profileHandler,
 		followHandler,
 		userHandler,
+		wsHandler,
 		mw,
 	)
 

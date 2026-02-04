@@ -184,6 +184,33 @@ func (r *Repository) CreateFollow(ctx context.Context, followerID, followingID i
 	return nil
 }
 
+// GetFollowNetwork returns all user IDs connected to userID by a follow in either direction.
+func (r *Repository) GetFollowNetwork(ctx context.Context, userID int64) ([]int64, error) {
+	const query = `
+		SELECT following_id FROM follows WHERE follower_id = $1
+		UNION
+		SELECT follower_id FROM follows WHERE following_id = $1
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get follow network: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan follow network: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("follow network rows: %w", err)
+	}
+	return ids, nil
+}
+
 // DeleteFollow removes a follow relationship.
 func (r *Repository) DeleteFollow(ctx context.Context, followerID, followingID int64) error {
 	const query = `
