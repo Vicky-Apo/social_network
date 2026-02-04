@@ -3,8 +3,10 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type AuthUser = {
-  username?: string;
+  id?: number;
   email?: string;
+  firstName?: string;
+  lastName?: string;
 };
 
 type AuthContextType = {
