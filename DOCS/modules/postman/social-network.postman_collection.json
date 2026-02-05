@@ -2,7 +2,7 @@
   "info": {
     "name": "Social Network API",
     "_postman_id": "b6a1c54f-45fe-47f6-9c6b-7a3f5b5d9c0e",
-    "description": "Postman collection for Social Network backend (auth + follow + profile + users + posts + comments + reactions + health). All JSON responses use { success, data, error }.",
+    "description": "Postman collection for Social Network backend (auth + follow + profile + users + posts + comments + reactions + websocket chat + health). All JSON responses use { success, data, error }.\n\n## WebSocket Chat\nThe WebSocket endpoint (`/ws`) provides real-time chat functionality:\n- Direct messages (1-on-1)\n- Group messages\n- Typing indicators\n- Multi-device support\n- Authenticated via session cookie\n\nSee the WebSocket folder for connection and message examples.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -707,6 +707,11 @@
           }
         }
       ]
+    },
+    {
+      "name": "WebSocket - See README",
+      "item": [],
+      "description": "# WebSocket Testing Instructions\n\nWebSocket requests cannot be exported/imported in Postman collections. You need to create them manually.\n\n## Quick Start Guide\n\n### Step 1: Login First\nBefore testing WebSocket, login using **Auth → Login User A** to get a session cookie.\n\n### Step 2: Create WebSocket Request\n1. Click **New** → **WebSocket**\n2. Enter URL: `ws://localhost:8080/ws`\n3. Click **Connect**\n4. You should receive:\n```json\n{\n  \"type\": \"connected\",\n  \"payload\": {\n    \"user_id\": 1,\n    \"status\": \"connected\"\n  }\n}\n```\n\n### Step 3: Send Messages\n\n**Send Direct Message:**\n```json\n{\n  \"type\": \"chat_message\",\n  \"payload\": {\n    \"recipient_id\": 2,\n    \"content\": \"Hello! This is a direct message\"\n  }\n}\n```\n\n**Send Group Message:**\n```json\n{\n  \"type\": \"chat_message\",\n  \"payload\": {\n    \"group_id\": 1,\n    \"content\": \"Hello everyone!\"\n  }\n}\n```\n\n**Send Typing Indicator:**\n```json\n{\n  \"type\": \"typing\",\n  \"payload\": {\n    \"conversation_id\": 1,\n    \"is_typing\": true\n  }\n}\n```\n\n## Message Types\n\n### Client → Server\n- `chat_message` - Send messages\n- `typing` - Typing indicators\n\n### Server → Client\n- `connected` - Connection confirmation\n- `chat_message` - Message delivery\n- `typing` - Typing indicators\n- `error` - Error messages\n\n## Error Testing\n\n**Unknown Type Error:**\n```json\n{\n  \"type\": \"unknown_type\",\n  \"payload\": {}\n}\n```\nExpected response:\n```json\n{\n  \"type\": \"error\",\n  \"payload\": {\n    \"message\": \"unknown message type\",\n    \"code\": \"UNKNOWN_TYPE\"\n  }\n}\n```\n\n**Parse Error:**\nSend invalid JSON: `{ invalid }`\n\nExpected response:\n```json\n{\n  \"type\": \"error\",\n  \"payload\": {\n    \"message\": \"invalid message format\",\n    \"code\": \"PARSE_ERROR\"\n  }\n}\n```\n\n## Multi-User Testing\n\n1. Open two Postman windows\n2. Window 1: Login as User A, connect WebSocket\n3. Window 2: Login as User B, connect WebSocket\n4. Send messages between users to test real-time delivery\n\n## Environment Variables\n\nUse these variables in your messages:\n- `{{recipientId}}` - Target user ID (default: 2)\n- `{{groupId}}` - Target group ID (default: 1)\n- `{{conversationId}}` - Conversation ID (default: 1)\n\n## Troubleshooting\n\n**Connection Failed:**\n- Ensure you're logged in (session cookie exists)\n- Check backend is running on port 8080\n- Verify URL is `ws://` not `wss://` for local dev\n\n**Message Not Received:**\n- Check recipient_id or group_id is valid\n- Verify you're a member of the group\n- Check backend logs for errors\n\nFor detailed documentation, see `README.md` in this folder."
     }
   ]
 }
