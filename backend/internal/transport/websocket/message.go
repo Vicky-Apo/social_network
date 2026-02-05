@@ -6,12 +6,14 @@ import (
 
 // Message types for WebSocket communication.
 const (
-	MessageTypeChat        = "chat_message"
-	MessageTypeTyping      = "typing"
-	MessageTypeError       = "error"
-	MessageTypeConnected   = "connected"
-	MessageTypeUserOnline  = "user_online"
-	MessageTypeUserOffline = "user_offline"
+	MessageTypeChat         = "chat_message"
+	MessageTypeTyping       = "typing"
+	MessageTypeError        = "error"
+	MessageTypeConnected    = "connected"
+	MessageTypeUserOnline   = "user_online"
+	MessageTypeUserOffline  = "user_offline"
+	MessageTypeMarkRead     = "mark_read"
+	MessageTypeUnreadCounts = "unread_counts"
 )
 
 // WSMessage represents a WebSocket message envelope.
@@ -49,6 +51,17 @@ type ConnectedPayload struct {
 // UserPresencePayload represents an online/offline status change for a user.
 type UserPresencePayload struct {
 	UserID int64 `json:"user_id"`
+}
+
+// MarkReadPayload represents a request to mark a conversation as read.
+type MarkReadPayload struct {
+	ConversationID int64 `json:"conversation_id"`
+}
+
+// UnreadCountItem represents the unread message count for a single conversation.
+type UnreadCountItem struct {
+	ConversationID int64 `json:"conversation_id"`
+	UnreadCount    int   `json:"unread_count"`
 }
 
 // NewWSMessage creates a new WebSocket message with the given type and payload.

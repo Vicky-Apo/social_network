@@ -39,8 +39,9 @@ type Message struct {
 
 // ConversationMember represents a member of a conversation.
 type ConversationMember struct {
-	ConversationID int64
-	UserID         int64
-	Role           ConversationRole
-	JoinedAt       time.Time
+	ConversationID    int64
+	UserID            int64
+	Role              ConversationRole
+	JoinedAt          time.Time
+	LastReadMessageID *int64
 }

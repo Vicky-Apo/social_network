@@ -89,6 +89,15 @@ func (s *Service) SendDirectMessage(ctx context.Context, senderID, recipientID i
 		return MessageDTO{}, nil, fmt.Errorf("create message: %w", err)
 	}
 
+	// Sender has seen their own message — advance their read pointer
+	if err := s.chatRepo.MarkAsRead(ctx, conv.ID, senderID); err != nil {
+		s.log.Debug("failed to update sender read position",
+			logger.F("sender_id", senderID),
+			logger.F("conversation_id", conv.ID),
+			logger.F("error", err.Error()),
+		)
+	}
+
 	recipientIDs := []int64{recipientID}
 
 	s.log.Debug("direct message sent",
@@ -124,6 +133,15 @@ func (s *Service) SendGroupMessage(ctx context.Context, senderID, groupID int64,
 	msg, err := s.chatRepo.CreateMessage(ctx, convID, senderID, content, mediaPath)
 	if err != nil {
 		return MessageDTO{}, nil, fmt.Errorf("create message: %w", err)
+	}
+
+	// Sender has seen their own message — advance their read pointer
+	if err := s.chatRepo.MarkAsRead(ctx, convID, senderID); err != nil {
+		s.log.Debug("failed to update sender read position",
+			logger.F("sender_id", senderID),
+			logger.F("conversation_id", convID),
+			logger.F("error", err.Error()),
+		)
 	}
 
 	// Get all group members for WebSocket delivery (except sender)
@@ -191,12 +209,19 @@ func (s *Service) ListConversations(ctx context.Context, userID int64) ([]Conver
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}
 
+	// Fetch all unread counts in a single query
+	unreadMap, err := s.chatRepo.GetUnreadConversations(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get unread counts: %w", err)
+	}
+
 	dtos := make([]ConversationDTO, len(conversations))
 	for i, conv := range conversations {
 		dto := ConversationDTO{
-			ID:        conv.ID,
-			Type:      string(conv.Type),
-			CreatedAt: conv.CreatedAt,
+			ID:          conv.ID,
+			Type:        string(conv.Type),
+			UnreadCount: unreadMap[conv.ID], // 0 if not present
+			CreatedAt:   conv.CreatedAt,
 		}
 
 		// For direct conversations, get the other user
@@ -222,6 +247,23 @@ func (s *Service) ListConversations(ctx context.Context, userID int64) ([]Conver
 		dtos[i] = dto
 	}
 	return dtos, nil
+}
+
+// MarkAsRead advances the read pointer for a conversation to the latest message.
+func (s *Service) MarkAsRead(ctx context.Context, userID, conversationID int64) error {
+	isMember, err := s.chatRepo.IsMember(ctx, conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("check membership: %w", err)
+	}
+	if !isMember {
+		return ErrForbidden
+	}
+	return s.chatRepo.MarkAsRead(ctx, conversationID, userID)
+}
+
+// GetUnreadConversations returns a map of conversation_id → unread count for the user.
+func (s *Service) GetUnreadConversations(ctx context.Context, userID int64) (map[int64]int, error) {
+	return s.chatRepo.GetUnreadConversations(ctx, userID)
 }
 
 // GetConversationByID returns a conversation by ID after verifying access.

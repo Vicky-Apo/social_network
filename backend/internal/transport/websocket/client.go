@@ -142,6 +142,8 @@ func (c *Client) handleMessage(ctx context.Context, data []byte) {
 		c.handleChatMessage(ctx, msg.Payload)
 	case MessageTypeTyping:
 		c.handleTypingIndicator(ctx, msg.Payload)
+	case MessageTypeMarkRead:
+		c.handleMarkRead(ctx, msg.Payload)
 	default:
 		c.sendError("unknown message type", "UNKNOWN_TYPE")
 	}
@@ -213,6 +215,25 @@ func (c *Client) handleTypingIndicator(ctx context.Context, payload json.RawMess
 		logger.F("user_id", c.userID),
 		logger.F("is_typing", typingPayload.IsTyping),
 		logger.F("recipients", len(recipientIDs)),
+	)
+}
+
+// handleMarkRead processes a mark-as-read request.
+func (c *Client) handleMarkRead(ctx context.Context, payload json.RawMessage) {
+	var req MarkReadPayload
+	if err := json.Unmarshal(payload, &req); err != nil {
+		c.sendError("invalid mark_read payload", "PARSE_ERROR")
+		return
+	}
+
+	if err := c.chatService.MarkAsRead(ctx, c.userID, req.ConversationID); err != nil {
+		c.log.Debug("failed to mark as read", logger.F("error", err.Error()))
+		c.sendError(err.Error(), "MARK_READ_ERROR")
+		return
+	}
+
+	c.log.Debug("conversation marked as read",
+		logger.F("conversation_id", req.ConversationID),
 	)
 }
 

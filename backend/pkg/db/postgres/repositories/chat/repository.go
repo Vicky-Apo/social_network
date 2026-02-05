@@ -283,6 +283,70 @@ func (r *Repository) GetMessagesByConversation(ctx context.Context, conversation
 	return messages, nil
 }
 
+// MarkAsRead sets last_read_message_id to the latest message in the conversation for the given user.
+func (r *Repository) MarkAsRead(ctx context.Context, conversationID, userID int64) error {
+	const query = `
+		UPDATE conversation_members
+		SET last_read_message_id = (SELECT MAX(id) FROM messages WHERE conversation_id = $1)
+		WHERE conversation_id = $1 AND user_id = $2
+	`
+	if _, err := r.db.ExecContext(ctx, query, conversationID, userID); err != nil {
+		return fmt.Errorf("mark as read: %w", err)
+	}
+	return nil
+}
+
+// GetUnreadCount returns the number of messages in the conversation that the user has not yet read.
+func (r *Repository) GetUnreadCount(ctx context.Context, conversationID, userID int64) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM messages m
+		WHERE m.conversation_id = $1
+		  AND m.id > COALESCE(
+		        (SELECT last_read_message_id FROM conversation_members WHERE conversation_id = $1 AND user_id = $2),
+		        0
+		      )
+	`
+	var count int
+	if err := r.db.QueryRowContext(ctx, query, conversationID, userID).Scan(&count); err != nil {
+		return 0, fmt.Errorf("get unread count: %w", err)
+	}
+	return count, nil
+}
+
+// GetUnreadConversations returns a map of conversation_id → unread message count
+// for every conversation the user belongs to that has at least one unread message.
+func (r *Repository) GetUnreadConversations(ctx context.Context, userID int64) (map[int64]int, error) {
+	const query = `
+		SELECT cm.conversation_id, COUNT(m.id) AS unread_count
+		FROM conversation_members cm
+		JOIN messages m ON m.conversation_id = cm.conversation_id
+		WHERE cm.user_id = $1
+		  AND m.id > COALESCE(cm.last_read_message_id, 0)
+		GROUP BY cm.conversation_id
+		HAVING COUNT(m.id) > 0
+	`
+	rows, err := r.db.QueryContext(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get unread conversations: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[int64]int)
+	for rows.Next() {
+		var convID int64
+		var count int
+		if err := rows.Scan(&convID, &count); err != nil {
+			return nil, fmt.Errorf("scan unread: %w", err)
+		}
+		result[convID] = count
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+	return result, nil
+}
+
 // GetMessageByID returns a message by ID.
 func (r *Repository) GetMessageByID(ctx context.Context, id int64) (domainchat.Message, error) {
 	const query = `

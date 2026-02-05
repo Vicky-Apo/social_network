@@ -27,4 +27,9 @@ type Repository interface {
 	CreateMessage(ctx context.Context, conversationID, senderID int64, content *string, mediaPath *string) (Message, error)
 	GetMessagesByConversation(ctx context.Context, conversationID int64, limit, offset int) ([]Message, error)
 	GetMessageByID(ctx context.Context, id int64) (Message, error)
+
+	// Read tracking
+	MarkAsRead(ctx context.Context, conversationID, userID int64) error
+	GetUnreadCount(ctx context.Context, conversationID, userID int64) (int, error)
+	GetUnreadConversations(ctx context.Context, userID int64) (map[int64]int, error)
 }

@@ -27,6 +27,7 @@ type ConversationDTO struct {
 	OtherUserID  *int64       `json:"other_user_id,omitempty"`  // For direct conversations
 	GroupID      *int64       `json:"group_id,omitempty"`       // For group conversations
 	LastMessage  *MessageDTO  `json:"last_message,omitempty"`
+	UnreadCount  int          `json:"unread_count"`
 	CreatedAt    time.Time    `json:"created_at"`
 }
 
