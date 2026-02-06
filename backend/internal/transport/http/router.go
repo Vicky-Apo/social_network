@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"social-network/backend/internal/transport/http/handler"
+	transportws "social-network/backend/internal/transport/websocket"
 )
 
 // Middleware is a function that wraps an http.Handler
@@ -27,6 +28,7 @@ func NewRouter(
 	profileHandler *handler.ProfileHandler,
 	followHandler *handler.FollowHandler,
 	userHandler *handler.UserHandler,
+	wsHandler *transportws.Handler,
 	mw Middlewares,
 ) http.Handler {
 	mux := http.NewServeMux()
@@ -79,6 +81,9 @@ mux.HandleFunc("GET /comments/{id}/reactions", reactionHandler.GetCommentReactio
 
 	// User routes (protected)
 	mux.Handle("GET /users", mw.Auth(http.HandlerFunc(userHandler.ListUsers)))
+
+	// WebSocket route (authentication handled inside the handler)
+	mux.Handle("/ws", wsHandler)
 
 	// Apply global middlewares (order: security headers -> CORS -> rate limiting)
 	// Security headers are applied first so they're present on all responses
