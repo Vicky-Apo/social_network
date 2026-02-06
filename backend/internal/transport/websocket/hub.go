@@ -183,10 +183,7 @@ func (h *Hub) sendInitialPresence(client *Client) {
 		if err != nil {
 			continue
 		}
-		select {
-		case client.send <- msg:
-		default:
-		}
+		client.trySend(msg)
 	}
 }
 

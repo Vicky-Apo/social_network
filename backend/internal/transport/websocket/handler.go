@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"social-network/backend/internal/transport/http/middleware"
@@ -23,15 +24,6 @@ type MessageRateLimiter interface {
 	IsAllowed(key string) bool
 }
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		// TODO: Configure allowed origins in production
-		return true
-	},
-}
-
 // Handler handles WebSocket upgrade requests.
 type Handler struct {
 	hub         *Hub
@@ -39,6 +31,9 @@ type Handler struct {
 	limiter     MessageRateLimiter
 	validator   middleware.SessionValidator
 	cookieName  string
+	corsEnabled bool
+	origins     string
+	upgrader    websocket.Upgrader
 	log         logger.Logger
 }
 
@@ -49,16 +44,26 @@ func NewHandler(
 	limiter MessageRateLimiter,
 	validator middleware.SessionValidator,
 	cookieName string,
+	corsEnabled bool,
+	allowedOrigins string,
 	log logger.Logger,
 ) *Handler {
-	return &Handler{
+	h := &Handler{
 		hub:         hub,
 		chatService: chatService,
 		limiter:     limiter,
 		validator:   validator,
 		cookieName:  cookieName,
+		corsEnabled: corsEnabled,
+		origins:     allowedOrigins,
 		log:         log.WithFields(logger.F("handler", "websocket")),
 	}
+	h.upgrader = websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin:     h.checkOrigin,
+	}
+	return h
 }
 
 // ServeHTTP handles the WebSocket upgrade request.
@@ -80,7 +85,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Upgrade HTTP connection to WebSocket
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		h.log.Error("failed to upgrade connection", err)
 		return
@@ -128,14 +133,33 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		select {
-		case client.send <- unreadMsg:
-		default:
-		}
+		client.trySend(unreadMsg)
 	}()
 
 	h.log.Info("client connected",
 		logger.F("user_id", userID),
 		logger.F("remote_addr", r.RemoteAddr),
 	)
+}
+
+func (h *Handler) checkOrigin(r *http.Request) bool {
+	if !h.corsEnabled {
+		return true
+	}
+
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+
+	if h.origins == "*" {
+		return true
+	}
+
+	for _, allowed := range strings.Split(h.origins, ",") {
+		if strings.TrimSpace(allowed) == origin {
+			return true
+		}
+	}
+	return false
 }

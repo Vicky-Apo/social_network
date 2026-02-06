@@ -143,7 +143,16 @@ func Run(ctx context.Context) error {
 	wsHub := transportws.NewHub(followRepository, log)
 	go wsHub.Run()
 	defer wsHub.Stop()
-	wsHandler := transportws.NewHandler(wsHub, chatService, rateLimiter, authService, cfg.Auth.SessionCookieName, log)
+	wsHandler := transportws.NewHandler(
+		wsHub,
+		chatService,
+		rateLimiter,
+		authService,
+		cfg.Auth.SessionCookieName,
+		cfg.CORS.Enabled,
+		cfg.CORS.AllowedOrigins,
+		log,
+	)
 	log.Info("websocket hub started")
 
 	// Create router with all handlers

@@ -171,7 +171,7 @@ func (c *Client) handleChatMessage(ctx context.Context, payload json.RawMessage)
 	}
 
 	// Send to sender (confirmation) and to recipients
-	c.send <- responseData
+	c.trySend(responseData)
 	c.hub.SendToUsers(recipientIDs, responseData)
 
 	c.log.Debug("message sent",
@@ -244,5 +244,18 @@ func (c *Client) sendError(message, code string) {
 		c.log.Error("failed to create error message", err)
 		return
 	}
-	c.send <- errorData
+	c.trySend(errorData)
+}
+
+// trySend attempts a non-blocking send and guards against closed-channel panics.
+func (c *Client) trySend(message []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.log.Debug("websocket send on closed channel")
+		}
+	}()
+	select {
+	case c.send <- message:
+	default:
+	}
 }
