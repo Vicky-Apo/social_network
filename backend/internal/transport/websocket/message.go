@@ -76,7 +76,7 @@ type NotificationPayload struct {
 	EntityID   int64          `json:"entity_id"`
 	Metadata   map[string]any `json:"metadata,omitempty"`
 	IsRead     bool           `json:"is_read"`
-	ReadAt     *time.Time     `json:"read_at,omitempty"`
+	ReadAt     *time.Time     `json:"read_at"`
 	CreatedAt  time.Time      `json:"created_at"`
 }
 

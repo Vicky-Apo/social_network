@@ -98,7 +98,7 @@ func Run(ctx context.Context) error {
 	authService := authusecase.NewService(authRepository, cfg.Auth, log)
 	postService := postusecase.NewService(postRepository, userRepository, followRepository, log)
 	notificationPublisher := transportws.NewNotificationPublisher(wsHub)
-	notificationService := notificationusecase.NewService(notificationRepository, notificationPublisher)
+	notificationService := notificationusecase.NewService(notificationRepository, notificationPublisher, log)
 	commentService := commentusecase.NewService(commentRepository, postRepository, notificationService)
 	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, notificationService)
 	profileService := profileusecase.NewService(userRepository, followRepository)

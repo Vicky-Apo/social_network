@@ -99,6 +99,9 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 				return PostDTO{}, errors.New("allowed_user_ids must be followers of the author")
 			}
 		}
+	} else if len(req.AllowedUserIDs) > 0 {
+		// Ignore allowed_user_ids unless privacy is private
+		req.AllowedUserIDs = nil
 	}
 
 	post := domainpost.Post{

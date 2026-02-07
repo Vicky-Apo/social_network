@@ -7,6 +7,7 @@ import (
 	"time"
 
 	domainnotification "social-network/backend/internal/domain/notification"
+	"social-network/backend/pkg/logger"
 )
 
 // Publisher sends real-time notifications (e.g., WebSocket).
@@ -18,11 +19,12 @@ type Publisher interface {
 type Service struct {
 	repo      domainnotification.Repository
 	publisher Publisher
+	log       logger.Logger
 }
 
 // NewService creates a notification service.
-func NewService(repo domainnotification.Repository, publisher Publisher) *Service {
-	return &Service{repo: repo, publisher: publisher}
+func NewService(repo domainnotification.Repository, publisher Publisher, log logger.Logger) *Service {
+	return &Service{repo: repo, publisher: publisher, log: log}
 }
 
 // CreateForUser creates a notification for a user and publishes it if possible.
@@ -35,6 +37,9 @@ func (s *Service) CreateForUser(ctx context.Context, req CreateRequest) (Notific
 	}
 	if req.EntityType == "" || req.Type == "" {
 		return NotificationDTO{}, errors.New("type and entity_type are required")
+	}
+	if !isValidType(req.Type) {
+		return NotificationDTO{}, errors.New("invalid notification type")
 	}
 
 	var metaBytes []byte
@@ -63,7 +68,11 @@ func (s *Service) CreateForUser(ctx context.Context, req CreateRequest) (Notific
 	dto := mapNotification(created)
 
 	if s.publisher != nil {
-		_ = s.publisher.Publish(context.Background(), req.UserID, dto)
+		if err := s.publisher.Publish(ctx, req.UserID, dto); err != nil {
+			if s.log != nil {
+				s.log.Debug("notification publish failed", logger.F("user_id", req.UserID), logger.F("error", err.Error()))
+			}
+		}
 	}
 
 	return dto, nil
@@ -125,5 +134,20 @@ func mapNotification(n domainnotification.Notification) NotificationDTO {
 		IsRead:     n.IsRead,
 		ReadAt:     n.ReadAt,
 		CreatedAt:  n.CreatedAt,
+	}
+}
+
+func isValidType(t string) bool {
+	switch domainnotification.NotificationType(t) {
+	case domainnotification.FollowRequest,
+		domainnotification.GroupInvitation,
+		domainnotification.GroupJoinRequest,
+		domainnotification.EventCreated,
+		domainnotification.PostReaction,
+		domainnotification.CommentReaction,
+		domainnotification.CommentOnPost:
+		return true
+	default:
+		return false
 	}
 }
