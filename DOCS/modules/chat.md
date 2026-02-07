@@ -54,6 +54,7 @@ Sent immediately after a successful WebSocket upgrade.
 ### unread_counts
 
 Sent after connection if the user has unread messages in any conversation. Not sent if everything is read.
+Additionally, the server pushes an `unread_counts` update to recipients whenever a new message is delivered so message badges can update in real time.
 
 ```json
 {
@@ -217,6 +218,7 @@ Each conversation tracks a per-user read position using message IDs.
 - When you send a message, your own read position advances automatically — your own messages never show as unread.
 - When you receive a `chat_message` from someone else, it is unread until you send `mark_read` for that conversation.
 - On WebSocket connect, the server pushes your current unread counts via `unread_counts`. Use this to populate notification badges immediately on app load.
+- On each new incoming message, the server also pushes an `unread_counts` update for that conversation.
 - If a recipient is offline when a message is sent, it is persisted to the database. The `unread_counts` message on their next connection lets them know new messages are waiting.
 
 ## React fetch example

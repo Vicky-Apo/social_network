@@ -173,12 +173,33 @@ func (c *Client) handleChatMessage(ctx context.Context, payload json.RawMessage)
 	// Send to sender (confirmation) and to recipients
 	c.trySend(responseData)
 	c.hub.SendToUsers(recipientIDs, responseData)
+	c.pushUnreadCounts(ctx, recipientIDs, msgDTO.ConversationID)
 
 	c.log.Debug("message sent",
 		logger.F("message_id", msgDTO.ID),
 		logger.F("conversation_id", msgDTO.ConversationID),
 		logger.F("recipients", len(recipientIDs)),
 	)
+}
+
+func (c *Client) pushUnreadCounts(ctx context.Context, recipientIDs []int64, conversationID int64) {
+	for _, userID := range recipientIDs {
+		unreadMap, err := c.chatService.GetUnreadConversations(ctx, userID)
+		if err != nil {
+			continue
+		}
+		count, ok := unreadMap[conversationID]
+		if !ok {
+			count = 0
+		}
+		msg, err := NewWSMessage(MessageTypeUnreadCounts, []UnreadCountItem{
+			{ConversationID: conversationID, UnreadCount: count},
+		})
+		if err != nil {
+			continue
+		}
+		c.hub.SendToUser(userID, msg)
+	}
 }
 
 // handleTypingIndicator processes a typing indicator message.

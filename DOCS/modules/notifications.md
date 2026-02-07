@@ -49,6 +49,7 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
 **Notes:**
 - Results are ordered by `created_at DESC`.
 - `metadata` is optional and varies by type.
+- Notifications are also pushed in real time over WebSocket with type `notification`.
 
 ### Unread count
 

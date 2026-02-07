@@ -60,6 +60,7 @@ Creates a new comment on a post.
 
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID or request body
+- `401 Unauthorized` - Not logged in or invalid session
 - `500 Internal Server Error` - Failed to create comment (e.g., post doesn't exist)
 
 ### Get Post Comments
@@ -110,6 +111,7 @@ Retrieves all comments for a specific post.
 **Notes:**
 - Returns an empty array `[]` if the post has no comments
 - Returns `404 Not Found` if the post doesn't exist
+- Requires authentication (session cookie)
 
 ## Reactions Endpoints
 
@@ -190,6 +192,7 @@ Retrieves all reactions for a specific post.
 - Each user can only have one reaction per post (upsert behavior)
 - `created_at` - When the user first reacted (never changes)
 - `updated_at` - When the user last changed their reaction
+- Requires authentication (session cookie)
 
 ### Toggle Comment Reaction
 
@@ -268,6 +271,7 @@ Retrieves all reactions for a specific comment.
 - Each user can only have one reaction per comment (upsert behavior)
 - `created_at` - When the user first reacted (never changes)
 - `updated_at` - When the user last changed their reaction
+- Requires authentication (session cookie)
 
 ## React Fetch Examples
 

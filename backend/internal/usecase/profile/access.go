@@ -2,7 +2,7 @@ package profile
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	domainuser "social-network/backend/internal/domain/user"
 )
@@ -15,11 +15,14 @@ func (s *Service) ensureAccess(ctx context.Context, user domainuser.User, viewer
 	if viewerID == 0 {
 		return ErrForbidden
 	}
-	follows, err := s.followRepo.IsFollowing(ctx, viewerID, user.ID)
-	if err != nil {
-		return fmt.Errorf("check follow: %w", err)
+	if s.access == nil {
+		return errors.New("access service not configured")
 	}
-	if !follows {
+	ok, err := s.access.CanViewProfile(ctx, viewerID, user.ID)
+	if err != nil {
+		return err
+	}
+	if !ok {
 		return ErrForbidden
 	}
 	return nil

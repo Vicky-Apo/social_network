@@ -12,6 +12,7 @@ import (
 	"social-network/backend/internal/transport/http/handler"
 	"social-network/backend/internal/transport/http/middleware"
 	transportws "social-network/backend/internal/transport/websocket"
+	accessusecase "social-network/backend/internal/usecase/access"
 	authusecase "social-network/backend/internal/usecase/auth"
 	chatusecase "social-network/backend/internal/usecase/chat"
 	commentusecase "social-network/backend/internal/usecase/comment"
@@ -96,15 +97,16 @@ func Run(ctx context.Context) error {
 
 	// Services
 	authService := authusecase.NewService(authRepository, cfg.Auth, log)
-	postService := postusecase.NewService(postRepository, userRepository, followRepository, log)
 	notificationPublisher := transportws.NewNotificationPublisher(wsHub)
 	notificationService := notificationusecase.NewService(notificationRepository, notificationPublisher, log)
+	accessService := accessusecase.NewService(userRepository, followRepository, postRepository, groupRepository, log)
+	postService := postusecase.NewService(postRepository, userRepository, accessService, log)
 	commentService := commentusecase.NewService(commentRepository, postRepository, notificationService)
 	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, notificationService)
-	profileService := profileusecase.NewService(userRepository, followRepository)
+	profileService := profileusecase.NewService(userRepository, accessService)
 	followService := followusecase.NewService(userRepository, followRepository, notificationService)
 	userService := userusecase.NewService(userRepository)
-	chatService := chatusecase.NewService(chatRepository, groupRepository, followRepository, log)
+	chatService := chatusecase.NewService(chatRepository, groupRepository, accessService, log)
 
 	// Handlers
 	authHandlerCfg := handler.AuthHandlerConfig{

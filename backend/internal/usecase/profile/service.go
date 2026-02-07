@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	domainfollow "social-network/backend/internal/domain/follow"
 	domainuser "social-network/backend/internal/domain/user"
 )
 
@@ -14,15 +13,21 @@ var ErrForbidden = errors.New("profile access forbidden")
 
 // Service orchestrates profile-related use cases.
 type Service struct {
-	userRepo   domainuser.Repository
-	followRepo domainfollow.Repository
+	userRepo domainuser.Repository
+	access   AccessService
+}
+
+// AccessService provides centralized access checks.
+type AccessService interface {
+	CanViewProfile(ctx context.Context, viewerID, ownerID int64) (bool, error)
+	IsFollowing(ctx context.Context, followerID, followingID int64) (bool, error)
 }
 
 // NewService builds a profile service with the given repositories.
-func NewService(userRepo domainuser.Repository, followRepo domainfollow.Repository) *Service {
+func NewService(userRepo domainuser.Repository, access AccessService) *Service {
 	return &Service{
-		userRepo:   userRepo,
-		followRepo: followRepo,
+		userRepo: userRepo,
+		access:   access,
 	}
 }
 
@@ -59,12 +64,15 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 	isFollowing := false
 	isFollowedBy := false
 	if viewerID != 0 && viewerID != user.ID {
-		if follow, err := s.followRepo.IsFollowing(ctx, viewerID, user.ID); err != nil {
+		if s.access == nil {
+			return ProfileDTO{}, errors.New("access service not configured")
+		}
+		if follow, err := s.access.IsFollowing(ctx, viewerID, user.ID); err != nil {
 			return ProfileDTO{}, fmt.Errorf("check follow: %w", err)
 		} else {
 			isFollowing = follow
 		}
-		if follow, err := s.followRepo.IsFollowing(ctx, user.ID, viewerID); err != nil {
+		if follow, err := s.access.IsFollowing(ctx, user.ID, viewerID); err != nil {
 			return ProfileDTO{}, fmt.Errorf("check follow: %w", err)
 		} else {
 			isFollowedBy = follow
