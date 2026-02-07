@@ -11,6 +11,7 @@ const (
 	MsgInvalidUserID         = "invalid user id"
 	MsgInvalidCategoryID     = "invalid category_id"
 	MsgInvalidAuthorID       = "invalid author_id"
+	MsgInvalidNotificationID = "invalid notification id"
 	MsgCommentsNotFound      = "comments not found"
 	MsgProfileNotFound       = "profile not found"
 	MsgPostNotFound          = "post not found"

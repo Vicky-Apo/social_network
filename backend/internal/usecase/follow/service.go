@@ -7,6 +7,7 @@ import (
 
 	domainfollow "social-network/backend/internal/domain/follow"
 	domainuser "social-network/backend/internal/domain/user"
+	usecasenotification "social-network/backend/internal/usecase/notification"
 )
 
 // ErrAlreadyFollowing is returned when a follow already exists.
@@ -34,13 +35,20 @@ var ErrInvalidStatus = errors.New("invalid status")
 type Service struct {
 	userRepo   domainuser.Repository
 	followRepo domainfollow.Repository
+	notifier   Notifier
+}
+
+// Notifier allows emitting notifications without coupling to transport details.
+type Notifier interface {
+	CreateForUser(ctx context.Context, req usecasenotification.CreateRequest) (usecasenotification.NotificationDTO, error)
 }
 
 // NewService builds a follow service with the given repositories.
-func NewService(userRepo domainuser.Repository, followRepo domainfollow.Repository) *Service {
+func NewService(userRepo domainuser.Repository, followRepo domainfollow.Repository, notifier Notifier) *Service {
 	return &Service{
 		userRepo:   userRepo,
 		followRepo: followRepo,
+		notifier:   notifier,
 	}
 }
 
@@ -79,6 +87,18 @@ func (s *Service) RequestFollow(ctx context.Context, requesterID, targetID int64
 	req, err := s.followRepo.CreateRequest(ctx, requesterID, targetID)
 	if err != nil {
 		return FollowResultDTO{}, fmt.Errorf("create request: %w", err)
+	}
+	if s.notifier != nil {
+		_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
+			UserID:     targetID,
+			ActorID:    &requesterID,
+			Type:       "follow_request",
+			EntityType: "follow_request",
+			EntityID:   req.ID,
+			Metadata: map[string]any{
+				"requester_id": requesterID,
+			},
+		})
 	}
 	return FollowResultDTO{
 		Status:  "requested",

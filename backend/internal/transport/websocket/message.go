@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // Message types for WebSocket communication.
@@ -14,6 +15,7 @@ const (
 	MessageTypeUserOffline  = "user_offline"
 	MessageTypeMarkRead     = "mark_read"
 	MessageTypeUnreadCounts = "unread_counts"
+	MessageTypeNotification = "notification"
 )
 
 // WSMessage represents a WebSocket message envelope.
@@ -64,6 +66,20 @@ type UnreadCountItem struct {
 	UnreadCount    int   `json:"unread_count"`
 }
 
+// NotificationPayload represents a push notification payload.
+type NotificationPayload struct {
+	ID         int64          `json:"id"`
+	UserID     int64          `json:"user_id"`
+	ActorID    *int64         `json:"actor_id,omitempty"`
+	Type       string         `json:"type"`
+	EntityType string         `json:"entity_type"`
+	EntityID   int64          `json:"entity_id"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	IsRead     bool           `json:"is_read"`
+	ReadAt     *time.Time     `json:"read_at,omitempty"`
+	CreatedAt  time.Time      `json:"created_at"`
+}
+
 // NewWSMessage creates a new WebSocket message with the given type and payload.
 func NewWSMessage(msgType string, payload interface{}) ([]byte, error) {
 	payloadBytes, err := json.Marshal(payload)
@@ -84,4 +100,3 @@ func NewErrorMessage(message, code string) ([]byte, error) {
 		Code:    code,
 	})
 }
-

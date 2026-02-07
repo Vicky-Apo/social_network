@@ -28,6 +28,7 @@ func NewRouter(
 	profileHandler *handler.ProfileHandler,
 	followHandler *handler.FollowHandler,
 	userHandler *handler.UserHandler,
+	notificationHandler *handler.NotificationHandler,
 	wsHandler *transportws.Handler,
 	mw Middlewares,
 ) http.Handler {
@@ -53,18 +54,17 @@ func NewRouter(
 	mux.Handle("GET /posts/{id}", mw.Auth(http.HandlerFunc(postHandler.GetByID)))
 	mux.Handle("POST /posts", mw.Auth(http.HandlerFunc(postHandler.Create)))
 
-	// Comment routes
 	// Comment routes (protected)
-mux.Handle("POST /posts/{id}/comments", mw.Auth(http.HandlerFunc(commentHandler.Create)))
-mux.HandleFunc("GET /posts/{id}/comments", commentHandler.GetByPostID)  // Can be public
+	mux.Handle("POST /posts/{id}/comments", mw.Auth(http.HandlerFunc(commentHandler.Create)))
+	mux.Handle("GET /posts/{id}/comments", mw.Auth(http.HandlerFunc(commentHandler.GetByPostID)))
 
-// Post reaction routes (protected)
-mux.Handle("POST /posts/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddPostReaction)))
-mux.HandleFunc("GET /posts/{id}/reactions", reactionHandler.GetPostReactions)  // Can be public
+	// Post reaction routes (protected)
+	mux.Handle("POST /posts/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddPostReaction)))
+	mux.Handle("GET /posts/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.GetPostReactions)))
 
-// Comment reaction routes (protected)
-mux.Handle("POST /comments/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddCommentReaction)))
-mux.HandleFunc("GET /comments/{id}/reactions", reactionHandler.GetCommentReactions)  // Can be public
+	// Comment reaction routes (protected)
+	mux.Handle("POST /comments/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddCommentReaction)))
+	mux.Handle("GET /comments/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.GetCommentReactions)))
 
 	// Profile routes (protected)
 	mux.Handle("GET /profiles/{id}", mw.Auth(http.HandlerFunc(profileHandler.GetProfile)))
@@ -81,6 +81,12 @@ mux.HandleFunc("GET /comments/{id}/reactions", reactionHandler.GetCommentReactio
 
 	// User routes (protected)
 	mux.Handle("GET /users", mw.Auth(http.HandlerFunc(userHandler.ListUsers)))
+
+	// Notification routes (protected)
+	mux.Handle("GET /notifications", mw.Auth(http.HandlerFunc(notificationHandler.List)))
+	mux.Handle("GET /notifications/unread-count", mw.Auth(http.HandlerFunc(notificationHandler.UnreadCount)))
+	mux.Handle("PATCH /notifications/{id}/read", mw.Auth(http.HandlerFunc(notificationHandler.MarkRead)))
+	mux.Handle("PATCH /notifications/read-all", mw.Auth(http.HandlerFunc(notificationHandler.MarkAllRead)))
 
 	// WebSocket route (authentication handled inside the handler)
 	mux.Handle("/ws", wsHandler)
