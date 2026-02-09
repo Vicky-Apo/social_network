@@ -1,11 +1,10 @@
 package logger
 
 import (
-	"fmt"
+
 	"io"
+	"log/slog"
 	"os"
-	"sync"
-	"time"
 )
 
 // Level represents log severity
@@ -53,12 +52,12 @@ type Logger interface {
 	WithFields(fields ...Field) Logger
 }
 
-// SimpleLogger is a basic implementation of Logger
+// SimpleLogger is a slog-backed implementation of Logger.
 type SimpleLogger struct {
-	mu       sync.Mutex
-	out      io.Writer
-	level    Level
-	fields   []Field
+	out    io.Writer
+	level  Level
+	fields []slog.Attr
+	base   *slog.Logger
 }
 
 // Config holds logger configuration
@@ -72,10 +71,15 @@ func New(cfg Config) *SimpleLogger {
 	if cfg.Output == nil {
 		cfg.Output = os.Stdout
 	}
+	handler := slog.NewTextHandler(cfg.Output, &slog.HandlerOptions{
+		Level: levelToSlog(cfg.Level),
+	})
+	base := slog.New(handler)
 	return &SimpleLogger{
 		out:    cfg.Output,
 		level:  cfg.Level,
 		fields: nil,
+		base:   base,
 	}
 }
 
@@ -92,32 +96,18 @@ func NewDefault(debug bool) *SimpleLogger {
 }
 
 func (l *SimpleLogger) log(level Level, msg string, err error, fields []Field) {
-	if level < l.level {
+	if l.base == nil {
 		return
 	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	timestamp := time.Now().Format(time.RFC3339)
-
-	// Build log line
-	line := fmt.Sprintf("%s [%s] %s", timestamp, level.String(), msg)
-
-	// Add base fields
-	allFields := append(l.fields, fields...)
-
-	// Add error if present
+	attrs := make([]slog.Attr, 0, len(l.fields)+len(fields)+1)
+	attrs = append(attrs, l.fields...)
+	for _, f := range fields {
+		attrs = append(attrs, slog.Any(f.Key, f.Value))
+	}
 	if err != nil {
-		allFields = append(allFields, F("error", err.Error()))
+		attrs = append(attrs, slog.String("error", err.Error()))
 	}
-
-	// Add fields
-	for _, f := range allFields {
-		line += fmt.Sprintf(" %s=%v", f.Key, f.Value)
-	}
-
-	fmt.Fprintln(l.out, line)
+	l.base.LogAttrs(nil, levelToSlog(level), msg, attrs...)
 }
 
 // Debug logs a debug message
@@ -142,13 +132,31 @@ func (l *SimpleLogger) Error(msg string, err error, fields ...Field) {
 
 // WithFields returns a new logger with additional fields
 func (l *SimpleLogger) WithFields(fields ...Field) Logger {
-	newFields := make([]Field, len(l.fields)+len(fields))
-	copy(newFields, l.fields)
-	copy(newFields[len(l.fields):], fields)
+	newAttrs := make([]slog.Attr, len(l.fields), len(l.fields)+len(fields))
+	copy(newAttrs, l.fields)
+	for _, f := range fields {
+		newAttrs = append(newAttrs, slog.Any(f.Key, f.Value))
+	}
 
 	return &SimpleLogger{
 		out:    l.out,
 		level:  l.level,
-		fields: newFields,
+		fields: newAttrs,
+		base:   l.base,
+	}
+}
+
+func levelToSlog(level Level) slog.Level {
+	switch level {
+	case LevelDebug:
+		return slog.LevelDebug
+	case LevelInfo:
+		return slog.LevelInfo
+	case LevelWarn:
+		return slog.LevelWarn
+	case LevelError:
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
 	}
 }
