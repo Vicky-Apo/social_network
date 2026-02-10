@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	domaincomment "social-network/backend/internal/domain/comment"
+	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
 	usecasecomment "social-network/backend/internal/usecase/comment"
 	"social-network/backend/pkg/logger"
@@ -27,6 +28,13 @@ func NewCommentHandler(service *usecasecomment.Service, log logger.Logger) *Comm
 
 // Create handles POST /posts/{id}/comments
 func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
+	authorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "comments.create")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
 	// Parse post ID from path parameter
 	postIDStr := r.PathValue("id")
 	postID, err := strconv.ParseInt(postIDStr, 10, 64)
@@ -45,6 +53,7 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req.PostID = postID
+	req.AuthorID = authorID
 
 	// Create comment
 	comment, err := h.service.Create(r.Context(), req)

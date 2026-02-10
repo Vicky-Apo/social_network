@@ -91,7 +91,9 @@ Notes:
 - `content` or `media_path` is required (one can be empty, not both).
 - `privacy` must be `public`, `followers`, or `private`.
 - `category_ids` is optional.
+- `followers` is the "almost private" option (only followers can see the post).
 - `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
+- `allowed_user_ids` is ignored for `public` and `followers`.
 
 Response (201):
 
@@ -164,6 +166,7 @@ export async function createPost(payload: {
   media_path?: string;
   privacy: "public" | "followers" | "private";
   category_ids?: number[];
+  allowed_user_ids?: number[];
 }) {
   const res = await fetch(`${API_BASE}/posts`, {
     method: "POST",

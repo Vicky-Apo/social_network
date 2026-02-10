@@ -12,7 +12,7 @@ type APIResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// RespondWithError writes a JSON error response
+// RespondWithE	rror writes a JSON error response
 func RespondWithError(w http.ResponseWriter, status int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

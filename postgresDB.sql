@@ -263,6 +263,7 @@ CREATE TABLE event_responses (
 CREATE TABLE conversations (
   id BIGSERIAL PRIMARY KEY,
   type conversation_type NOT NULL,
+  direct_pair_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -271,6 +272,7 @@ CREATE TABLE conversation_members (
   user_id BIGINT NOT NULL,
   role conversation_role NOT NULL DEFAULT 'member',
   joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_read_message_id BIGINT,
   PRIMARY KEY (conversation_id, user_id),
   FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -494,6 +496,10 @@ ON messages (conversation_id, created_at DESC);
 
 CREATE INDEX idx_conversation_members_user
 ON conversation_members (user_id);
+
+CREATE UNIQUE INDEX idx_direct_conversation_pair
+ON conversations (direct_pair_key)
+WHERE type = 'direct' AND direct_pair_key IS NOT NULL;
 
 --NOTIFICATIONS INDEXES
 CREATE INDEX idx_notifications_user

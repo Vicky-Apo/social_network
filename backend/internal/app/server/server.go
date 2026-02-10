@@ -12,10 +12,12 @@ import (
 	"social-network/backend/internal/transport/http/handler"
 	"social-network/backend/internal/transport/http/middleware"
 	transportws "social-network/backend/internal/transport/websocket"
+	accessusecase "social-network/backend/internal/usecase/access"
 	authusecase "social-network/backend/internal/usecase/auth"
 	chatusecase "social-network/backend/internal/usecase/chat"
 	commentusecase "social-network/backend/internal/usecase/comment"
 	followusecase "social-network/backend/internal/usecase/follow"
+	notificationusecase "social-network/backend/internal/usecase/notification"
 	postusecase "social-network/backend/internal/usecase/post"
 	profileusecase "social-network/backend/internal/usecase/profile"
 	reactionusecase "social-network/backend/internal/usecase/reaction"
@@ -26,6 +28,7 @@ import (
 	commentrepo "social-network/backend/pkg/db/postgres/repositories/comment"
 	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
 	grouprepo "social-network/backend/pkg/db/postgres/repositories/group"
+	notificationrepo "social-network/backend/pkg/db/postgres/repositories/notification"
 	postrepo "social-network/backend/pkg/db/postgres/repositories/post"
 	reactionrepo "social-network/backend/pkg/db/postgres/repositories/reaction"
 	userrepo "social-network/backend/pkg/db/postgres/repositories/user"
@@ -85,16 +88,25 @@ func Run(ctx context.Context) error {
 	followRepository := followrepo.NewRepository(db)
 	chatRepository := chatrepo.NewRepository(db)
 	groupRepository := grouprepo.NewRepository(db)
+	notificationRepository := notificationrepo.NewRepository(db)
+
+	// WebSocket hub (needed for notification publisher)
+	wsHub := transportws.NewHub(followRepository, log)
+	go wsHub.Run()
+	defer wsHub.Stop()
 
 	// Services
 	authService := authusecase.NewService(authRepository, cfg.Auth, log)
-	postService := postusecase.NewService(postRepository, userRepository, followRepository, log)
-	commentService := commentusecase.NewService(commentRepository)
-	reactionService := reactionusecase.NewService(reactionRepository)
-	profileService := profileusecase.NewService(userRepository, followRepository)
-	followService := followusecase.NewService(userRepository, followRepository)
+	notificationPublisher := transportws.NewNotificationPublisher(wsHub)
+	notificationService := notificationusecase.NewService(notificationRepository, notificationPublisher, log)
+	accessService := accessusecase.NewService(userRepository, followRepository, postRepository, groupRepository, log)
+	postService := postusecase.NewService(postRepository, userRepository, accessService, log)
+	commentService := commentusecase.NewService(commentRepository, postRepository, notificationService)
+	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, notificationService)
+	profileService := profileusecase.NewService(userRepository, accessService)
+	followService := followusecase.NewService(userRepository, followRepository, notificationService)
 	userService := userusecase.NewService(userRepository)
-	chatService := chatusecase.NewService(chatRepository, groupRepository, followRepository, log)
+	chatService := chatusecase.NewService(chatRepository, groupRepository, accessService, log)
 
 	// Handlers
 	authHandlerCfg := handler.AuthHandlerConfig{
@@ -108,6 +120,7 @@ func Run(ctx context.Context) error {
 	profileHandler := handler.NewProfileHandler(profileService, log)
 	followHandler := handler.NewFollowHandler(followService, log)
 	userHandler := handler.NewUserHandler(userService, log)
+	notificationHandler := handler.NewNotificationHandler(notificationService, log)
 
 	// Middleware (authService implements middleware.SessionValidator)
 	authMiddleware := middleware.Auth(authService, cfg.Auth.SessionCookieName, log)
@@ -139,11 +152,17 @@ func Run(ctx context.Context) error {
 		SecurityHeaders: securityHeadersMiddleware,
 	}
 
-	// WebSocket hub and handler
-	wsHub := transportws.NewHub(followRepository, log)
-	go wsHub.Run()
-	defer wsHub.Stop()
-	wsHandler := transportws.NewHandler(wsHub, chatService, rateLimiter, authService, cfg.Auth.SessionCookieName, log)
+	// WebSocket handler
+	wsHandler := transportws.NewHandler(
+		wsHub,
+		chatService,
+		rateLimiter,
+		authService,
+		cfg.Auth.SessionCookieName,
+		cfg.CORS.Enabled,
+		cfg.CORS.AllowedOrigins,
+		log,
+	)
 	log.Info("websocket hub started")
 
 	// Create router with all handlers
@@ -155,6 +174,7 @@ func Run(ctx context.Context) error {
 		profileHandler,
 		followHandler,
 		userHandler,
+		notificationHandler,
 		wsHandler,
 		mw,
 	)

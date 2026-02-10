@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/lib/pq"
 	domainchat "social-network/backend/internal/domain/chat"
 )
 
@@ -27,18 +28,18 @@ func (r *Repository) GetOrCreateDirectConversation(ctx context.Context, userID1,
 		userID1, userID2 = userID2, userID1
 	}
 
+	directKey := fmt.Sprintf("%d:%d", userID1, userID2)
+
 	// Try to find existing conversation
 	const findQuery = `
-		SELECT c.id, c.type, c.created_at
-		FROM conversations c
-		JOIN conversation_members cm1 ON cm1.conversation_id = c.id AND cm1.user_id = $1
-		JOIN conversation_members cm2 ON cm2.conversation_id = c.id AND cm2.user_id = $2
-		WHERE c.type = 'direct'
+		SELECT id, type, created_at
+		FROM conversations
+		WHERE type = 'direct' AND direct_pair_key = $1
 		LIMIT 1
 	`
 	var conv domainchat.Conversation
 	var convType string
-	err := r.db.QueryRowContext(ctx, findQuery, userID1, userID2).Scan(&conv.ID, &convType, &conv.CreatedAt)
+	err := r.db.QueryRowContext(ctx, findQuery, directKey).Scan(&conv.ID, &convType, &conv.CreatedAt)
 	if err == nil {
 		conv.Type = domainchat.ConversationType(convType)
 		return conv, nil
@@ -55,11 +56,20 @@ func (r *Repository) GetOrCreateDirectConversation(ctx context.Context, userID1,
 	defer tx.Rollback()
 
 	const insertConv = `
-		INSERT INTO conversations (type)
-		VALUES ('direct')
+		INSERT INTO conversations (type, direct_pair_key)
+		VALUES ('direct', $1)
 		RETURNING id, type, created_at
 	`
-	if err := tx.QueryRowContext(ctx, insertConv).Scan(&conv.ID, &convType, &conv.CreatedAt); err != nil {
+	if err := tx.QueryRowContext(ctx, insertConv, directKey).Scan(&conv.ID, &convType, &conv.CreatedAt); err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			_ = tx.Rollback()
+			var existing domainchat.Conversation
+			var existingType string
+			if err := r.db.QueryRowContext(ctx, findQuery, directKey).Scan(&existing.ID, &existingType, &existing.CreatedAt); err == nil {
+				existing.Type = domainchat.ConversationType(existingType)
+				return existing, nil
+			}
+		}
 		return domainchat.Conversation{}, fmt.Errorf("create conversation: %w", err)
 	}
 	conv.Type = domainchat.ConversationType(convType)
