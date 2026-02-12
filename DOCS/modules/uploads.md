@@ -39,3 +39,15 @@ Notes:
 - Only `image/jpeg`, `image/png`, and `image/gif` are accepted.
 - Max upload size is controlled by `MAX_UPLOAD_MB`.
 - Use the returned `path` as `media_path` or `avatar_path` in other endpoints.
+
+### Serve uploaded file (secured)
+
+`GET /uploads/{path...}`
+
+This endpoint enforces per-entity privacy:
+- Post media: requires `CanViewPost`
+- Comment media: requires access to the parent post
+- Message media: requires conversation membership
+- Avatar: requires `CanViewProfile`
+
+If access is denied, the API returns `404` to avoid leaking file existence.

@@ -223,4 +223,48 @@ export async function updateProfile(id: number, payload: {
 ## Notes
 
 - Only the profile owner can update visibility.
-- User activity and posts will be added to profile responses later.
+- User activity and posts are available via the full profile endpoint (below).
+
+### Get profile with posts + activity
+
+`GET /profiles/{id}/full?limit=&offset=&activity_limit=`
+
+Query params:
+- `limit` / `offset` for the main `posts` list
+- `activity_limit` (optional) for `activity.recent_posts` (default: `5`)
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "user": {
+        "id": 2,
+        "email": "jane@example.com",
+        "first_name": "Jane",
+        "last_name": "Doe",
+        "date_of_birth": "31/12/2000",
+        "nickname": "jdoe",
+        "about": "Hi there",
+        "is_public": true,
+        "created_at": "2025-01-24T12:34:56Z",
+        "updated_at": "2025-01-24T12:34:56Z"
+      },
+      "followers_count": 10,
+      "following_count": 5,
+      "is_following": true,
+      "is_followed_by": false
+    },
+    "posts": [],
+    "activity": {
+      "recent_posts": []
+    }
+  }
+}
+```
+
+Notes:
+- If the profile is private and the viewer is not allowed, `posts` and `activity`
+  will be empty and `profile.limited` will be `true`.

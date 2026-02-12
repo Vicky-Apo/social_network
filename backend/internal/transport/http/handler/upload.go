@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"social-network/backend/internal/transport/http/utils"
+	httputils "social-network/backend/internal/transport/http/utils"
 	"social-network/backend/pkg/logger"
+	pkgutils "social-network/backend/pkg/utils"
 )
 
 // UploadHandler serves file uploads.
@@ -38,14 +39,14 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	if err := r.ParseMultipartForm(h.maxBytes); err != nil {
 		logBadRequest(h.log, "uploads.create", logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUpload)
+		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUpload)
 		return
 	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		logBadRequest(h.log, "uploads.create", logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUpload)
+		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUpload)
 		return
 	}
 	defer file.Close()
@@ -55,61 +56,61 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		kind = "media"
 	}
 	if !isAllowedKind(kind) {
-		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUploadKind)
+		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUploadKind)
 		return
 	}
 
 	contentType, sniffed, err := sniffContentType(file)
 	if err != nil {
 		logBadRequest(h.log, "uploads.create", logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUpload)
+		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUpload)
 		return
 	}
 	ext, ok := extensionForContentType(contentType)
 	if !ok {
 		logBadRequest(h.log, "uploads.create", logger.F("content_type", contentType))
-		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUploadType)
+		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUploadType)
 		return
 	}
 
 	name, err := safeFilename(ext)
 	if err != nil {
 		logServerError(h.log, "uploads.create", err)
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 
 	dir := filepath.Join(h.uploadDir, kind)
-	if err := utils.EnsureDir(dir); err != nil {
+	if err := pkgutils.EnsureDir(dir); err != nil {
 		logServerError(h.log, "uploads.create", err, logger.F("dir", dir))
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 
 	fullPath := filepath.Join(dir, name)
-	out, err := utils.SafeCreateFile(fullPath)
+	out, err := pkgutils.SafeCreateFile(fullPath)
 	if err != nil {
 		logServerError(h.log, "uploads.create", err, logger.F("path", fullPath))
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 	defer out.Close()
 
 	if _, err := out.Write(sniffed); err != nil {
 		logServerError(h.log, "uploads.create", err, logger.F("path", fullPath))
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 	if _, err := io.Copy(out, file); err != nil {
 		logServerError(h.log, "uploads.create", err, logger.F("path", fullPath))
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 
 	_ = header // kept for future use (size/name validation)
 
 	publicPath := "/uploads/" + kind + "/" + name
-	utils.RespondWithSuccess(w, http.StatusCreated, map[string]any{
+	httputils.RespondWithSuccess(w, http.StatusCreated, map[string]any{
 		"path":         publicPath,
 		"content_type": contentType,
 	})

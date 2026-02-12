@@ -3,25 +3,29 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	domainuser "social-network/backend/internal/domain/user"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
+	usecasepost "social-network/backend/internal/usecase/post"
 	usecaseprofile "social-network/backend/internal/usecase/profile"
 	"social-network/backend/pkg/logger"
 )
 
 // ProfileHandler serves REST endpoints for profiles.
 type ProfileHandler struct {
-	service *usecaseprofile.Service
-	log     logger.Logger
+	service     *usecaseprofile.Service
+	postService *usecasepost.Service
+	log         logger.Logger
 }
 
 // NewProfileHandler builds a ProfileHandler.
-func NewProfileHandler(service *usecaseprofile.Service, log logger.Logger) *ProfileHandler {
+func NewProfileHandler(service *usecaseprofile.Service, postService *usecasepost.Service, log logger.Logger) *ProfileHandler {
 	return &ProfileHandler{
-		service: service,
-		log:     log.WithFields(logger.F("handler", "profile")),
+		service:     service,
+		postService: postService,
+		log:         log.WithFields(logger.F("handler", "profile")),
 	}
 }
 
@@ -58,6 +62,96 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.RespondWithSuccess(w, http.StatusOK, profile)
+}
+
+// GetProfileFull handles GET /profiles/{id}/full.
+func (h *ProfileHandler) GetProfileFull(w http.ResponseWriter, r *http.Request) {
+	id, remainder, ok := utils.ParsePathIDAndRemainder(r.URL.Path, "/profiles/")
+	if !ok || remainder != "full" {
+		logBadRequest(h.log, "profiles.full", logger.F("path", r.URL.Path))
+		utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+		return
+	}
+
+	viewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "profiles.full")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	limit, offset, err := utils.ParsePagination(r)
+	if err != nil {
+		logBadRequest(h.log, "profiles.full", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	activityLimit := 5
+	if raw := r.URL.Query().Get("activity_limit"); raw != "" {
+		if v, err := strconv.Atoi(raw); err != nil || v < 0 {
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid activity_limit")
+			return
+		} else if v > 0 {
+			activityLimit = v
+		}
+	}
+
+	profile, err := h.service.GetProfile(r.Context(), id, viewerID)
+	if err != nil {
+		switch {
+		case errors.Is(err, domainuser.ErrNotFound):
+			logNotFound(h.log, "profiles.full", logger.F("profile_id", id))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgProfileNotFound)
+		case errors.Is(err, usecaseprofile.ErrForbidden):
+			logForbidden(h.log, "profiles.full", logger.F("profile_id", id), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+		default:
+			logServerError(h.log, "profiles.full", err, logger.F("profile_id", id), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		}
+		return
+	}
+
+	var posts []usecasepost.PostDTO
+	var recent []usecasepost.PostDTO
+	if !profile.Limited && h.postService != nil {
+		posts, err = h.postService.ListByAuthor(r.Context(), id, viewerID, limit, offset)
+		if err != nil {
+			if errors.Is(err, usecasepost.ErrForbidden) {
+				logForbidden(h.log, "profiles.full", logger.F("profile_id", id), logger.F("viewer_id", viewerID))
+				utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+				return
+			}
+			logServerError(h.log, "profiles.full", err, logger.F("profile_id", id))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+			return
+		}
+
+		if activityLimit > 0 {
+			recent, err = h.postService.ListByAuthor(r.Context(), id, viewerID, activityLimit, 0)
+			if err != nil {
+				if errors.Is(err, usecasepost.ErrForbidden) {
+					logForbidden(h.log, "profiles.full", logger.F("profile_id", id), logger.F("viewer_id", viewerID))
+					utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+					return
+				}
+				logServerError(h.log, "profiles.full", err, logger.F("profile_id", id))
+				utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+				return
+			}
+		}
+	}
+
+	type activityDTO struct {
+		RecentPosts []usecasepost.PostDTO `json:"recent_posts"`
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]any{
+		"profile":  profile,
+		"posts":    posts,
+		"activity": activityDTO{RecentPosts: recent},
+	})
 }
 
 // ListFollowers handles GET /profiles/{id}/followers.

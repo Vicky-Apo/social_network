@@ -34,6 +34,7 @@ func NewRouter(
 	chatHandler *handler.ChatHandler,
 	messageReactionHandler *handler.MessageReactionHandler,
 	uploadHandler *handler.UploadHandler,
+	mediaHandler *handler.MediaHandler,
 	uploadsDir string,
 	wsHandler *transportws.Handler,
 	mw Middlewares,
@@ -74,6 +75,7 @@ func NewRouter(
 
 	// Profile routes (protected)
 	mux.Handle("GET /profiles/{id}", mw.Auth(http.HandlerFunc(profileHandler.GetProfile)))
+	mux.Handle("GET /profiles/{id}/full", mw.Auth(http.HandlerFunc(profileHandler.GetProfileFull)))
 	mux.Handle("GET /profiles/{id}/followers", mw.Auth(http.HandlerFunc(profileHandler.ListFollowers)))
 	mux.Handle("GET /profiles/{id}/following", mw.Auth(http.HandlerFunc(profileHandler.ListFollowing)))
 	mux.Handle("PATCH /profiles/{id}/visibility", mw.Auth(http.HandlerFunc(profileHandler.UpdateVisibility)))
@@ -130,9 +132,8 @@ func NewRouter(
 
 	// Upload routes (protected)
 	mux.Handle("POST /uploads", mw.Auth(http.HandlerFunc(uploadHandler.Upload)))
-	if uploadsDir != "" {
-		fileServer := http.FileServer(http.Dir(uploadsDir))
-		mux.Handle("/uploads/", mw.Auth(http.StripPrefix("/uploads/", fileServer)))
+	if uploadsDir != "" && mediaHandler != nil {
+		mux.Handle("GET /uploads/{path...}", mw.Auth(http.HandlerFunc(mediaHandler.Serve)))
 	}
 
 	// WebSocket route (authentication handled inside the handler)

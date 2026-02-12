@@ -63,16 +63,26 @@ func (r *Repository) Create(ctx context.Context, creatorID int64, title string, 
 		RETURNING id
 	`
 	var conversationID int64
-	if err := tx.QueryRowContext(ctx, insertConversation).Scan(&conversationID); err != nil {
-		return domaingroup.Group{}, fmt.Errorf("create group conversation: %w", err)
-	}
-
-	const insertGroupConversation = `
-		INSERT INTO group_conversations (group_id, conversation_id)
-		VALUES ($1, $2)
+	const selectGroupConversation = `
+		SELECT conversation_id
+		FROM group_conversations
+		WHERE group_id = $1
 	`
-	if _, err := tx.ExecContext(ctx, insertGroupConversation, g.ID, conversationID); err != nil {
-		return domaingroup.Group{}, fmt.Errorf("link group conversation: %w", err)
+	if err := tx.QueryRowContext(ctx, selectGroupConversation, g.ID).Scan(&conversationID); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return domaingroup.Group{}, fmt.Errorf("get group conversation: %w", err)
+		}
+		// Fallback: create conversation if trigger is not present.
+		if err := tx.QueryRowContext(ctx, insertConversation).Scan(&conversationID); err != nil {
+			return domaingroup.Group{}, fmt.Errorf("create group conversation: %w", err)
+		}
+		const insertGroupConversation = `
+			INSERT INTO group_conversations (group_id, conversation_id)
+			VALUES ($1, $2)
+		`
+		if _, err := tx.ExecContext(ctx, insertGroupConversation, g.ID, conversationID); err != nil {
+			return domaingroup.Group{}, fmt.Errorf("link group conversation: %w", err)
+		}
 	}
 
 	const insertConversationMember = `

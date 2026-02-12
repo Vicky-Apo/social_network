@@ -648,6 +648,38 @@
           }
         },
         {
+          "name": "Get Profile Full",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/full?limit={{limit}}&offset={{offset}}&activity_limit={{activityLimit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "full"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                },
+                {
+                  "key": "activity_limit",
+                  "value": "{{activityLimit}}"
+                }
+              ]
+            }
+          }
+        },
+        {
           "name": "List Followers",
           "request": {
             "method": "GET",
@@ -1283,6 +1315,24 @@
               ],
               "path": [
                 "uploads"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Uploaded File (Secured)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/uploads/{{uploadPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "{{uploadPath}}"
               ]
             }
           },
