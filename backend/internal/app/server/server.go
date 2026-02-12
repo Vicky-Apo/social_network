@@ -16,7 +16,10 @@ import (
 	authusecase "social-network/backend/internal/usecase/auth"
 	chatusecase "social-network/backend/internal/usecase/chat"
 	commentusecase "social-network/backend/internal/usecase/comment"
+	eventusecase "social-network/backend/internal/usecase/event"
 	followusecase "social-network/backend/internal/usecase/follow"
+	groupusecase "social-network/backend/internal/usecase/group"
+	messagereactionusecase "social-network/backend/internal/usecase/message_reaction"
 	notificationusecase "social-network/backend/internal/usecase/notification"
 	postusecase "social-network/backend/internal/usecase/post"
 	profileusecase "social-network/backend/internal/usecase/profile"
@@ -26,6 +29,7 @@ import (
 	authrepo "social-network/backend/pkg/db/postgres/repositories/auth"
 	chatrepo "social-network/backend/pkg/db/postgres/repositories/chat"
 	commentrepo "social-network/backend/pkg/db/postgres/repositories/comment"
+	eventrepo "social-network/backend/pkg/db/postgres/repositories/event"
 	followrepo "social-network/backend/pkg/db/postgres/repositories/follow"
 	grouprepo "social-network/backend/pkg/db/postgres/repositories/group"
 	notificationrepo "social-network/backend/pkg/db/postgres/repositories/notification"
@@ -83,6 +87,7 @@ func Run(ctx context.Context) error {
 	authRepository := authrepo.NewRepository(db)
 	postRepository := postrepo.NewRepository(db)
 	commentRepository := commentrepo.NewRepository(db)
+	eventRepository := eventrepo.NewRepository(db)
 	reactionRepository := reactionrepo.NewRepository(db)
 	userRepository := userrepo.NewRepository(db)
 	followRepository := followrepo.NewRepository(db)
@@ -101,12 +106,15 @@ func Run(ctx context.Context) error {
 	notificationService := notificationusecase.NewService(notificationRepository, notificationPublisher, log)
 	accessService := accessusecase.NewService(userRepository, followRepository, postRepository, groupRepository, log)
 	postService := postusecase.NewService(postRepository, userRepository, accessService, log)
-	commentService := commentusecase.NewService(commentRepository, postRepository, notificationService)
+	commentService := commentusecase.NewService(commentRepository, postRepository, accessService, notificationService)
 	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, notificationService)
 	profileService := profileusecase.NewService(userRepository, accessService)
 	followService := followusecase.NewService(userRepository, followRepository, notificationService)
 	userService := userusecase.NewService(userRepository)
 	chatService := chatusecase.NewService(chatRepository, groupRepository, accessService, log)
+	groupService := groupusecase.NewService(groupRepository, accessService, notificationService)
+	eventService := eventusecase.NewService(eventRepository, groupRepository, accessService, notificationService)
+	messageReactionService := messagereactionusecase.NewService(chatRepository)
 
 	// Handlers
 	authHandlerCfg := handler.AuthHandlerConfig{
@@ -121,6 +129,11 @@ func Run(ctx context.Context) error {
 	followHandler := handler.NewFollowHandler(followService, log)
 	userHandler := handler.NewUserHandler(userService, log)
 	notificationHandler := handler.NewNotificationHandler(notificationService, log)
+	groupHandler := handler.NewGroupHandler(groupService, log)
+	eventHandler := handler.NewEventHandler(eventService, log)
+	chatHandler := handler.NewChatHandler(chatService, log)
+	messageReactionHandler := handler.NewMessageReactionHandler(messageReactionService, log)
+	uploadHandler := handler.NewUploadHandler(cfg.Server.UploadDir, cfg.Server.MaxUploadBytes, log)
 
 	// Middleware (authService implements middleware.SessionValidator)
 	authMiddleware := middleware.Auth(authService, cfg.Auth.SessionCookieName, log)
@@ -175,6 +188,12 @@ func Run(ctx context.Context) error {
 		followHandler,
 		userHandler,
 		notificationHandler,
+		groupHandler,
+		eventHandler,
+		chatHandler,
+		messageReactionHandler,
+		uploadHandler,
+		cfg.Server.UploadDir,
 		wsHandler,
 		mw,
 	)

@@ -1,6 +1,6 @@
 # Posts API (Frontend Guide)
 
-This document explains how to list and create posts, and how to list posts by user.
+This document explains how to list and create posts, and how to list posts by user or group.
 
 ## Base URL
 
@@ -17,6 +17,9 @@ Listing and creating posts require a valid session cookie. Use `credentials: "in
 
 `GET /posts`
 
+Notes:
+- Returns only non-group posts (global feed).
+
 Response (200):
 
 ```json
@@ -26,6 +29,7 @@ Response (200):
     {
       "id": 1,
       "author_id": 2,
+      "group_id": null,
       "author_first_name": "Jane",
       "author_last_name": "Doe",
       "author_nickname": "jdoe",
@@ -55,6 +59,7 @@ Response (200):
   "data": {
     "id": 1,
     "author_id": 2,
+    "group_id": null,
     "author_first_name": "Jane",
     "author_last_name": "Doe",
     "author_nickname": "jdoe",
@@ -82,6 +87,7 @@ Request body (JSON):
   "content": "My post",
   "media_path": "/uploads/cat.gif",
   "privacy": "public",
+  "group_id": null,
   "category_ids": [1, 3],
   "allowed_user_ids": [5, 8]
 }
@@ -94,6 +100,8 @@ Notes:
 - `followers` is the "almost private" option (only followers can see the post).
 - `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
 - `allowed_user_ids` is ignored for `public` and `followers`.
+- `group_id` is optional here. For group posts, prefer `POST /groups/{id}/posts` and do not send `category_ids` or `allowed_user_ids`.
+- Use `POST /uploads` to get a `media_path` if you need to attach an image/GIF.
 
 Response (201):
 
@@ -103,6 +111,7 @@ Response (201):
   "data": {
     "id": 10,
     "author_id": 2,
+    "group_id": null,
     "author_first_name": "Jane",
     "author_last_name": "Doe",
     "author_nickname": "jdoe",
@@ -135,6 +144,7 @@ Response (200):
     {
       "id": 2,
       "author_id": 2,
+      "group_id": null,
       "author_first_name": "Jane",
       "author_last_name": "Doe",
       "author_nickname": "jdoe",
@@ -155,6 +165,35 @@ Response (200):
 ### Filter posts by category
 
 `GET /posts?category_id=1&limit=20&offset=0`
+
+Notes:
+- Category filtering applies only to non-group posts.
+
+### List posts by group
+
+`GET /groups/{id}/posts?limit=20&offset=0`
+
+Notes:
+- Only group members can access group posts.
+
+### Create post in group
+
+`POST /groups/{id}/posts`
+
+Request body (JSON):
+
+```json
+{
+  "content": "Hello group",
+  "media_path": "/uploads/group.png",
+  "privacy": "public"
+}
+```
+
+Notes:
+- `group_id` is taken from the URL.
+- `category_ids` and `allowed_user_ids` are not allowed for group posts.
+- `privacy` is still required, but `private` is rejected for group posts.
 
 ## React fetch example
 

@@ -116,6 +116,9 @@ The `type` field matches the backend enum values:
 Example metadata payloads used by the backend:
 
 - `follow_request`: `{ "requester_id": <id> }`
+- `group_invitation`: `{ "group_id": <id>, "inviter_id": <id> }`
+- `group_join_request`: `{ "group_id": <id>, "user_id": <id> }`
+- `event_created`: `{ "group_id": <id>, "title": "Event title", "event_time": "2026-02-14T18:00:00Z" }`
 - `post_reaction`: `{ "reaction": "like", "action": "added" }`
 - `comment_reaction`: `{ "reaction": "like", "action": "added", "post_id": <id> }`
 - `comment_on_post`: `{ "comment_id": <id> }`

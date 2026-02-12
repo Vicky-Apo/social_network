@@ -130,3 +130,15 @@ func (s *Service) SetVisibility(ctx context.Context, profileID, actorID int64, i
 	}
 	return nil
 }
+
+// UpdateProfile updates nickname/about/avatar for the profile owner.
+func (s *Service) UpdateProfile(ctx context.Context, profileID, actorID int64, req UpdateProfileRequest) (UserDTO, error) {
+	if profileID != actorID {
+		return UserDTO{}, ErrForbidden
+	}
+	updated, err := s.userRepo.UpdateProfile(ctx, profileID, req.Nickname, req.About, req.AvatarPath)
+	if err != nil {
+		return UserDTO{}, err
+	}
+	return mapUser(updated), nil
+}

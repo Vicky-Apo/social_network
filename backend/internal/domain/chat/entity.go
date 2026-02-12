@@ -37,6 +37,14 @@ type Message struct {
 	UpdatedAt      time.Time
 }
 
+// MessageReaction represents a reaction to a message.
+type MessageReaction struct {
+	MessageID int64
+	UserID    int64
+	Emoji     string
+	CreatedAt time.Time
+}
+
 // ConversationMember represents a member of a conversation.
 type ConversationMember struct {
 	ConversationID    int64

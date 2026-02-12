@@ -232,6 +232,10 @@ func (s *Service) ListConversations(ctx context.Context, userID int64) ([]Conver
 					}
 				}
 			}
+		} else if conv.Type == domainchat.ConversationTypeGroup {
+			if groupID, err := s.chatRepo.GetGroupIDByConversationID(ctx, conv.ID); err == nil {
+				dto.GroupID = groupID
+			}
 		}
 
 		// Get last message
@@ -295,6 +299,10 @@ func (s *Service) GetConversationByID(ctx context.Context, userID, conversationI
 					break
 				}
 			}
+		}
+	} else if conv.Type == domainchat.ConversationTypeGroup {
+		if groupID, err := s.chatRepo.GetGroupIDByConversationID(ctx, conv.ID); err == nil {
+			dto.GroupID = groupID
 		}
 	}
 

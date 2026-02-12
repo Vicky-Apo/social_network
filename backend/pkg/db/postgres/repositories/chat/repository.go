@@ -130,6 +130,24 @@ func (r *Repository) GetGroupConversationID(ctx context.Context, groupID int64) 
 	return convID, nil
 }
 
+// GetGroupIDByConversationID returns the group ID for a conversation, if any.
+func (r *Repository) GetGroupIDByConversationID(ctx context.Context, conversationID int64) (*int64, error) {
+	const query = `
+		SELECT group_id
+		FROM group_conversations
+		WHERE conversation_id = $1
+	`
+	var groupID int64
+	err := r.db.QueryRowContext(ctx, query, conversationID).Scan(&groupID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get group id: %w", err)
+	}
+	return &groupID, nil
+}
+
 // ListUserConversations returns all conversations for a user.
 func (r *Repository) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
 	const query = `
@@ -388,4 +406,74 @@ func (r *Repository) GetMessageByID(ctx context.Context, id int64) (domainchat.M
 		msg.MediaPath = &msgMedia.String
 	}
 	return msg, nil
+}
+
+// HasMessageReaction checks if a user already reacted with the emoji.
+func (r *Repository) HasMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	const query = `
+		SELECT 1
+		FROM message_reactions
+		WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+	`
+	var exists int
+	err := r.db.QueryRowContext(ctx, query, messageID, userID, emoji).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check message reaction: %w", err)
+	}
+	return true, nil
+}
+
+// AddMessageReaction inserts a reaction to a message.
+func (r *Repository) AddMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
+	const query = `
+		INSERT INTO message_reactions (message_id, user_id, emoji)
+		VALUES ($1, $2, $3)
+	`
+	if _, err := r.db.ExecContext(ctx, query, messageID, userID, emoji); err != nil {
+		return fmt.Errorf("add message reaction: %w", err)
+	}
+	return nil
+}
+
+// RemoveMessageReaction removes a reaction from a message.
+func (r *Repository) RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
+	const query = `
+		DELETE FROM message_reactions
+		WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+	`
+	if _, err := r.db.ExecContext(ctx, query, messageID, userID, emoji); err != nil {
+		return fmt.Errorf("remove message reaction: %w", err)
+	}
+	return nil
+}
+
+// ListMessageReactions returns reactions for a message.
+func (r *Repository) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
+	const query = `
+		SELECT message_id, user_id, emoji, created_at
+		FROM message_reactions
+		WHERE message_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("list message reactions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domainchat.MessageReaction
+	for rows.Next() {
+		var rct domainchat.MessageReaction
+		if err := rows.Scan(&rct.MessageID, &rct.UserID, &rct.Emoji, &rct.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan message reaction: %w", err)
+		}
+		out = append(out, rct)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list message reactions: %w", err)
+	}
+	return out, nil
 }

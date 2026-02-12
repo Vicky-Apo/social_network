@@ -147,6 +147,25 @@ Response (200):
 }
 ```
 
+### Update profile
+
+`PATCH /profiles/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "nickname": "jdoe",
+  "about": "Building cool things",
+  "avatar_path": "/uploads/avatar/20260212T120000_abcd1234ef567890.png"
+}
+```
+
+Notes:
+- Only the profile owner can update their profile.
+- Use `POST /uploads` to get an `avatar_path`.
+- Sending empty strings clears a field (sets it to null).
+
 ## React fetch example
 
 ```ts
@@ -184,6 +203,20 @@ export async function updateVisibility(id: number, isPublic: boolean) {
     body: JSON.stringify({ is_public: isPublic }),
   });
   if (!res.ok) throw new Error("Visibility update failed");
+}
+
+export async function updateProfile(id: number, payload: {
+  nickname?: string | null;
+  about?: string | null;
+  avatar_path?: string | null;
+}) {
+  const res = await fetch(`${API_BASE}/profiles/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Profile update failed");
 }
 ```
 

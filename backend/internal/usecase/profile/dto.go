@@ -30,9 +30,16 @@ type LimitedUserDTO struct {
 // ProfileDTO combines a user with follower stats.
 type ProfileDTO struct {
 	User           any    `json:"user"`
-	FollowersCount *int64  `json:"followers_count,omitempty"`
-	FollowingCount *int64  `json:"following_count,omitempty"`
-	IsFollowing    bool    `json:"is_following"`
-	IsFollowedBy   bool    `json:"is_followed_by"`
-	Limited        bool    `json:"limited,omitempty"`
+	FollowersCount *int64 `json:"followers_count,omitempty"`
+	FollowingCount *int64 `json:"following_count,omitempty"`
+	IsFollowing    bool   `json:"is_following"`
+	IsFollowedBy   bool   `json:"is_followed_by"`
+	Limited        bool   `json:"limited,omitempty"`
+}
+
+// UpdateProfileRequest represents profile updates.
+type UpdateProfileRequest struct {
+	Nickname   *string `json:"nickname,omitempty"`
+	About      *string `json:"about,omitempty"`
+	AvatarPath *string `json:"avatar_path,omitempty"`
 }

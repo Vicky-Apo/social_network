@@ -280,9 +280,87 @@ export function disconnectChat() {
 }
 ```
 
+## REST endpoints (conversation history)
+
+These endpoints complement WebSockets by providing conversation lists and history.
+
+### List conversations
+
+`GET /conversations`
+
+Notes:
+- Returns direct and group conversations.
+- Group conversations include `group_id` in the response.
+
+### Get conversation
+
+`GET /conversations/{id}`
+
+### List conversation messages
+
+`GET /conversations/{id}/messages?limit=20&offset=0`
+
+### Mark conversation read
+
+`PATCH /conversations/{id}/read`
+
+### Unread counts (HTTP)
+
+`GET /conversations/unread-counts`
+
+## Message reactions (emoji)
+
+### Toggle message reaction
+
+`POST /messages/{id}/reactions`
+
+Request body (JSON):
+
+```json
+{
+  "emoji": "😀"
+}
+```
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "added"
+  }
+}
+```
+
+Notes:
+- If the same emoji is sent again, the reaction is removed (`status: "removed"`).
+- You must be a member of the conversation containing the message.
+- Emoji length is limited to 8 characters.
+
+### List message reactions
+
+`GET /messages/{id}/reactions`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "message_id": 12,
+      "user_id": 5,
+      "emoji": "😀",
+      "created_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
+```
+
 ## Notes
 
 - The WebSocket connection requires a valid session cookie — the user must be logged in before connecting.
 - The server rate-limits WebSocket messages per user. If the limit is hit, an `error` message with code `RATE_LIMIT` is sent back.
 - Messages are persisted to the database regardless of whether the recipient is online. Offline recipients will see the messages when they next open the conversation.
-- Conversation history fetching (loading past messages) is not yet available over WebSocket or HTTP. Only new real-time messages and unread counts are currently supported.
+- Conversation history fetching (loading past messages) is available over HTTP via `/conversations/{id}/messages`.

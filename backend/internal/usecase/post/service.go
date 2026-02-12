@@ -24,6 +24,8 @@ type AccessService interface {
 	IsFollowing(ctx context.Context, followerID, followingID int64) (bool, error)
 	CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error)
 	CanViewProfile(ctx context.Context, viewerID, ownerID int64) (bool, error)
+	CanPostInGroup(ctx context.Context, userID, groupID int64) (bool, error)
+	CanViewGroup(ctx context.Context, userID, groupID int64) (bool, error)
 }
 
 // NewService builds a post service with the given repository.
@@ -86,7 +88,32 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		return PostDTO{}, errors.New("content or media_path is required")
 	}
 
+	if req.GroupID != nil {
+		if *req.GroupID <= 0 {
+			return PostDTO{}, errors.New("invalid group_id")
+		}
+		if s.access == nil {
+			return PostDTO{}, errors.New("access service not configured")
+		}
+		canPost, err := s.access.CanPostInGroup(ctx, authorID, *req.GroupID)
+		if err != nil {
+			return PostDTO{}, fmt.Errorf("check group access: %w", err)
+		}
+		if !canPost {
+			return PostDTO{}, ErrForbidden
+		}
+		if len(req.CategoryIDs) > 0 {
+			return PostDTO{}, errors.New("category_ids are not allowed for group posts")
+		}
+		if len(req.AllowedUserIDs) > 0 {
+			return PostDTO{}, errors.New("allowed_user_ids are not allowed for group posts")
+		}
+	}
+
 	if privacy == "private" {
+		if req.GroupID != nil {
+			return PostDTO{}, errors.New("private posts are not allowed in groups")
+		}
 		if len(req.AllowedUserIDs) == 0 {
 			return PostDTO{}, errors.New("allowed_user_ids is required for private posts")
 		}
@@ -120,6 +147,7 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 
 	post := domainpost.Post{
 		AuthorID:  authorID,
+		GroupID:   req.GroupID,
 		Content:   req.Content,
 		MediaPath: req.MediaPath,
 		Privacy:   privacy,
@@ -142,6 +170,26 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 	created.AuthorAvatarPath = author.AvatarPath
 
 	return mapPost(created), nil
+}
+
+// ListByGroup returns posts for a group with pagination.
+func (s *Service) ListByGroup(ctx context.Context, groupID, viewerID int64, limit, offset int) ([]PostDTO, error) {
+	if s.access == nil {
+		return nil, errors.New("access service not configured")
+	}
+	canView, err := s.access.CanViewGroup(ctx, viewerID, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("check group access: %w", err)
+	}
+	if !canView {
+		return nil, ErrForbidden
+	}
+	posts, err := s.repo.ListByGroup(ctx, groupID, limit, offset)
+	if err != nil {
+		s.log.Error("failed to list posts by group", err, logger.F("group_id", groupID))
+		return nil, fmt.Errorf("list posts by group: %w", err)
+	}
+	return mapPosts(posts), nil
 }
 
 // ListByAuthor returns posts for a specific author with pagination.

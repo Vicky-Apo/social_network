@@ -23,7 +23,7 @@ func NewRepository(db *sql.DB) *Repository {
 // List returns all posts ordered by creation time (newest first).
 func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +
-		"WHERE " + visibilityWhereForFeed(1) + "\n" +
+		"WHERE p.group_id IS NULL AND " + visibilityWhereForFeed(1) + "\n" +
 		"ORDER BY p.created_at DESC\n" +
 		"LIMIT $2 OFFSET $3"
 	rows, err := r.db.QueryContext(ctx, query, viewerID, limit, offset)
@@ -35,12 +35,14 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 	var posts []domainpost.Post
 	for rows.Next() {
 		var p domainpost.Post
+		var groupID sql.NullInt64
 		var mediaPath sql.NullString
 		var nickname sql.NullString
 		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&groupID,
 			&p.AuthorFirstName,
 			&p.AuthorLastName,
 			&nickname,
@@ -56,6 +58,7 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
+		p.GroupID = nullableInt64(groupID)
 		p.MediaPath = nullableString(mediaPath)
 		p.AuthorNickname = nullableString(nickname)
 		p.AuthorAvatarPath = nullableString(avatarPath)
@@ -70,7 +73,7 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 // GetByID returns a post by ID.
 func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	const query = `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		SELECT p.id, p.author_id, p.group_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(cc.comment_count, 0) AS comment_count,
 		       COALESCE(rc.like_count, 0) AS like_count,
@@ -82,12 +85,14 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 		WHERE p.id = $1
 	`
 	var p domainpost.Post
+	var groupID sql.NullInt64
 	var mediaPath sql.NullString
 	var nickname sql.NullString
 	var avatarPath sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID,
 		&p.AuthorID,
+		&groupID,
 		&p.AuthorFirstName,
 		&p.AuthorLastName,
 		&nickname,
@@ -107,6 +112,7 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 		}
 		return domainpost.Post{}, fmt.Errorf("get post: %w", err)
 	}
+	p.GroupID = nullableInt64(groupID)
 	p.MediaPath = nullableString(mediaPath)
 	p.AuthorNickname = nullableString(nickname)
 	p.AuthorAvatarPath = nullableString(avatarPath)
@@ -126,16 +132,20 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 	}()
 
 	const query = `
-		INSERT INTO posts (author_id, content, media_path, visibility)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO posts (author_id, group_id, content, media_path, visibility)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
 	var mediaPath any
 	if post.MediaPath != nil && strings.TrimSpace(*post.MediaPath) != "" {
 		mediaPath = *post.MediaPath
 	}
+	var groupID any
+	if post.GroupID != nil {
+		groupID = *post.GroupID
+	}
 
-	if err = tx.QueryRowContext(ctx, query, post.AuthorID, post.Content, mediaPath, post.Privacy).Scan(
+	if err = tx.QueryRowContext(ctx, query, post.AuthorID, groupID, post.Content, mediaPath, post.Privacy).Scan(
 		&post.ID,
 		&post.CreatedAt,
 		&post.UpdatedAt,
@@ -183,7 +193,11 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 // ListByAuthor returns posts for a specific author with pagination.
 func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(2) + "\n" +
-		"WHERE p.author_id = $1 AND " + visibilityWhereForAuthor(3, 4) + "\n" +
+		"LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $2\n" +
+		"WHERE p.author_id = $1 AND (\n" +
+		"  (p.group_id IS NULL AND " + visibilityWhereForAuthor(3, 4) + ")\n" +
+		"  OR (p.group_id IS NOT NULL AND gm.user_id IS NOT NULL)\n" +
+		")\n" +
 		"ORDER BY p.created_at DESC\n" +
 		"LIMIT $5 OFFSET $6"
 	rows, err := r.db.QueryContext(ctx, query, authorID, viewerID, isFollower, isOwner, limit, offset)
@@ -195,12 +209,14 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 	var posts []domainpost.Post
 	for rows.Next() {
 		var p domainpost.Post
+		var groupID sql.NullInt64
 		var mediaPath sql.NullString
 		var nickname sql.NullString
 		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&groupID,
 			&p.AuthorFirstName,
 			&p.AuthorLastName,
 			&nickname,
@@ -216,6 +232,7 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
+		p.GroupID = nullableInt64(groupID)
 		p.MediaPath = nullableString(mediaPath)
 		p.AuthorNickname = nullableString(nickname)
 		p.AuthorAvatarPath = nullableString(avatarPath)
@@ -232,7 +249,7 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 	query := baseSelect() + "\n" + baseFrom() + "\n" +
 		"JOIN post_categories pc ON pc.post_id = p.id\n" +
 		baseJoins(2) + "\n" +
-		"WHERE pc.category_id = $1 AND " + visibilityWhereForFeed(2) + "\n" +
+		"WHERE p.group_id IS NULL AND pc.category_id = $1 AND " + visibilityWhereForFeed(2) + "\n" +
 		"ORDER BY p.created_at DESC\n" +
 		"LIMIT $3 OFFSET $4"
 	rows, err := r.db.QueryContext(ctx, query, categoryID, viewerID, limit, offset)
@@ -244,12 +261,14 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 	var posts []domainpost.Post
 	for rows.Next() {
 		var p domainpost.Post
+		var groupID sql.NullInt64
 		var mediaPath sql.NullString
 		var nickname sql.NullString
 		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&groupID,
 			&p.AuthorFirstName,
 			&p.AuthorLastName,
 			&nickname,
@@ -265,6 +284,7 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
+		p.GroupID = nullableInt64(groupID)
 		p.MediaPath = nullableString(mediaPath)
 		p.AuthorNickname = nullableString(nickname)
 		p.AuthorAvatarPath = nullableString(avatarPath)
@@ -272,6 +292,59 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list posts by category: %w", err)
+	}
+	return posts, nil
+}
+
+// ListByGroup returns posts for a group with pagination.
+func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
+	query := baseSelect() + "\n" + baseFrom() + "\n" +
+		"LEFT JOIN post_comment_counts cc ON cc.post_id = p.id\n" +
+		"LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id\n" +
+		"WHERE p.group_id = $1\n" +
+		"ORDER BY p.created_at DESC\n" +
+		"LIMIT $2 OFFSET $3"
+
+	rows, err := r.db.QueryContext(ctx, query, groupID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list posts by group: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []domainpost.Post
+	for rows.Next() {
+		var p domainpost.Post
+		var groupID sql.NullInt64
+		var mediaPath sql.NullString
+		var nickname sql.NullString
+		var avatarPath sql.NullString
+		if err := rows.Scan(
+			&p.ID,
+			&p.AuthorID,
+			&groupID,
+			&p.AuthorFirstName,
+			&p.AuthorLastName,
+			&nickname,
+			&avatarPath,
+			&p.Content,
+			&mediaPath,
+			&p.Privacy,
+			&p.CreatedAt,
+			&p.UpdatedAt,
+			&p.CommentCount,
+			&p.LikeCount,
+			&p.DislikeCount,
+		); err != nil {
+			return nil, fmt.Errorf("scan post: %w", err)
+		}
+		p.GroupID = nullableInt64(groupID)
+		p.MediaPath = nullableString(mediaPath)
+		p.AuthorNickname = nullableString(nickname)
+		p.AuthorAvatarPath = nullableString(avatarPath)
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list posts by group: %w", err)
 	}
 	return posts, nil
 }
@@ -300,9 +373,17 @@ func nullableString(value sql.NullString) *string {
 	return &v
 }
 
+func nullableInt64(value sql.NullInt64) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Int64
+	return &v
+}
+
 func baseSelect() string {
 	return `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		SELECT p.id, p.author_id, p.group_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(cc.comment_count, 0) AS comment_count,
 		       COALESCE(rc.like_count, 0) AS like_count,

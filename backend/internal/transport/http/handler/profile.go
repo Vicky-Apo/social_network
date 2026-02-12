@@ -175,3 +175,45 @@ func (h *ProfileHandler) UpdateVisibility(w http.ResponseWriter, r *http.Request
 		"is_public": payload.IsPublic,
 	})
 }
+
+// UpdateProfile handles PATCH /profiles/{id}.
+func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	id, ok := utils.ParsePathID(r.URL.Path, "/profiles/")
+	if !ok {
+		logBadRequest(h.log, "profiles.update", logger.F("path", r.URL.Path))
+		utils.RespondWithError(w, http.StatusNotFound, utils.MsgProfileNotFound)
+		return
+	}
+
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "profiles.update")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	var req usecaseprofile.UpdateProfileRequest
+	if err := utils.ReadJSON(r, &req); err != nil {
+		logBadRequest(h.log, "profiles.update", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	updated, err := h.service.UpdateProfile(r.Context(), id, actorID, req)
+	if err != nil {
+		switch {
+		case errors.Is(err, usecaseprofile.ErrForbidden):
+			logForbidden(h.log, "profiles.update", logger.F("profile_id", id), logger.F("actor_id", actorID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+		case errors.Is(err, domainuser.ErrNotFound):
+			logNotFound(h.log, "profiles.update", logger.F("profile_id", id))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgProfileNotFound)
+		default:
+			logServerError(h.log, "profiles.update", err, logger.F("profile_id", id), logger.F("actor_id", actorID))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		}
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, updated)
+}

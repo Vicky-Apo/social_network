@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	domainuser "social-network/backend/internal/domain/user"
 )
@@ -51,6 +52,52 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainuser.User, er
 	u.Nickname = nullableString(nickname)
 	u.About = nullableString(about)
 	return u, nil
+}
+
+// UpdateProfile updates optional profile fields and returns the updated user.
+func (r *Repository) UpdateProfile(ctx context.Context, id int64, nickname, about, avatarPath *string) (domainuser.User, error) {
+	setClauses := make([]string, 0, 4)
+	args := make([]any, 0, 4)
+
+	if nickname != nil {
+		setClauses = append(setClauses, fmt.Sprintf("nickname = $%d", len(args)+1))
+		args = append(args, nullableStringValue(nickname))
+	}
+	if about != nil {
+		setClauses = append(setClauses, fmt.Sprintf("about = $%d", len(args)+1))
+		args = append(args, nullableStringValue(about))
+	}
+	if avatarPath != nil {
+		setClauses = append(setClauses, fmt.Sprintf("avatar_path = $%d", len(args)+1))
+		args = append(args, nullableStringValue(avatarPath))
+	}
+
+	if len(setClauses) == 0 {
+		return r.GetByID(ctx, id)
+	}
+
+	setClauses = append(setClauses, fmt.Sprintf("updated_at = now()"))
+	args = append(args, id)
+
+	query := fmt.Sprintf(`
+		UPDATE users
+		SET %s
+		WHERE id = $%d
+	`, strings.Join(setClauses, ", "), len(args))
+
+	res, err := r.db.ExecContext(ctx, query, args...)
+	if err != nil {
+		return domainuser.User{}, fmt.Errorf("update profile: %w", err)
+	}
+	affected, err := res.RowsAffected()
+	if err != nil {
+		return domainuser.User{}, fmt.Errorf("update profile: %w", err)
+	}
+	if affected == 0 {
+		return domainuser.User{}, domainuser.ErrNotFound
+	}
+
+	return r.GetByID(ctx, id)
 }
 
 // SetVisibility updates a user's public flag.
@@ -194,5 +241,16 @@ func nullableString(value sql.NullString) *string {
 		return nil
 	}
 	v := value.String
+	return &v
+}
+
+func nullableStringValue(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	v := strings.TrimSpace(*value)
+	if v == "" {
+		return nil
+	}
 	return &v
 }
