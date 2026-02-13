@@ -7,7 +7,7 @@ import (
 
 // EnsureDir creates a directory and all parents if needed.
 func EnsureDir(path string) error {
-	return os.MkdirAll(path, 0o755)
+	return os.MkdirAll(path, 0o700)
 }
 
 // SafeCreateFile creates a new file and fails if it already exists.

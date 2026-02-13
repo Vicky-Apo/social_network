@@ -166,8 +166,8 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	followService := followusecase.NewService(userRepository, followRepository, notificationService)
 	userService := userusecase.NewService(userRepository)
 	chatService := chatusecase.NewService(chatRepository, groupRepository, accessService, log)
-	groupService := groupusecase.NewService(groupRepository, accessService, notificationService)
-	eventService := eventusecase.NewService(eventRepository, groupRepository, accessService, notificationService)
+	groupService := groupusecase.NewService(groupRepository, accessService, notificationService, log)
+	eventService := eventusecase.NewService(eventRepository, groupRepository, accessService, notificationService, log)
 	messageReactionService := messagereactionusecase.NewService(chatRepository)
 
 	authHandlerCfg := transporthandler.AuthHandlerConfig{

@@ -21,47 +21,59 @@ func NewRepository(db *sql.DB) *Repository {
 
 // FindByPath finds the entity that owns a given media path.
 func (r *Repository) FindByPath(ctx context.Context, path string) (domainmedia.MediaRef, error) {
-	var (
-		id            int64
-		postID        int64
-		conversation  int64
-	)
+	const query = `
+		SELECT type, id, post_id, conversation_id, user_id
+		FROM (
+			SELECT 'post'::text AS type, p.id, NULL::bigint AS post_id, NULL::bigint AS conversation_id, NULL::bigint AS user_id
+			FROM posts p
+			WHERE p.media_path = $1
+			UNION ALL
+			SELECT 'comment'::text AS type, c.id, c.post_id, NULL::bigint, NULL::bigint
+			FROM comments c
+			WHERE c.media_path = $1
+			UNION ALL
+			SELECT 'message'::text AS type, m.id, NULL::bigint, m.conversation_id, NULL::bigint
+			FROM messages m
+			WHERE m.media_path = $1
+			UNION ALL
+			SELECT 'avatar'::text AS type, u.id, NULL::bigint, NULL::bigint, u.id
+			FROM users u
+			WHERE u.avatar_path = $1
+		) matches
+		LIMIT 1
+	`
 
-	// Posts
-	err := r.db.QueryRowContext(ctx, `SELECT id FROM posts WHERE media_path = $1`, path).Scan(&id)
-	if err == nil {
-		return domainmedia.MediaRef{Type: domainmedia.MediaTypePost, PostID: id}, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return domainmedia.MediaRef{}, fmt.Errorf("lookup post media: %w", err)
-	}
-
-	// Comments
-	err = r.db.QueryRowContext(ctx, `SELECT id, post_id FROM comments WHERE media_path = $1`, path).Scan(&id, &postID)
-	if err == nil {
-		return domainmedia.MediaRef{Type: domainmedia.MediaTypeComment, CommentID: id, PostID: postID}, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return domainmedia.MediaRef{}, fmt.Errorf("lookup comment media: %w", err)
-	}
-
-	// Messages
-	err = r.db.QueryRowContext(ctx, `SELECT id, conversation_id FROM messages WHERE media_path = $1`, path).Scan(&id, &conversation)
-	if err == nil {
-		return domainmedia.MediaRef{Type: domainmedia.MediaTypeMessage, MessageID: id, ConversationID: conversation}, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return domainmedia.MediaRef{}, fmt.Errorf("lookup message media: %w", err)
+	var typ string
+	var id, postID, conversationID, userID sql.NullInt64
+	if err := r.db.QueryRowContext(ctx, query, path).Scan(&typ, &id, &postID, &conversationID, &userID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domainmedia.MediaRef{}, domainmedia.ErrNotFound
+		}
+		return domainmedia.MediaRef{}, fmt.Errorf("lookup media: %w", err)
 	}
 
-	// Avatars
-	err = r.db.QueryRowContext(ctx, `SELECT id FROM users WHERE avatar_path = $1`, path).Scan(&id)
-	if err == nil {
-		return domainmedia.MediaRef{Type: domainmedia.MediaTypeAvatar, UserID: id}, nil
+	switch typ {
+	case "post":
+		if !id.Valid {
+			return domainmedia.MediaRef{}, domainmedia.ErrNotFound
+		}
+		return domainmedia.MediaRef{Type: domainmedia.MediaTypePost, PostID: id.Int64}, nil
+	case "comment":
+		if !id.Valid || !postID.Valid {
+			return domainmedia.MediaRef{}, domainmedia.ErrNotFound
+		}
+		return domainmedia.MediaRef{Type: domainmedia.MediaTypeComment, CommentID: id.Int64, PostID: postID.Int64}, nil
+	case "message":
+		if !id.Valid || !conversationID.Valid {
+			return domainmedia.MediaRef{}, domainmedia.ErrNotFound
+		}
+		return domainmedia.MediaRef{Type: domainmedia.MediaTypeMessage, MessageID: id.Int64, ConversationID: conversationID.Int64}, nil
+	case "avatar":
+		if !userID.Valid {
+			return domainmedia.MediaRef{}, domainmedia.ErrNotFound
+		}
+		return domainmedia.MediaRef{Type: domainmedia.MediaTypeAvatar, UserID: userID.Int64}, nil
+	default:
+		return domainmedia.MediaRef{}, domainmedia.ErrNotFound
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return domainmedia.MediaRef{}, fmt.Errorf("lookup avatar media: %w", err)
-	}
-
-	return domainmedia.MediaRef{}, domainmedia.ErrNotFound
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"social-network/backend/internal/transport/http/middleware"
 	httputils "social-network/backend/internal/transport/http/utils"
 	"social-network/backend/pkg/logger"
 	pkgutils "social-network/backend/pkg/utils"
@@ -33,11 +34,18 @@ func NewUploadHandler(uploadDir string, maxBytes int64, log logger.Logger) *Uplo
 
 // Upload handles POST /uploads.
 func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "uploads.create")
+		httputils.RespondWithError(w, http.StatusUnauthorized, httputils.MsgUnauthorized)
+		return
+	}
+
 	if h.maxBytes > 0 {
 		r.Body = http.MaxBytesReader(w, r.Body, h.maxBytes)
 	}
 
-	if err := r.ParseMultipartForm(h.maxBytes); err != nil {
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		logBadRequest(h.log, "uploads.create", logger.F("error", err.Error()))
 		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUpload)
 		return
@@ -56,19 +64,20 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		kind = "media"
 	}
 	if !isAllowedKind(kind) {
+		logBadRequest(h.log, "uploads.create", logger.F("user_id", userID), logger.F("kind", kind))
 		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUploadKind)
 		return
 	}
 
 	contentType, sniffed, err := sniffContentType(file)
 	if err != nil {
-		logBadRequest(h.log, "uploads.create", logger.F("error", err.Error()))
+		logBadRequest(h.log, "uploads.create", logger.F("user_id", userID), logger.F("error", err.Error()))
 		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUpload)
 		return
 	}
 	ext, ok := extensionForContentType(contentType)
 	if !ok {
-		logBadRequest(h.log, "uploads.create", logger.F("content_type", contentType))
+		logBadRequest(h.log, "uploads.create", logger.F("user_id", userID), logger.F("content_type", contentType))
 		httputils.RespondWithError(w, http.StatusBadRequest, httputils.MsgInvalidUploadType)
 		return
 	}
@@ -82,7 +91,7 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 
 	dir := filepath.Join(h.uploadDir, kind)
 	if err := pkgutils.EnsureDir(dir); err != nil {
-		logServerError(h.log, "uploads.create", err, logger.F("dir", dir))
+		logServerError(h.log, "uploads.create", err, logger.F("user_id", userID), logger.F("dir", dir))
 		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
@@ -90,19 +99,19 @@ func (h *UploadHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	fullPath := filepath.Join(dir, name)
 	out, err := pkgutils.SafeCreateFile(fullPath)
 	if err != nil {
-		logServerError(h.log, "uploads.create", err, logger.F("path", fullPath))
+		logServerError(h.log, "uploads.create", err, logger.F("user_id", userID), logger.F("path", fullPath))
 		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 	defer out.Close()
 
 	if _, err := out.Write(sniffed); err != nil {
-		logServerError(h.log, "uploads.create", err, logger.F("path", fullPath))
+		logServerError(h.log, "uploads.create", err, logger.F("user_id", userID), logger.F("path", fullPath))
 		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}
 	if _, err := io.Copy(out, file); err != nil {
-		logServerError(h.log, "uploads.create", err, logger.F("path", fullPath))
+		logServerError(h.log, "uploads.create", err, logger.F("user_id", userID), logger.F("path", fullPath))
 		httputils.RespondWithError(w, http.StatusInternalServerError, httputils.MsgInternalServerError)
 		return
 	}

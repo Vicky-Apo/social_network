@@ -36,11 +36,28 @@ func (r *fakeChatRepo) GetUnreadConversations(ctx context.Context, userID int64)
 func (r *fakeChatRepo) GetConversationMembers(ctx context.Context, conversationID int64) ([]int64, error) {
 	return []int64{1, 2}, nil
 }
+func (r *fakeChatRepo) GetConversationMembersMap(ctx context.Context, conversationIDs []int64) (map[int64][]int64, error) {
+	out := make(map[int64][]int64)
+	for _, id := range conversationIDs {
+		out[id] = []int64{1, 2}
+	}
+	return out, nil
+}
 func (r *fakeChatRepo) GetGroupIDByConversationID(ctx context.Context, conversationID int64) (*int64, error) {
 	return nil, nil
 }
+func (r *fakeChatRepo) GetGroupConversationMap(ctx context.Context, conversationIDs []int64) (map[int64]int64, error) {
+	return map[int64]int64{}, nil
+}
 func (r *fakeChatRepo) GetMessagesByConversation(ctx context.Context, conversationID int64, limit, offset int) ([]domainchat.Message, error) {
 	return []domainchat.Message{{ID: 10, ConversationID: conversationID, SenderID: 2, CreatedAt: time.Now()}}, nil
+}
+func (r *fakeChatRepo) GetLastMessages(ctx context.Context, conversationIDs []int64) (map[int64]domainchat.Message, error) {
+	out := make(map[int64]domainchat.Message)
+	for _, id := range conversationIDs {
+		out[id] = domainchat.Message{ID: 10, ConversationID: id, SenderID: 2, CreatedAt: time.Now()}
+	}
+	return out, nil
 }
 func (r *fakeChatRepo) IsMember(ctx context.Context, conversationID, userID int64) (bool, error) {
 	return true, nil
@@ -77,6 +94,9 @@ func (r *fakeChatRepo) AddMessageReaction(ctx context.Context, messageID, userID
 }
 func (r *fakeChatRepo) RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
 	return nil
+}
+func (r *fakeChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	return true, nil
 }
 func (r *fakeChatRepo) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
 	return nil, nil

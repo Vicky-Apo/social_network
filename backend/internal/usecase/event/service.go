@@ -10,6 +10,7 @@ import (
 	domainevent "social-network/backend/internal/domain/event"
 	domaingroup "social-network/backend/internal/domain/group"
 	usecasenotification "social-network/backend/internal/usecase/notification"
+	"social-network/backend/pkg/logger"
 )
 
 // Service errors.
@@ -18,6 +19,7 @@ var (
 	ErrInvalidEventTime = errors.New("invalid event time")
 	ErrForbidden        = errors.New("event action forbidden")
 	ErrInvalidResponse  = errors.New("invalid response")
+	ErrNotCreator       = errors.New("only event creator can modify event")
 )
 
 // AccessService provides centralized access checks.
@@ -37,11 +39,18 @@ type Service struct {
 	groupRepo domaingroup.Repository
 	access    AccessService
 	notifier  Notifier
+	log       logger.Logger
 }
 
 // NewService builds an event service with the given repositories.
-func NewService(repo domainevent.Repository, groupRepo domaingroup.Repository, access AccessService, notifier Notifier) *Service {
-	return &Service{repo: repo, groupRepo: groupRepo, access: access, notifier: notifier}
+func NewService(repo domainevent.Repository, groupRepo domaingroup.Repository, access AccessService, notifier Notifier, log logger.Logger) *Service {
+	return &Service{
+		repo:      repo,
+		groupRepo: groupRepo,
+		access:    access,
+		notifier:  notifier,
+		log:       log.WithFields(logger.F("service", "event")),
+	}
 }
 
 // CreateEvent creates a new group event.
@@ -51,6 +60,9 @@ func (s *Service) CreateEvent(ctx context.Context, creatorID, groupID int64, req
 		return EventDTO{}, ErrInvalidTitle
 	}
 	if req.EventTime.IsZero() {
+		return EventDTO{}, ErrInvalidEventTime
+	}
+	if req.EventTime.Before(time.Now()) {
 		return EventDTO{}, ErrInvalidEventTime
 	}
 	if s.access == nil {
@@ -121,6 +133,50 @@ func (s *Service) GetEvent(ctx context.Context, eventID, viewerID int64) (EventD
 		return EventDTO{}, ErrForbidden
 	}
 	return mapEvent(ev), nil
+}
+
+// UpdateEvent updates an event (creator only).
+func (s *Service) UpdateEvent(ctx context.Context, eventID, userID int64, req UpdateEventRequest) (EventDTO, error) {
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		return EventDTO{}, ErrInvalidTitle
+	}
+	if req.EventTime.IsZero() {
+		return EventDTO{}, ErrInvalidEventTime
+	}
+	if req.EventTime.Before(time.Now()) {
+		return EventDTO{}, ErrInvalidEventTime
+	}
+
+	ev, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		return EventDTO{}, err
+	}
+	if ev.CreatorID != userID {
+		return EventDTO{}, ErrNotCreator
+	}
+
+	ev.Title = title
+	ev.Description = req.Description
+	ev.EventTime = req.EventTime
+
+	updated, err := s.repo.Update(ctx, ev)
+	if err != nil {
+		return EventDTO{}, fmt.Errorf("update event: %w", err)
+	}
+	return mapEvent(updated), nil
+}
+
+// DeleteEvent deletes an event (creator only).
+func (s *Service) DeleteEvent(ctx context.Context, eventID, userID int64) error {
+	ev, err := s.repo.GetByID(ctx, eventID)
+	if err != nil {
+		return err
+	}
+	if ev.CreatorID != userID {
+		return ErrNotCreator
+	}
+	return s.repo.Delete(ctx, eventID)
 }
 
 // Respond sets the user's response to an event.
@@ -211,7 +267,7 @@ func (s *Service) notifyGroupMembers(ctx context.Context, ev domainevent.Event) 
 		if id == ev.CreatorID {
 			continue
 		}
-		_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
+		if _, err := s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
 			UserID:     id,
 			ActorID:    &ev.CreatorID,
 			Type:       "event_created",
@@ -222,7 +278,9 @@ func (s *Service) notifyGroupMembers(ctx context.Context, ev domainevent.Event) 
 				"title":      ev.Title,
 				"event_time": ev.EventTime.Format(time.RFC3339),
 			},
-		})
+		}); err != nil && s.log != nil {
+			s.log.Debug("failed to notify event created", logger.F("error", err.Error()), logger.F("user_id", id))
+		}
 	}
 }
 

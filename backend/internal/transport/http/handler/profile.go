@@ -31,10 +31,11 @@ func NewProfileHandler(service *usecaseprofile.Service, postService *usecasepost
 
 // GetProfile handles GET /profiles/{id}.
 func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	id, ok := utils.ParsePathID(r.URL.Path, "/profiles/")
-	if !ok {
-		logBadRequest(h.log, "profiles.get", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgProfileNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "profiles.get", logger.F("profile_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
 		return
 	}
 
@@ -66,10 +67,11 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 
 // GetProfileFull handles GET /profiles/{id}/full.
 func (h *ProfileHandler) GetProfileFull(w http.ResponseWriter, r *http.Request) {
-	id, remainder, ok := utils.ParsePathIDAndRemainder(r.URL.Path, "/profiles/")
-	if !ok || remainder != "full" {
-		logBadRequest(h.log, "profiles.full", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "profiles.full", logger.F("profile_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
 		return
 	}
 
@@ -93,6 +95,9 @@ func (h *ProfileHandler) GetProfileFull(w http.ResponseWriter, r *http.Request) 
 			utils.RespondWithError(w, http.StatusBadRequest, "invalid activity_limit")
 			return
 		} else if v > 0 {
+			if v > utils.MaxLimit {
+				v = utils.MaxLimit
+			}
 			activityLimit = v
 		}
 	}
@@ -156,10 +161,11 @@ func (h *ProfileHandler) GetProfileFull(w http.ResponseWriter, r *http.Request) 
 
 // ListFollowers handles GET /profiles/{id}/followers.
 func (h *ProfileHandler) ListFollowers(w http.ResponseWriter, r *http.Request) {
-	id, remainder, ok := utils.ParsePathIDAndRemainder(r.URL.Path, "/profiles/")
-	if !ok || remainder != "followers" {
-		logBadRequest(h.log, "profiles.followers", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "profiles.followers", logger.F("profile_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
 		return
 	}
 
@@ -191,10 +197,11 @@ func (h *ProfileHandler) ListFollowers(w http.ResponseWriter, r *http.Request) {
 
 // ListFollowing handles GET /profiles/{id}/following.
 func (h *ProfileHandler) ListFollowing(w http.ResponseWriter, r *http.Request) {
-	id, remainder, ok := utils.ParsePathIDAndRemainder(r.URL.Path, "/profiles/")
-	if !ok || remainder != "following" {
-		logBadRequest(h.log, "profiles.following", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "profiles.following", logger.F("profile_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
 		return
 	}
 
@@ -226,10 +233,11 @@ func (h *ProfileHandler) ListFollowing(w http.ResponseWriter, r *http.Request) {
 
 // UpdateVisibility handles PATCH /profiles/{id}/visibility.
 func (h *ProfileHandler) UpdateVisibility(w http.ResponseWriter, r *http.Request) {
-	id, remainder, ok := utils.ParsePathIDAndRemainder(r.URL.Path, "/profiles/")
-	if !ok || remainder != "visibility" {
-		logBadRequest(h.log, "profiles.visibility", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "profiles.visibility", logger.F("profile_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
 		return
 	}
 
@@ -272,10 +280,11 @@ func (h *ProfileHandler) UpdateVisibility(w http.ResponseWriter, r *http.Request
 
 // UpdateProfile handles PATCH /profiles/{id}.
 func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	id, ok := utils.ParsePathID(r.URL.Path, "/profiles/")
-	if !ok {
-		logBadRequest(h.log, "profiles.update", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgProfileNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "profiles.update", logger.F("profile_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
 		return
 	}
 

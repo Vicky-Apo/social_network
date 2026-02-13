@@ -33,6 +33,13 @@ type CreateEventRequest struct {
 	EventTime   time.Time `json:"event_time"`
 }
 
+// UpdateEventRequest represents the request to update an event.
+type UpdateEventRequest struct {
+	Title       string    `json:"title"`
+	Description *string   `json:"description,omitempty"`
+	EventTime   time.Time `json:"event_time"`
+}
+
 // RespondRequest represents a request to respond to an event.
 type RespondRequest struct {
 	Response string `json:"response"`

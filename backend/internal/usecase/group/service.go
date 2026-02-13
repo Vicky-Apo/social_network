@@ -8,6 +8,7 @@ import (
 
 	domaingroup "social-network/backend/internal/domain/group"
 	usecasenotification "social-network/backend/internal/usecase/notification"
+	"social-network/backend/pkg/logger"
 )
 
 // Service errors.
@@ -34,11 +35,17 @@ type Service struct {
 	groupRepo domaingroup.Repository
 	access    AccessService
 	notifier  Notifier
+	log       logger.Logger
 }
 
 // NewService builds a group service with the given repositories.
-func NewService(groupRepo domaingroup.Repository, access AccessService, notifier Notifier) *Service {
-	return &Service{groupRepo: groupRepo, access: access, notifier: notifier}
+func NewService(groupRepo domaingroup.Repository, access AccessService, notifier Notifier, log logger.Logger) *Service {
+	return &Service{
+		groupRepo: groupRepo,
+		access:    access,
+		notifier:  notifier,
+		log:       log.WithFields(logger.F("service", "group")),
+	}
 }
 
 // Notifier allows emitting notifications without coupling to transport details.
@@ -155,10 +162,13 @@ func (s *Service) InviteToGroup(ctx context.Context, inviterID, groupID, invitee
 
 	inv, err := s.groupRepo.CreateInvitation(ctx, groupID, inviterID, inviteeID)
 	if err != nil {
+		if errors.Is(err, domaingroup.ErrInvitationExists) {
+			return GroupInvitationDTO{}, ErrInvitationExists
+		}
 		return GroupInvitationDTO{}, fmt.Errorf("create invitation: %w", err)
 	}
 	if s.notifier != nil {
-		_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
+		if _, err := s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
 			UserID:     inviteeID,
 			ActorID:    &inviterID,
 			Type:       "group_invitation",
@@ -168,7 +178,9 @@ func (s *Service) InviteToGroup(ctx context.Context, inviterID, groupID, invitee
 				"group_id":   groupID,
 				"inviter_id": inviterID,
 			},
-		})
+		}); err != nil && s.log != nil {
+			s.log.Debug("failed to notify group invitation", logger.F("error", err.Error()), logger.F("invitee_id", inviteeID))
+		}
 	}
 	return mapInvitation(inv), nil
 }
@@ -225,6 +237,14 @@ func (s *Service) RequestJoin(ctx context.Context, groupID, userID int64) (Group
 		return GroupJoinRequestDTO{}, ErrAlreadyMember
 	}
 
+	invited, err := s.groupRepo.InvitationExists(ctx, groupID, userID)
+	if err != nil {
+		return GroupJoinRequestDTO{}, fmt.Errorf("check invitation: %w", err)
+	}
+	if invited {
+		return GroupJoinRequestDTO{}, ErrInvitationExists
+	}
+
 	exists, err := s.groupRepo.JoinRequestExists(ctx, groupID, userID)
 	if err != nil {
 		return GroupJoinRequestDTO{}, fmt.Errorf("check join request: %w", err)
@@ -235,13 +255,16 @@ func (s *Service) RequestJoin(ctx context.Context, groupID, userID int64) (Group
 
 	req, err := s.groupRepo.CreateJoinRequest(ctx, groupID, userID)
 	if err != nil {
+		if errors.Is(err, domaingroup.ErrJoinRequestExists) {
+			return GroupJoinRequestDTO{}, ErrJoinRequestExists
+		}
 		return GroupJoinRequestDTO{}, fmt.Errorf("create join request: %w", err)
 	}
 	if s.notifier != nil {
 		if group, err := s.groupRepo.GetByID(ctx, groupID); err == nil {
 			creatorID := group.CreatorID
 			if creatorID != userID {
-				_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
+				if _, err := s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
 					UserID:     creatorID,
 					ActorID:    &userID,
 					Type:       "group_join_request",
@@ -251,7 +274,9 @@ func (s *Service) RequestJoin(ctx context.Context, groupID, userID int64) (Group
 						"group_id": groupID,
 						"user_id":  userID,
 					},
-				})
+				}); err != nil && s.log != nil {
+					s.log.Debug("failed to notify group join request", logger.F("error", err.Error()), logger.F("creator_id", creatorID))
+				}
 			}
 		}
 	}

@@ -48,7 +48,14 @@ func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.create", err, logger.F("creator_id", creatorID))
 		} else {
-			logBadRequest(h.log, "groups.create", logger.F("creator_id", creatorID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.create", logger.F("creator_id", creatorID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.create", logger.F("creator_id", creatorID))
+			default:
+				logBadRequest(h.log, "groups.create", logger.F("creator_id", creatorID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -138,7 +145,14 @@ func (h *GroupHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.members", err, logger.F("group_id", groupID))
 		} else {
-			logBadRequest(h.log, "groups.members", logger.F("group_id", groupID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.members", logger.F("group_id", groupID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.members", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "groups.members", logger.F("group_id", groupID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -183,7 +197,14 @@ func (h *GroupHandler) Invite(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.invite", err, logger.F("group_id", groupID), logger.F("invitee_id", payload.InviteeID))
 		} else {
-			logBadRequest(h.log, "groups.invite", logger.F("group_id", groupID), logger.F("invitee_id", payload.InviteeID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.invite", logger.F("group_id", groupID), logger.F("invitee_id", payload.InviteeID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.invite", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "groups.invite", logger.F("group_id", groupID), logger.F("invitee_id", payload.InviteeID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -236,7 +257,9 @@ func (h *GroupHandler) UpdateInvitation(w http.ResponseWriter, r *http.Request) 
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
-	if payload.Status == "" {
+	switch payload.Status {
+	case "accepted", "declined":
+	default:
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidStatus)
 		return
 	}
@@ -246,7 +269,14 @@ func (h *GroupHandler) UpdateInvitation(w http.ResponseWriter, r *http.Request) 
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.invitations.update", err, logger.F("invitation_id", invID), logger.F("actor_id", actorID))
 		} else {
-			logBadRequest(h.log, "groups.invitations.update", logger.F("invitation_id", invID), logger.F("actor_id", actorID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.invitations.update", logger.F("invitation_id", invID), logger.F("actor_id", actorID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.invitations.update", logger.F("invitation_id", invID))
+			default:
+				logBadRequest(h.log, "groups.invitations.update", logger.F("invitation_id", invID), logger.F("actor_id", actorID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -278,7 +308,14 @@ func (h *GroupHandler) RequestJoin(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.join.request", err, logger.F("group_id", groupID), logger.F("user_id", userID))
 		} else {
-			logBadRequest(h.log, "groups.join.request", logger.F("group_id", groupID), logger.F("user_id", userID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.join.request", logger.F("group_id", groupID), logger.F("user_id", userID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.join.request", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "groups.join.request", logger.F("group_id", groupID), logger.F("user_id", userID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -310,7 +347,14 @@ func (h *GroupHandler) ListJoinRequests(w http.ResponseWriter, r *http.Request) 
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.join.list", err, logger.F("group_id", groupID), logger.F("actor_id", actorID))
 		} else {
-			logBadRequest(h.log, "groups.join.list", logger.F("group_id", groupID), logger.F("actor_id", actorID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.join.list", logger.F("group_id", groupID), logger.F("actor_id", actorID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.join.list", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "groups.join.list", logger.F("group_id", groupID), logger.F("actor_id", actorID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -344,7 +388,9 @@ func (h *GroupHandler) UpdateJoinRequest(w http.ResponseWriter, r *http.Request)
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
-	if payload.Status == "" {
+	switch payload.Status {
+	case "accepted", "declined":
+	default:
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidStatus)
 		return
 	}
@@ -354,7 +400,14 @@ func (h *GroupHandler) UpdateJoinRequest(w http.ResponseWriter, r *http.Request)
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.join.update", err, logger.F("request_id", reqID), logger.F("actor_id", actorID))
 		} else {
-			logBadRequest(h.log, "groups.join.update", logger.F("request_id", reqID), logger.F("actor_id", actorID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.join.update", logger.F("request_id", reqID), logger.F("actor_id", actorID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.join.update", logger.F("request_id", reqID))
+			default:
+				logBadRequest(h.log, "groups.join.update", logger.F("request_id", reqID), logger.F("actor_id", actorID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -385,7 +438,14 @@ func (h *GroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "groups.leave", err, logger.F("group_id", groupID), logger.F("user_id", userID))
 		} else {
-			logBadRequest(h.log, "groups.leave", logger.F("group_id", groupID), logger.F("user_id", userID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "groups.leave", logger.F("group_id", groupID), logger.F("user_id", userID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "groups.leave", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "groups.leave", logger.F("group_id", groupID), logger.F("user_id", userID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return

@@ -49,21 +49,14 @@ func (s *Service) ToggleReaction(ctx context.Context, userID, messageID int64, e
 		return "", ErrForbidden
 	}
 
-	exists, err := s.repo.HasMessageReaction(ctx, messageID, userID, clean)
+	added, err := s.repo.ToggleMessageReaction(ctx, messageID, userID, clean)
 	if err != nil {
 		return "", err
 	}
-	if exists {
-		if err := s.repo.RemoveMessageReaction(ctx, messageID, userID, clean); err != nil {
-			return "", err
-		}
-		return "removed", nil
+	if added {
+		return "added", nil
 	}
-
-	if err := s.repo.AddMessageReaction(ctx, messageID, userID, clean); err != nil {
-		return "", err
-	}
-	return "added", nil
+	return "removed", nil
 }
 
 // ListReactions returns reactions for a message.

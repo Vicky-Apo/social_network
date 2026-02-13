@@ -76,6 +76,9 @@ Response (200):
 
 `GET /groups/{id}`
 
+Notes:
+- Accessible to any authenticated user for discovery. Member-only data is exposed via other endpoints (members, posts, events, chat).
+
 ### List group members
 
 `GET /groups/{id}/members`

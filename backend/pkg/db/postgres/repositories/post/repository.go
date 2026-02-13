@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	domainpost "social-network/backend/internal/domain/post"
+	reposhared "social-network/backend/pkg/db/postgres/repositories/shared"
 )
 
 // Repository implements the post repository using Postgres.
@@ -15,9 +16,45 @@ type Repository struct {
 	db *sql.DB
 }
 
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
 // NewRepository builds a new Postgres post repository.
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
+}
+
+func scanPost(scanner rowScanner) (domainpost.Post, error) {
+	var p domainpost.Post
+	var groupID sql.NullInt64
+	var mediaPath sql.NullString
+	var nickname sql.NullString
+	var avatarPath sql.NullString
+	if err := scanner.Scan(
+		&p.ID,
+		&p.AuthorID,
+		&groupID,
+		&p.AuthorFirstName,
+		&p.AuthorLastName,
+		&nickname,
+		&avatarPath,
+		&p.Content,
+		&mediaPath,
+		&p.Privacy,
+		&p.CreatedAt,
+		&p.UpdatedAt,
+		&p.CommentCount,
+		&p.LikeCount,
+		&p.DislikeCount,
+	); err != nil {
+		return domainpost.Post{}, err
+	}
+	p.GroupID = nullableInt64(groupID)
+	p.MediaPath = reposhared.NullableString(mediaPath)
+	p.AuthorNickname = reposhared.NullableString(nickname)
+	p.AuthorAvatarPath = reposhared.NullableString(avatarPath)
+	return p, nil
 }
 
 // List returns all posts ordered by creation time (newest first).
@@ -34,34 +71,10 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 
 	var posts []domainpost.Post
 	for rows.Next() {
-		var p domainpost.Post
-		var groupID sql.NullInt64
-		var mediaPath sql.NullString
-		var nickname sql.NullString
-		var avatarPath sql.NullString
-		if err := rows.Scan(
-			&p.ID,
-			&p.AuthorID,
-			&groupID,
-			&p.AuthorFirstName,
-			&p.AuthorLastName,
-			&nickname,
-			&avatarPath,
-			&p.Content,
-			&mediaPath,
-			&p.Privacy,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-			&p.CommentCount,
-			&p.LikeCount,
-			&p.DislikeCount,
-		); err != nil {
+		p, err := scanPost(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
-		p.GroupID = nullableInt64(groupID)
-		p.MediaPath = nullableString(mediaPath)
-		p.AuthorNickname = nullableString(nickname)
-		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -85,37 +98,13 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 		WHERE p.id = $1
 	`
 	var p domainpost.Post
-	var groupID sql.NullInt64
-	var mediaPath sql.NullString
-	var nickname sql.NullString
-	var avatarPath sql.NullString
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&p.ID,
-		&p.AuthorID,
-		&groupID,
-		&p.AuthorFirstName,
-		&p.AuthorLastName,
-		&nickname,
-		&avatarPath,
-		&p.Content,
-		&mediaPath,
-		&p.Privacy,
-		&p.CreatedAt,
-		&p.UpdatedAt,
-		&p.CommentCount,
-		&p.LikeCount,
-		&p.DislikeCount,
-	)
+	p, err := scanPost(r.db.QueryRowContext(ctx, query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domainpost.Post{}, domainpost.ErrNotFound
 		}
 		return domainpost.Post{}, fmt.Errorf("get post: %w", err)
 	}
-	p.GroupID = nullableInt64(groupID)
-	p.MediaPath = nullableString(mediaPath)
-	p.AuthorNickname = nullableString(nickname)
-	p.AuthorAvatarPath = nullableString(avatarPath)
 	return p, nil
 }
 
@@ -125,11 +114,7 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 	if err != nil {
 		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
+	defer tx.Rollback()
 
 	const query = `
 		INSERT INTO posts (author_id, group_id, content, media_path, visibility)
@@ -208,34 +193,10 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 
 	var posts []domainpost.Post
 	for rows.Next() {
-		var p domainpost.Post
-		var groupID sql.NullInt64
-		var mediaPath sql.NullString
-		var nickname sql.NullString
-		var avatarPath sql.NullString
-		if err := rows.Scan(
-			&p.ID,
-			&p.AuthorID,
-			&groupID,
-			&p.AuthorFirstName,
-			&p.AuthorLastName,
-			&nickname,
-			&avatarPath,
-			&p.Content,
-			&mediaPath,
-			&p.Privacy,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-			&p.CommentCount,
-			&p.LikeCount,
-			&p.DislikeCount,
-		); err != nil {
+		p, err := scanPost(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
-		p.GroupID = nullableInt64(groupID)
-		p.MediaPath = nullableString(mediaPath)
-		p.AuthorNickname = nullableString(nickname)
-		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -260,34 +221,10 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 
 	var posts []domainpost.Post
 	for rows.Next() {
-		var p domainpost.Post
-		var groupID sql.NullInt64
-		var mediaPath sql.NullString
-		var nickname sql.NullString
-		var avatarPath sql.NullString
-		if err := rows.Scan(
-			&p.ID,
-			&p.AuthorID,
-			&groupID,
-			&p.AuthorFirstName,
-			&p.AuthorLastName,
-			&nickname,
-			&avatarPath,
-			&p.Content,
-			&mediaPath,
-			&p.Privacy,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-			&p.CommentCount,
-			&p.LikeCount,
-			&p.DislikeCount,
-		); err != nil {
+		p, err := scanPost(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
-		p.GroupID = nullableInt64(groupID)
-		p.MediaPath = nullableString(mediaPath)
-		p.AuthorNickname = nullableString(nickname)
-		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -313,34 +250,10 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offs
 
 	var posts []domainpost.Post
 	for rows.Next() {
-		var p domainpost.Post
-		var groupID sql.NullInt64
-		var mediaPath sql.NullString
-		var nickname sql.NullString
-		var avatarPath sql.NullString
-		if err := rows.Scan(
-			&p.ID,
-			&p.AuthorID,
-			&groupID,
-			&p.AuthorFirstName,
-			&p.AuthorLastName,
-			&nickname,
-			&avatarPath,
-			&p.Content,
-			&mediaPath,
-			&p.Privacy,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-			&p.CommentCount,
-			&p.LikeCount,
-			&p.DislikeCount,
-		); err != nil {
+		p, err := scanPost(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
-		p.GroupID = nullableInt64(groupID)
-		p.MediaPath = nullableString(mediaPath)
-		p.AuthorNickname = nullableString(nickname)
-		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
@@ -363,14 +276,6 @@ func (r *Repository) IsUserAllowed(ctx context.Context, postID, userID int64) (b
 		return false, fmt.Errorf("check post allowed users: %w", err)
 	}
 	return exists, nil
-}
-
-func nullableString(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	v := value.String
-	return &v
 }
 
 func nullableInt64(value sql.NullInt64) *int64 {

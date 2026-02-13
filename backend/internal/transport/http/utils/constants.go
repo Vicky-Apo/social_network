@@ -13,6 +13,7 @@ const (
 	MsgInvalidCategoryID      = "invalid category_id"
 	MsgInvalidAuthorID        = "invalid author_id"
 	MsgInvalidNotificationID  = "invalid notification id"
+	MsgInvalidFollowRequestID = "invalid follow request id"
 	MsgInvalidInvitationID    = "invalid invitation id"
 	MsgInvalidJoinRequestID   = "invalid join request id"
 	MsgInvalidEventID         = "invalid event id"

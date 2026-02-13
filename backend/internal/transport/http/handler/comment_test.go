@@ -43,7 +43,8 @@ func (r *fakeCommentRepo) Delete(ctx context.Context, id int64) error { return n
 
 func TestCommentGetByPostID_Success(t *testing.T) {
 	repo := &fakeCommentRepo{}
-	svc := usecasecomment.NewService(repo, nil, nil, nil)
+	access := &fakeCommentAccess{canView: true}
+	svc := usecasecomment.NewService(repo, nil, access, nil)
 	h := NewCommentHandler(svc, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/posts/1/comments", nil)
@@ -57,4 +58,12 @@ func TestCommentGetByPostID_Success(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
+}
+
+type fakeCommentAccess struct {
+	canView bool
+}
+
+func (a *fakeCommentAccess) CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error) {
+	return a.canView, nil
 }

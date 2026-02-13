@@ -56,7 +56,14 @@ func (h *EventHandler) Create(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "events.create", err, logger.F("group_id", groupID), logger.F("creator_id", creatorID))
 		} else {
-			logBadRequest(h.log, "events.create", logger.F("group_id", groupID), logger.F("creator_id", creatorID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "events.create", logger.F("group_id", groupID), logger.F("creator_id", creatorID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "events.create", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "events.create", logger.F("group_id", groupID), logger.F("creator_id", creatorID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -95,7 +102,14 @@ func (h *EventHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "events.list", err, logger.F("group_id", groupID))
 		} else {
-			logBadRequest(h.log, "events.list", logger.F("group_id", groupID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "events.list", logger.F("group_id", groupID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "events.list", logger.F("group_id", groupID))
+			default:
+				logBadRequest(h.log, "events.list", logger.F("group_id", groupID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -170,7 +184,14 @@ func (h *EventHandler) Respond(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "events.respond", err, logger.F("event_id", eventID), logger.F("user_id", userID))
 		} else {
-			logBadRequest(h.log, "events.respond", logger.F("event_id", eventID), logger.F("user_id", userID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "events.respond", logger.F("event_id", eventID), logger.F("user_id", userID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "events.respond", logger.F("event_id", eventID))
+			default:
+				logBadRequest(h.log, "events.respond", logger.F("event_id", eventID), logger.F("user_id", userID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
@@ -202,13 +223,104 @@ func (h *EventHandler) ListResponses(w http.ResponseWriter, r *http.Request) {
 		if status >= http.StatusInternalServerError {
 			logServerError(h.log, "events.responses", err, logger.F("event_id", eventID))
 		} else {
-			logBadRequest(h.log, "events.responses", logger.F("event_id", eventID), logger.F("reason", message))
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "events.responses", logger.F("event_id", eventID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "events.responses", logger.F("event_id", eventID))
+			default:
+				logBadRequest(h.log, "events.responses", logger.F("event_id", eventID), logger.F("reason", message))
+			}
 		}
 		utils.RespondWithError(w, status, message)
 		return
 	}
 
 	utils.RespondWithSuccess(w, http.StatusOK, items)
+}
+
+// Update handles PATCH /events/{id}.
+func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
+	eventIDStr := r.PathValue("id")
+	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
+	if err != nil || eventID <= 0 {
+		logBadRequest(h.log, "events.update", logger.F("event_id", eventIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidEventID)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "events.update")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	var req usecaseevent.UpdateEventRequest
+	if err := utils.ReadJSON(r, &req); err != nil {
+		logBadRequest(h.log, "events.update", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	updated, err := h.service.UpdateEvent(r.Context(), eventID, userID, req)
+	if err != nil {
+		status, message := mapEventError(err)
+		if status >= http.StatusInternalServerError {
+			logServerError(h.log, "events.update", err, logger.F("event_id", eventID), logger.F("user_id", userID))
+		} else {
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "events.update", logger.F("event_id", eventID), logger.F("user_id", userID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "events.update", logger.F("event_id", eventID))
+			default:
+				logBadRequest(h.log, "events.update", logger.F("event_id", eventID), logger.F("user_id", userID), logger.F("reason", message))
+			}
+		}
+		utils.RespondWithError(w, status, message)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, updated)
+}
+
+// Delete handles DELETE /events/{id}.
+func (h *EventHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	eventIDStr := r.PathValue("id")
+	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
+	if err != nil || eventID <= 0 {
+		logBadRequest(h.log, "events.delete", logger.F("event_id", eventIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidEventID)
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "events.delete")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	if err := h.service.DeleteEvent(r.Context(), eventID, userID); err != nil {
+		status, message := mapEventError(err)
+		if status >= http.StatusInternalServerError {
+			logServerError(h.log, "events.delete", err, logger.F("event_id", eventID), logger.F("user_id", userID))
+		} else {
+			switch status {
+			case http.StatusForbidden:
+				logForbidden(h.log, "events.delete", logger.F("event_id", eventID), logger.F("user_id", userID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "events.delete", logger.F("event_id", eventID))
+			default:
+				logBadRequest(h.log, "events.delete", logger.F("event_id", eventID), logger.F("user_id", userID), logger.F("reason", message))
+			}
+		}
+		utils.RespondWithError(w, status, message)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 func mapEventError(err error) (int, string) {
@@ -220,6 +332,8 @@ func mapEventError(err error) (int, string) {
 	case errors.Is(err, usecaseevent.ErrInvalidResponse):
 		return http.StatusBadRequest, utils.MsgInvalidEventResponse
 	case errors.Is(err, usecaseevent.ErrForbidden):
+		return http.StatusForbidden, utils.MsgForbidden
+	case errors.Is(err, usecaseevent.ErrNotCreator):
 		return http.StatusForbidden, utils.MsgForbidden
 	case errors.Is(err, domainevent.ErrNotFound):
 		return http.StatusNotFound, utils.MsgEventNotFound

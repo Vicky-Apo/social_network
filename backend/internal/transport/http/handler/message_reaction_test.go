@@ -42,6 +42,9 @@ func (r *fakeMessageReactionChatRepo) AddMessageReaction(ctx context.Context, me
 func (r *fakeMessageReactionChatRepo) RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
 	return nil
 }
+func (r *fakeMessageReactionChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	return true, nil
+}
 func (r *fakeMessageReactionChatRepo) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
 	return []domainchat.MessageReaction{{MessageID: messageID, UserID: 2, Emoji: "😀", CreatedAt: time.Now()}}, nil
 }
@@ -57,11 +60,17 @@ func (r *fakeMessageReactionChatRepo) GetGroupConversationID(ctx context.Context
 func (r *fakeMessageReactionChatRepo) GetGroupIDByConversationID(ctx context.Context, conversationID int64) (*int64, error) {
 	return nil, nil
 }
+func (r *fakeMessageReactionChatRepo) GetGroupConversationMap(ctx context.Context, conversationIDs []int64) (map[int64]int64, error) {
+	return map[int64]int64{}, nil
+}
 func (r *fakeMessageReactionChatRepo) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
 	return nil, nil
 }
 func (r *fakeMessageReactionChatRepo) GetConversationMembers(ctx context.Context, conversationID int64) ([]int64, error) {
 	return nil, nil
+}
+func (r *fakeMessageReactionChatRepo) GetConversationMembersMap(ctx context.Context, conversationIDs []int64) (map[int64][]int64, error) {
+	return map[int64][]int64{}, nil
 }
 func (r *fakeMessageReactionChatRepo) AddMember(ctx context.Context, conversationID, userID int64, role domainchat.ConversationRole) error {
 	return nil
@@ -71,6 +80,9 @@ func (r *fakeMessageReactionChatRepo) CreateMessage(ctx context.Context, convers
 }
 func (r *fakeMessageReactionChatRepo) GetMessagesByConversation(ctx context.Context, conversationID int64, limit, offset int) ([]domainchat.Message, error) {
 	return nil, nil
+}
+func (r *fakeMessageReactionChatRepo) GetLastMessages(ctx context.Context, conversationIDs []int64) (map[int64]domainchat.Message, error) {
+	return map[int64]domainchat.Message{}, nil
 }
 func (r *fakeMessageReactionChatRepo) MarkAsRead(ctx context.Context, conversationID, userID int64) error {
 	return nil

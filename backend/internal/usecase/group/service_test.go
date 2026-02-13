@@ -8,6 +8,7 @@ import (
 
 	domaingroup "social-network/backend/internal/domain/group"
 	usecasenotification "social-network/backend/internal/usecase/notification"
+	"social-network/backend/pkg/logger"
 )
 
 type fakeGroupRepo struct {
@@ -198,7 +199,7 @@ func TestInviteToGroup_NotMemberForbidden(t *testing.T) {
 	repo := newFakeGroupRepo()
 	repo.groups[1] = domaingroup.Group{ID: 1, CreatorID: 1}
 
-	svc := NewService(repo, &fakeAccess{canInvite: false}, nil)
+	svc := NewService(repo, &fakeAccess{canInvite: false}, nil, logger.NewDefault(false))
 	_, err := svc.InviteToGroup(context.Background(), 2, 1, 3)
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected forbidden, got %v", err)
@@ -210,7 +211,7 @@ func TestInviteToGroup_SendsNotification(t *testing.T) {
 	repo.groups[1] = domaingroup.Group{ID: 1, CreatorID: 1}
 	notify := &testNotifier{}
 
-	svc := NewService(repo, &fakeAccess{canInvite: true}, notify)
+	svc := NewService(repo, &fakeAccess{canInvite: true}, notify, logger.NewDefault(false))
 	_, err := svc.InviteToGroup(context.Background(), 1, 1, 2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -225,7 +226,7 @@ func TestRequestJoin_SendsNotificationToCreator(t *testing.T) {
 	repo.groups[1] = domaingroup.Group{ID: 1, CreatorID: 99}
 	notify := &testNotifier{}
 
-	svc := NewService(repo, &fakeAccess{canPost: true}, notify)
+	svc := NewService(repo, &fakeAccess{canPost: true}, notify, logger.NewDefault(false))
 	_, err := svc.RequestJoin(context.Background(), 1, 2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -108,6 +108,8 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		if len(req.AllowedUserIDs) > 0 {
 			return PostDTO{}, errors.New("allowed_user_ids are not allowed for group posts")
 		}
+		// Normalize group post visibility to public (group access is enforced separately).
+		privacy = "public"
 	}
 
 	if privacy == "private" {
@@ -211,7 +213,7 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 		if err != nil {
 			return nil, err
 		}
-		if !ok && !isOwner && !isFollower {
+		if !ok {
 			return nil, ErrForbidden
 		}
 	} else {

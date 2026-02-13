@@ -46,6 +46,16 @@ func (r *fakeChatRepo) RemoveMessageReaction(ctx context.Context, messageID, use
 	return nil
 }
 
+func (r *fakeChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	key := [3]string{itoa(messageID), itoa(userID), emoji}
+	if r.reactions[key] {
+		delete(r.reactions, key)
+		return false, nil
+	}
+	r.reactions[key] = true
+	return true, nil
+}
+
 func (r *fakeChatRepo) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
 	return []domainchat.MessageReaction{{MessageID: messageID, UserID: 1, Emoji: "😀"}}, nil
 }
@@ -63,11 +73,17 @@ func (r *fakeChatRepo) GetGroupConversationID(ctx context.Context, groupID int64
 func (r *fakeChatRepo) GetGroupIDByConversationID(ctx context.Context, conversationID int64) (*int64, error) {
 	return nil, nil
 }
+func (r *fakeChatRepo) GetGroupConversationMap(ctx context.Context, conversationIDs []int64) (map[int64]int64, error) {
+	return map[int64]int64{}, nil
+}
 func (r *fakeChatRepo) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
 	return nil, nil
 }
 func (r *fakeChatRepo) GetConversationMembers(ctx context.Context, conversationID int64) ([]int64, error) {
 	return nil, nil
+}
+func (r *fakeChatRepo) GetConversationMembersMap(ctx context.Context, conversationIDs []int64) (map[int64][]int64, error) {
+	return map[int64][]int64{}, nil
 }
 func (r *fakeChatRepo) AddMember(ctx context.Context, conversationID, userID int64, role domainchat.ConversationRole) error {
 	return nil
@@ -77,6 +93,9 @@ func (r *fakeChatRepo) CreateMessage(ctx context.Context, conversationID, sender
 }
 func (r *fakeChatRepo) GetMessagesByConversation(ctx context.Context, conversationID int64, limit, offset int) ([]domainchat.Message, error) {
 	return nil, nil
+}
+func (r *fakeChatRepo) GetLastMessages(ctx context.Context, conversationIDs []int64) (map[int64]domainchat.Message, error) {
+	return map[int64]domainchat.Message{}, nil
 }
 func (r *fakeChatRepo) MarkAsRead(ctx context.Context, conversationID, userID int64) error {
 	return nil

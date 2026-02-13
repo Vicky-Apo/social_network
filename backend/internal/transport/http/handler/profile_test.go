@@ -16,6 +16,7 @@ func TestProfileGet_Unauthorized(t *testing.T) {
 	h := NewProfileHandler(nil, nil, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/profiles/1", nil)
+	req.SetPathValue("id", "1")
 	rr := httptest.NewRecorder()
 	h.GetProfile(rr, req)
 
@@ -81,6 +82,7 @@ func TestProfileGet_Success(t *testing.T) {
 	h := NewProfileHandler(svc, nil, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/profiles/1", nil)
+	req.SetPathValue("id", "1")
 	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 	rr := httptest.NewRecorder()
 

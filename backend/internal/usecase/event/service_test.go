@@ -9,6 +9,7 @@ import (
 	domainevent "social-network/backend/internal/domain/event"
 	domaingroup "social-network/backend/internal/domain/group"
 	usecasenotification "social-network/backend/internal/usecase/notification"
+	"social-network/backend/pkg/logger"
 )
 
 type fakeEventRepo struct {
@@ -39,6 +40,23 @@ func (r *fakeEventRepo) GetByID(ctx context.Context, id int64) (domainevent.Even
 
 func (r *fakeEventRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainevent.Event, error) {
 	return nil, nil
+}
+
+func (r *fakeEventRepo) Update(ctx context.Context, e domainevent.Event) (domainevent.Event, error) {
+	if _, ok := r.events[e.ID]; !ok {
+		return domainevent.Event{}, domainevent.ErrNotFound
+	}
+	e.UpdatedAt = time.Now()
+	r.events[e.ID] = e
+	return e, nil
+}
+
+func (r *fakeEventRepo) Delete(ctx context.Context, id int64) error {
+	if _, ok := r.events[id]; !ok {
+		return domainevent.ErrNotFound
+	}
+	delete(r.events, id)
+	return nil
 }
 
 func (r *fakeEventRepo) UpsertResponse(ctx context.Context, eventID, userID int64, response string) (domainevent.EventResponse, error) {
@@ -151,8 +169,8 @@ func TestCreateEvent_ForbiddenForNonMember(t *testing.T) {
 	groups := newFakeGroupRepo()
 	access := &fakeAccess{canPost: false}
 
-	svc := NewService(repo, groups, access, nil)
-	_, err := svc.CreateEvent(context.Background(), 1, 1, CreateEventRequest{Title: "Meet", EventTime: time.Now()})
+	svc := NewService(repo, groups, access, nil, logger.NewDefault(false))
+	_, err := svc.CreateEvent(context.Background(), 1, 1, CreateEventRequest{Title: "Meet", EventTime: time.Now().Add(time.Hour)})
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected forbidden, got %v", err)
 	}
@@ -165,8 +183,8 @@ func TestCreateEvent_NotifiesMembers(t *testing.T) {
 	access := &fakeAccess{canPost: true}
 	notify := &testNotifier{}
 
-	svc := NewService(repo, groups, access, notify)
-	_, err := svc.CreateEvent(context.Background(), 1, 1, CreateEventRequest{Title: "Meet", EventTime: time.Now()})
+	svc := NewService(repo, groups, access, notify, logger.NewDefault(false))
+	_, err := svc.CreateEvent(context.Background(), 1, 1, CreateEventRequest{Title: "Meet", EventTime: time.Now().Add(time.Hour)})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -180,7 +198,7 @@ func TestRespond_InvalidResponse(t *testing.T) {
 	groups := newFakeGroupRepo()
 	access := &fakeAccess{canView: true}
 
-	svc := NewService(repo, groups, access, nil)
+	svc := NewService(repo, groups, access, nil, logger.NewDefault(false))
 	_, err := svc.Respond(context.Background(), 1, 1, "maybe")
 	if !errors.Is(err, ErrInvalidResponse) {
 		t.Fatalf("expected invalid response, got %v", err)

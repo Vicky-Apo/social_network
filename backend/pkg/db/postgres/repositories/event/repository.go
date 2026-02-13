@@ -109,6 +109,43 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offs
 	return out, nil
 }
 
+// Update updates an event by ID.
+func (r *Repository) Update(ctx context.Context, e domainevent.Event) (domainevent.Event, error) {
+	const query = `
+		UPDATE events
+		SET title = $1, description = $2, event_time = $3, updated_at = now()
+		WHERE id = $4
+		RETURNING updated_at
+	`
+	if err := r.db.QueryRowContext(ctx, query, e.Title, e.Description, e.EventTime, e.ID).Scan(&e.UpdatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domainevent.Event{}, domainevent.ErrNotFound
+		}
+		return domainevent.Event{}, fmt.Errorf("update event: %w", err)
+	}
+	return e, nil
+}
+
+// Delete removes an event by ID.
+func (r *Repository) Delete(ctx context.Context, id int64) error {
+	const query = `
+		DELETE FROM events
+		WHERE id = $1
+	`
+	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete event: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete event: %w", err)
+	}
+	if rows == 0 {
+		return domainevent.ErrNotFound
+	}
+	return nil
+}
+
 // UpsertResponse inserts or updates a user's response to an event.
 func (r *Repository) UpsertResponse(ctx context.Context, eventID, userID int64, response string) (domainevent.EventResponse, error) {
 	const query = `

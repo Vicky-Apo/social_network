@@ -58,9 +58,10 @@ func TestUpload_AcceptsImagesAndSaves(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodPost, "/uploads", body)
 			req.Header.Set("Content-Type", contentType)
+			req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 
 			rr := httptest.NewRecorder()
-			h.Upload(rr, req)
+			authWrap(http.HandlerFunc(h.Upload), 1).ServeHTTP(rr, req)
 
 			if rr.Code != http.StatusCreated {
 				t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
@@ -96,9 +97,10 @@ func TestUpload_RejectsInvalidType(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/uploads", body)
 	req.Header.Set("Content-Type", contentType)
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 
 	rr := httptest.NewRecorder()
-	h.Upload(rr, req)
+	authWrap(http.HandlerFunc(h.Upload), 1).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
@@ -116,9 +118,10 @@ func TestUpload_RejectsInvalidKind(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/uploads", body)
 	req.Header.Set("Content-Type", contentType)
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 
 	rr := httptest.NewRecorder()
-	h.Upload(rr, req)
+	authWrap(http.HandlerFunc(h.Upload), 1).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
@@ -137,9 +140,10 @@ func TestUpload_RejectsTooLarge(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/uploads", body)
 	req.Header.Set("Content-Type", contentType)
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 
 	rr := httptest.NewRecorder()
-	h.Upload(rr, req)
+	authWrap(http.HandlerFunc(h.Upload), 1).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
@@ -164,9 +168,10 @@ func TestUpload_MissingFileField(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/uploads", body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 
 	rr := httptest.NewRecorder()
-	h.Upload(rr, req)
+	authWrap(http.HandlerFunc(h.Upload), 1).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)
@@ -182,9 +187,10 @@ func TestUpload_MissingMultipartBoundary(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/uploads", bytes.NewBufferString("no-boundary"))
 	req.Header.Set("Content-Type", "multipart/form-data")
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 
 	rr := httptest.NewRecorder()
-	h.Upload(rr, req)
+	authWrap(http.HandlerFunc(h.Upload), 1).ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", rr.Code)

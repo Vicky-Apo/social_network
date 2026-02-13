@@ -64,5 +64,14 @@ func (h *MediaHandler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fullPath := filepath.Join(h.uploadDir, filepath.FromSlash(path))
+	cleanBase := filepath.Clean(h.uploadDir) + string(filepath.Separator)
+	cleanFull := filepath.Clean(fullPath)
+	if !strings.HasPrefix(cleanFull, cleanBase) {
+		logBadRequest(h.log, "uploads.get", logger.F("path", path))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUpload)
+		return
+	}
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Disposition", "inline")
 	http.ServeFile(w, r, fullPath)
 }

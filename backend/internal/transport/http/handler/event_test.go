@@ -37,6 +37,12 @@ func (r *fakeEventRepo) GetByID(ctx context.Context, id int64) (domainevent.Even
 func (r *fakeEventRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainevent.Event, error) {
 	return []domainevent.Event{{ID: 1, GroupID: groupID, Title: "Meet", EventTime: time.Now()}}, nil
 }
+func (r *fakeEventRepo) Update(ctx context.Context, e domainevent.Event) (domainevent.Event, error) {
+	return e, nil
+}
+func (r *fakeEventRepo) Delete(ctx context.Context, id int64) error {
+	return nil
+}
 func (r *fakeEventRepo) UpsertResponse(ctx context.Context, eventID, userID int64, response string) (domainevent.EventResponse, error) {
 	return domainevent.EventResponse{}, nil
 }
@@ -115,7 +121,7 @@ func (f fakeEventAccess) CanPostInGroup(ctx context.Context, userID, groupID int
 func TestEventList_Success(t *testing.T) {
 	repo := &fakeEventRepo{}
 	groupRepo := &fakeEventGroupRepo{}
-	svc := usecaseevent.NewService(repo, groupRepo, fakeEventAccess{}, nil)
+	svc := usecaseevent.NewService(repo, groupRepo, fakeEventAccess{}, nil, logger.NewDefault(false))
 	h := NewEventHandler(svc, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/groups/1/events", nil)

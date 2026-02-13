@@ -212,6 +212,26 @@ func (s *Service) ListConversations(ctx context.Context, userID int64) ([]Conver
 		return nil, fmt.Errorf("get unread counts: %w", err)
 	}
 
+	conversationIDs := make([]int64, 0, len(conversations))
+	for _, conv := range conversations {
+		conversationIDs = append(conversationIDs, conv.ID)
+	}
+
+	memberMap, err := s.chatRepo.GetConversationMembersMap(ctx, conversationIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get conversation members: %w", err)
+	}
+
+	groupMap, err := s.chatRepo.GetGroupConversationMap(ctx, conversationIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get group conversations: %w", err)
+	}
+
+	lastMap, err := s.chatRepo.GetLastMessages(ctx, conversationIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get last messages: %w", err)
+	}
+
 	dtos := make([]ConversationDTO, len(conversations))
 	for i, conv := range conversations {
 		dto := ConversationDTO{
@@ -223,25 +243,22 @@ func (s *Service) ListConversations(ctx context.Context, userID int64) ([]Conver
 
 		// For direct conversations, get the other user
 		if conv.Type == domainchat.ConversationTypeDirect {
-			members, err := s.chatRepo.GetConversationMembers(ctx, conv.ID)
-			if err == nil {
-				for _, memberID := range members {
-					if memberID != userID {
-						dto.OtherUserID = &memberID
-						break
-					}
+			members := memberMap[conv.ID]
+			for _, memberID := range members {
+				if memberID != userID {
+					dto.OtherUserID = &memberID
+					break
 				}
 			}
 		} else if conv.Type == domainchat.ConversationTypeGroup {
-			if groupID, err := s.chatRepo.GetGroupIDByConversationID(ctx, conv.ID); err == nil {
-				dto.GroupID = groupID
+			if groupID, ok := groupMap[conv.ID]; ok {
+				dto.GroupID = &groupID
 			}
 		}
 
 		// Get last message
-		messages, err := s.chatRepo.GetMessagesByConversation(ctx, conv.ID, 1, 0)
-		if err == nil && len(messages) > 0 {
-			lastMsg := mapMessage(messages[0])
+		if msg, ok := lastMap[conv.ID]; ok {
+			lastMsg := mapMessage(msg)
 			dto.LastMessage = &lastMsg
 		}
 

@@ -83,7 +83,7 @@ func (r *fakeGroupRepo) DeleteJoinRequest(ctx context.Context, id int64) error {
 
 func TestGroupList_Success(t *testing.T) {
 	repo := &fakeGroupRepo{}
-	svc := usecasegroup.NewService(repo, nil, nil)
+	svc := usecasegroup.NewService(repo, nil, nil, logger.NewDefault(false))
 	h := NewGroupHandler(svc, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/groups", nil)

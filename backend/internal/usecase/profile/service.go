@@ -40,7 +40,7 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 	if err := s.ensureAccess(ctx, user, viewerID); err != nil {
 		if errors.Is(err, ErrForbidden) {
 			return ProfileDTO{
-				User:           mapUserLimited(user),
+				User:           mapProfileUserLimited(user),
 				FollowersCount: nil,
 				FollowingCount: nil,
 				IsFollowing:    false,
@@ -80,7 +80,7 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 	}
 
 	return ProfileDTO{
-		User:           mapUser(user),
+		User:           mapProfileUser(user),
 		FollowersCount: &followers,
 		FollowingCount: &following,
 		IsFollowing:    isFollowing,

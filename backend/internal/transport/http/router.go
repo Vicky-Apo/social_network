@@ -42,7 +42,7 @@ func NewRouter(
 	mux := http.NewServeMux()
 
 	// Health check
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
@@ -110,6 +110,8 @@ func NewRouter(
 
 	// Event routes (protected)
 	mux.Handle("GET /events/{id}", mw.Auth(http.HandlerFunc(eventHandler.GetByID)))
+	mux.Handle("PATCH /events/{id}", mw.Auth(http.HandlerFunc(eventHandler.Update)))
+	mux.Handle("DELETE /events/{id}", mw.Auth(http.HandlerFunc(eventHandler.Delete)))
 	mux.Handle("POST /events/{id}/responses", mw.Auth(http.HandlerFunc(eventHandler.Respond)))
 	mux.Handle("GET /events/{id}/responses", mw.Auth(http.HandlerFunc(eventHandler.ListResponses)))
 

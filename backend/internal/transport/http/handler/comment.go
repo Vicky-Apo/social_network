@@ -38,7 +38,7 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	// Parse post ID from path parameter
 	postIDStr := r.PathValue("id")
 	postID, err := strconv.ParseInt(postIDStr, 10, 64)
-	if err != nil {
+	if err != nil || postID <= 0 {
 		logBadRequest(h.log, "comments.create", logger.F("post_id", postIDStr))
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidPostID)
 		return
@@ -76,7 +76,7 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 	// Parse post ID from path parameter
 	postIDStr := r.PathValue("id")
 	postID, err := strconv.ParseInt(postIDStr, 10, 64)
-	if err != nil {
+	if err != nil || postID <= 0 {
 		logBadRequest(h.log, "comments.list", logger.F("post_id", postIDStr))
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidPostID)
 		return

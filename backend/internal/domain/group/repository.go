@@ -11,6 +11,8 @@ var (
 	ErrNotMember           = errors.New("user is not a member of this group")
 	ErrInvitationNotFound  = errors.New("group invitation not found")
 	ErrJoinRequestNotFound = errors.New("group join request not found")
+	ErrInvitationExists    = errors.New("group invitation already exists")
+	ErrJoinRequestExists   = errors.New("group join request already exists")
 )
 
 // Repository defines the data access contract for group operations.

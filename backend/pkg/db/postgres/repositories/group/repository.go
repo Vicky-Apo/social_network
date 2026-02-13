@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/lib/pq"
 	domaingroup "social-network/backend/internal/domain/group"
 )
 
@@ -149,11 +150,12 @@ func (r *Repository) Search(ctx context.Context, userID int64, queryText string,
 			GROUP BY group_id
 		) m ON m.group_id = g.id
 		LEFT JOIN group_members gm ON gm.group_id = g.id AND gm.user_id = $1
-		WHERE g.title ILIKE $2 OR g.description ILIKE $2
+		WHERE g.title ILIKE $2 ESCAPE '\' OR g.description ILIKE $2 ESCAPE '\'
 		ORDER BY g.created_at DESC
 		LIMIT $3 OFFSET $4
 	`
-	pattern := "%" + strings.TrimSpace(queryText) + "%"
+	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(strings.TrimSpace(queryText))
+	pattern := "%" + escaped + "%"
 	rows, err := r.db.QueryContext(ctx, query, userID, pattern, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("search groups: %w", err)
@@ -367,7 +369,11 @@ func (r *Repository) RemoveMember(ctx context.Context, groupID, userID int64) er
 	if err != nil {
 		return fmt.Errorf("remove member: %w", err)
 	}
-	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
 		return domaingroup.ErrNotMember
 	}
 
@@ -429,6 +435,9 @@ func (r *Repository) CreateInvitation(ctx context.Context, groupID, inviterID, i
 		&inv.CreatedAt,
 		&inv.UpdatedAt,
 	); err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			return domaingroup.GroupInvitation{}, domaingroup.ErrInvitationExists
+		}
 		return domaingroup.GroupInvitation{}, fmt.Errorf("create invitation: %w", err)
 	}
 	return inv, nil
@@ -497,7 +506,11 @@ func (r *Repository) DeleteInvitation(ctx context.Context, id int64) error {
 	if err != nil {
 		return fmt.Errorf("delete invitation: %w", err)
 	}
-	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
 		return domaingroup.ErrInvitationNotFound
 	}
 	return nil
@@ -536,6 +549,9 @@ func (r *Repository) CreateJoinRequest(ctx context.Context, groupID, userID int6
 		&req.CreatedAt,
 		&req.UpdatedAt,
 	); err != nil {
+		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
+			return domaingroup.GroupJoinRequest{}, domaingroup.ErrJoinRequestExists
+		}
 		return domaingroup.GroupJoinRequest{}, fmt.Errorf("create join request: %w", err)
 	}
 	return req, nil
@@ -603,7 +619,11 @@ func (r *Repository) DeleteJoinRequest(ctx context.Context, id int64) error {
 	if err != nil {
 		return fmt.Errorf("delete join request: %w", err)
 	}
-	if rows, err := res.RowsAffected(); err == nil && rows == 0 {
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("rows affected: %w", err)
+	}
+	if rows == 0 {
 		return domaingroup.ErrJoinRequestNotFound
 	}
 	return nil

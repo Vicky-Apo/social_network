@@ -146,7 +146,7 @@ func (h *PostHandler) CreateInGroup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		logBadRequest(h.log, "posts.create_in_group", logger.F("author_id", authorID), logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
 
@@ -172,7 +172,7 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	post, err := h.service.Create(r.Context(), authorID, req)
 	if err != nil {
 		logBadRequest(h.log, "posts.create", logger.F("author_id", authorID), logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
 
@@ -181,10 +181,11 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GetByID handles GET /posts/{id}.
 func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	id, ok := utils.ParsePathID(r.URL.Path, "/posts/")
-	if !ok {
-		logBadRequest(h.log, "posts.get", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "posts.get", logger.F("post_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidPostID)
 		return
 	}
 

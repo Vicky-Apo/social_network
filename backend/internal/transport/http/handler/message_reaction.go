@@ -56,7 +56,14 @@ func (h *MessageReactionHandler) Toggle(w http.ResponseWriter, r *http.Request) 
 		if code >= http.StatusInternalServerError {
 			logServerError(h.log, "messages.reactions.toggle", err, logger.F("message_id", messageID))
 		} else {
-			logBadRequest(h.log, "messages.reactions.toggle", logger.F("message_id", messageID), logger.F("reason", msg))
+			switch code {
+			case http.StatusForbidden:
+				logForbidden(h.log, "messages.reactions.toggle", logger.F("message_id", messageID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "messages.reactions.toggle", logger.F("message_id", messageID))
+			default:
+				logBadRequest(h.log, "messages.reactions.toggle", logger.F("message_id", messageID), logger.F("reason", msg))
+			}
 		}
 		utils.RespondWithError(w, code, msg)
 		return
@@ -88,7 +95,14 @@ func (h *MessageReactionHandler) List(w http.ResponseWriter, r *http.Request) {
 		if code >= http.StatusInternalServerError {
 			logServerError(h.log, "messages.reactions.list", err, logger.F("message_id", messageID))
 		} else {
-			logBadRequest(h.log, "messages.reactions.list", logger.F("message_id", messageID), logger.F("reason", msg))
+			switch code {
+			case http.StatusForbidden:
+				logForbidden(h.log, "messages.reactions.list", logger.F("message_id", messageID))
+			case http.StatusNotFound:
+				logNotFound(h.log, "messages.reactions.list", logger.F("message_id", messageID))
+			default:
+				logBadRequest(h.log, "messages.reactions.list", logger.F("message_id", messageID), logger.F("reason", msg))
+			}
 		}
 		utils.RespondWithError(w, code, msg)
 		return

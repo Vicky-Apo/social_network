@@ -3,6 +3,7 @@ package comment
 import (
 	"context"
 	"errors"
+	"strings"
 
 	domaincomment "social-network/backend/internal/domain/comment"
 	domainpost "social-network/backend/internal/domain/post"
@@ -34,14 +35,18 @@ func NewService(repo domaincomment.Repository, postRepo domainpost.Repository, a
 
 // Create creates a new comment
 func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (CommentDTO, error) {
-	if s.access != nil {
-		ok, err := s.access.CanViewPost(ctx, req.AuthorID, req.PostID)
-		if err != nil {
-			return CommentDTO{}, err
-		}
-		if !ok {
-			return CommentDTO{}, ErrForbidden
-		}
+	if s.access == nil {
+		return CommentDTO{}, errors.New("access service not configured")
+	}
+	if strings.TrimSpace(req.Content) == "" && strings.TrimSpace(req.MediaPath) == "" {
+		return CommentDTO{}, errors.New("content or media is required")
+	}
+	ok, err := s.access.CanViewPost(ctx, req.AuthorID, req.PostID)
+	if err != nil {
+		return CommentDTO{}, err
+	}
+	if !ok {
+		return CommentDTO{}, ErrForbidden
 	}
 	comment := domaincomment.Comment{
 		PostID:    req.PostID,
@@ -75,14 +80,15 @@ func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (Comment
 
 // GetByPostID gets all comments for a post
 func (s *Service) GetByPostID(ctx context.Context, postID, viewerID int64, limit, offset int) ([]CommentDTO, error) {
-	if s.access != nil {
-		ok, err := s.access.CanViewPost(ctx, viewerID, postID)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, ErrForbidden
-		}
+	if s.access == nil {
+		return nil, errors.New("access service not configured")
+	}
+	ok, err := s.access.CanViewPost(ctx, viewerID, postID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
 	}
 	comments, err := s.repo.GetByPostID(ctx, postID, limit, offset)
 	if err != nil {

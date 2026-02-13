@@ -21,7 +21,7 @@ func ReadJSON(r *http.Request, dst any) error {
 // For example, ParsePathID("/posts/123", "/posts/") returns (123, true).
 func ParsePathID(path, prefix string) (int64, bool) {
 	id, remainder, ok := ParsePathIDAndRemainder(path, prefix)
-	if !ok || remainder != "" {
+	if !ok || remainder != "" || id <= 0 {
 		return 0, false
 	}
 	return id, true
