@@ -41,6 +41,31 @@ Notes:
 
 `GET /events/{id}`
 
+### Update event
+
+`PATCH /events/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "title": "Updated Standup",
+  "description": "Updated description",
+  "event_time": "2026-02-15T18:00:00Z"
+}
+```
+
+Notes:
+- Only the event creator can update the event.
+- `event_time` must be in the future.
+
+### Delete event
+
+`DELETE /events/{id}`
+
+Notes:
+- Only the event creator can delete the event.
+
 ### Respond to event
 
 `POST /events/{id}/responses`
