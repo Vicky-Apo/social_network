@@ -1,5 +1,11 @@
 # Social Network
 
+## Quick start
+
+For full local setup (frontend + backend), see:
+
+- `DOCS/run-project.md`
+
 Database diagram:
 https://dbdiagram.io/d/social-network-giannis-69415c3f6167ba741474389c
 
