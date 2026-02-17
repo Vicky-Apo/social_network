@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
 import { landingData } from "@/lib/data";
+import { BrandMark } from "@/components/BrandMark";
 
 export function Footer() {
   return (
@@ -9,13 +9,7 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
           <div>
             <div className="inline-flex items-center gap-2">
-              <Image
-                src="/vybez-logo.png"
-                alt={`${landingData.productName} logo`}
-                width={36}
-                height={36}
-                className="h-9 w-9 rounded-full border border-neutral-200 object-cover"
-              />
+              <BrandMark label={landingData.productName} />
               <span className="text-sm font-semibold">{landingData.productName}</span>
             </div>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-neutral-600">

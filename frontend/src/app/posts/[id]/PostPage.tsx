@@ -2,12 +2,12 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, MessageCircle, ThumbsDown, ThumbsUp, Send } from "lucide-react";
 import { landingData } from "@/lib/data";
 import { apiJson, asArray, asNumber, asString, isRecord } from "@/lib/api";
+import { BrandMark } from "@/components/BrandMark";
 
 type PostVM = {
   id: number;
@@ -237,14 +237,7 @@ export default function PostPage({ postId }: { postId: number }) {
             Back
           </button>
           <Link href="/explore" className="ml-auto inline-flex items-center gap-2">
-            <Image
-              src="/vybez-logo.png"
-              alt={`${landingData.productName} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
-              priority
-            />
+            <BrandMark label={landingData.productName} size="sm" />
             <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
           </Link>
         </div>

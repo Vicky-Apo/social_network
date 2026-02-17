@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import type { MouseEvent } from "react";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { useReducedMotion } from "framer-motion";
 import clsx from "clsx";
 import { landingData } from "@/lib/data";
+import { BrandMark } from "@/components/BrandMark";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -88,14 +88,7 @@ export function Navbar() {
           onClick={handleBrandClick}
           className="group inline-flex items-center gap-2 rounded-full p-1"
         >
-          <Image
-            src="/vybez-logo.png"
-            alt={`${landingData.productName} logo`}
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-full border border-neutral-200 object-cover shadow-sm"
-            priority
-          />
+          <BrandMark label={landingData.productName} size="lg" />
           <span className="text-sm font-semibold tracking-tight text-neutral-900">
             {landingData.productName}
           </span>

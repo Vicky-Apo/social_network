@@ -3,7 +3,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -23,6 +22,7 @@ import {
 import { useAuth } from "../component/AuthContext";
 import { landingData } from "@/lib/data";
 import { apiJson, asArray, asNumber, asString, isRecord } from "@/lib/api";
+import { BrandMark } from "@/components/BrandMark";
 
 type ReactionKind = "like" | "dislike";
 type ReactionMap = Record<number, ReactionKind | null>;
@@ -216,10 +216,14 @@ export default function DashboardPage() {
   const router = useRouter();
   const { logout } = useAuth();
 
+  const pageSize = 5;
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [posts, setPosts] = useState<DashboardPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPaging, setIsPaging] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [composerText, setComposerText] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -262,9 +266,6 @@ export default function DashboardPage() {
     let cancelled = false;
 
     const load = async () => {
-      setIsLoading(true);
-      setFeedError(null);
-
       try {
         const me = await apiJson(apiBaseUrl, "/auth/me");
         if (!me.ok || !me.json?.success || !me.json.data) {
@@ -290,30 +291,10 @@ export default function DashboardPage() {
           const raw = asArray(notificationsRes.json.data) ?? [];
           setNotifications(raw.map(toDashboardNotification).filter(Boolean) as DashboardNotification[]);
         }
-
-        const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
-        const feed = await apiJson(apiBaseUrl, feedPath);
-        if (!feed.ok || !feed.json?.success) {
-          if (!cancelled) {
-            setFeedError(feed.json?.error || "Unable to load your feed.");
-            setPosts([]);
-          }
-          return;
-        }
-
-        if (!cancelled) {
-          const raw = asArray(feed.json.data) ?? [];
-          setPosts(raw.map(toDashboardPost).filter(Boolean) as DashboardPost[]);
-          setPostReactionMap({});
-        }
       } catch {
-        if (!cancelled) {
-          setFeedError("Network error. Please try again.");
-        }
+        // Non-blocking: keep dashboard usable even if counts fail.
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        // no-op
       }
     };
 
@@ -322,7 +303,114 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, router, groupsOnly]);
+  }, [apiBaseUrl, router]);
+
+  const pageCacheRef = useRef<Map<string, { posts: DashboardPost[]; hasNext: boolean }>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    // When feed mode changes, invalidate cached pages.
+    pageCacheRef.current.clear();
+  }, [groupsOnly]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const cacheKey = `${groupsOnly ? 1 : 0}:${pageIndex}`;
+    const cached = pageCacheRef.current.get(cacheKey);
+    if (cached) {
+      setFeedError(null);
+      setPosts(cached.posts);
+      setHasNextPage(cached.hasNext);
+      setIsLoading(false);
+      setIsPaging(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadPage = async () => {
+      const isFirstLoad = isLoading && posts.length === 0;
+      if (!isFirstLoad) {
+        setIsPaging(true);
+      }
+      setFeedError(null);
+
+      try {
+        const params = new URLSearchParams();
+        if (groupsOnly) params.set("groups_only", "true");
+        params.set("limit", String(pageSize));
+        params.set("offset", String(pageIndex * pageSize));
+        const feedPath = `/posts?${params.toString()}`;
+
+        const feed = await apiJson(apiBaseUrl, feedPath);
+        if (feed.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!feed.ok || !feed.json?.success) {
+          setFeedError(feed.json?.error || "Unable to load your feed.");
+          if (isFirstLoad) {
+            setPosts([]);
+            setHasNextPage(false);
+          }
+          return;
+        }
+
+        const raw = asArray(feed.json.data) ?? [];
+        const nextPosts = raw.map(toDashboardPost).filter(Boolean) as DashboardPost[];
+        const nextHasNext = nextPosts.length === pageSize;
+
+        if (cancelled) return;
+        pageCacheRef.current.set(cacheKey, { posts: nextPosts, hasNext: nextHasNext });
+        setPosts(nextPosts);
+        setHasNextPage(nextHasNext);
+        setPostReactionMap({});
+        setCommentsByPost({});
+        setCommentsOpenByPost({});
+
+        // Prefetch the next page to make "Next" feel instant.
+        if (nextHasNext) {
+          const nextKey = `${groupsOnly ? 1 : 0}:${pageIndex + 1}`;
+          if (!pageCacheRef.current.has(nextKey)) {
+            const nextParams = new URLSearchParams();
+            if (groupsOnly) nextParams.set("groups_only", "true");
+            nextParams.set("limit", String(pageSize));
+            nextParams.set("offset", String((pageIndex + 1) * pageSize));
+            void apiJson(apiBaseUrl, `/posts?${nextParams.toString()}`)
+              .then((res) => {
+                if (!res.ok || !res.json?.success) return;
+                const items = (asArray(res.json.data) ?? [])
+                  .map(toDashboardPost)
+                  .filter(Boolean) as DashboardPost[];
+                pageCacheRef.current.set(nextKey, {
+                  posts: items,
+                  hasNext: items.length === pageSize,
+                });
+              })
+              .catch(() => undefined);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setFeedError("Network error. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsPaging(false);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    void loadPage();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiBaseUrl, router, groupsOnly, pageIndex, pageSize]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -357,23 +445,7 @@ export default function DashboardPage() {
   // Intentionally do not surface backend internal objects (follow requests, profiles, etc.)
   // in the UI. The dashboard should only present user-facing content.
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
-
-    const intervalID = window.setInterval(async () => {
-      const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
-      const response = await apiJson(apiBaseUrl, feedPath).catch(() => null);
-      if (!response?.ok || !response.json?.success) return;
-      const raw = asArray(response.json.data) ?? [];
-      setPosts(raw.map(toDashboardPost).filter(Boolean) as DashboardPost[]);
-    }, 7000);
-
-    return () => {
-      window.clearInterval(intervalID);
-    };
-  }, [apiBaseUrl, groupsOnly, user?.id]);
+  // No feed polling here; pagination should be stable while browsing.
 
   useEffect(() => {
     if (!user?.id) {
@@ -486,7 +558,11 @@ export default function DashboardPage() {
 
       const created = toDashboardPost(response.json.data);
       if (created) {
-        setPosts((prev) => [created, ...prev]);
+        if (pageIndex === 0) {
+          setPosts((prev) => [created, ...prev].slice(0, pageSize));
+        } else {
+          setPageIndex(0);
+        }
       }
       setComposerText("");
     } catch {
@@ -559,20 +635,31 @@ export default function DashboardPage() {
   };
 
   const refreshFeed = async () => {
-    setIsLoading(true);
+    setIsPaging(true);
     setFeedError(null);
     try {
-      const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+      const params = new URLSearchParams();
+      if (groupsOnly) params.set("groups_only", "true");
+      params.set("limit", String(pageSize));
+      params.set("offset", String(pageIndex * pageSize));
+      const feedPath = `/posts?${params.toString()}`;
       const response = await apiJson(apiBaseUrl, feedPath);
       if (!response.ok || !response.json?.success) {
         setFeedError(response.json?.error || "Could not refresh feed.");
         return;
       }
       const raw = asArray(response.json.data) ?? [];
-      setPosts(raw.map(toDashboardPost).filter(Boolean) as DashboardPost[]);
+      const nextPosts = raw.map(toDashboardPost).filter(Boolean) as DashboardPost[];
+      setPosts(nextPosts);
+      setHasNextPage(nextPosts.length === pageSize);
+      pageCacheRef.current.set(`${groupsOnly ? 1 : 0}:${pageIndex}`, {
+        posts: nextPosts,
+        hasNext: nextPosts.length === pageSize,
+      });
     } catch {
       setFeedError("Network error. Please try again.");
     } finally {
+      setIsPaging(false);
       setIsLoading(false);
     }
   };
@@ -770,14 +857,7 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2">
-            <Image
-              src="/vybez-logo.png"
-              alt={`${landingData.productName} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
-              priority
-            />
+            <BrandMark label={landingData.productName} size="sm" />
             <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
           </Link>
 
@@ -889,7 +969,10 @@ export default function DashboardPage() {
                   <input
                     type="checkbox"
                     checked={groupsOnly}
-                    onChange={(event) => setGroupsOnly(event.target.checked)}
+                    onChange={(event) => {
+                      setGroupsOnly(event.target.checked);
+                      setPageIndex(0);
+                    }}
                     className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
                   />
                 </label>
@@ -974,10 +1057,32 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
-              Feed status: {isLoading ? "loading" : `${posts.length} post(s)`}
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
+              <span>
+                {isPaging
+                  ? "Loading page…"
+                  : `Showing newest ${pageSize} · Page ${pageIndex + 1}`}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={(isLoading && posts.length === 0) || isPaging || pageIndex === 0}
+                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => prev + 1)}
+                  disabled={(isLoading && posts.length === 0) || isPaging || !hasNextPage}
+                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Next
+                </button>
+              </div>
             </div>
-            {isLoading ? (
+            {isLoading && posts.length === 0 ? (
               <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
                 Loading your feed...
               </article>

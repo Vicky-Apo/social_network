@@ -7,7 +7,7 @@ import { Testimonials } from "@/components/Testimonials";
 import { Articles } from "@/components/Articles";
 import { Footer } from "@/components/Footer";
 
-export default function HomePage() {
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <Navbar />
@@ -23,3 +23,4 @@ export default function HomePage() {
     </div>
   );
 }
+
