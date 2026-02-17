@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import type { MouseEvent } from "react";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import clsx from "clsx";
@@ -54,6 +55,26 @@ export function Navbar() {
     return () => window.removeEventListener("resize", closeOnResize);
   }, []);
 
+  const scrollToSection = (target: string) => {
+    const element = document.querySelector(target);
+    if (!(element instanceof HTMLElement)) return;
+
+    const offset = 88;
+    const nextTop = element.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({
+      top: Math.max(0, nextTop),
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+
+    const cleanUrl = `${window.location.pathname}${window.location.search}`;
+    window.history.replaceState(null, "", cleanUrl);
+  };
+
+  const handleBrandClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    scrollToSection("#top");
+  };
+
   return (
     <header
       className={clsx(
@@ -62,7 +83,11 @@ export function Navbar() {
       )}
     >
       <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="#top" className="group inline-flex items-center gap-2 rounded-full p-1">
+        <Link
+          href="/"
+          onClick={handleBrandClick}
+          className="group inline-flex items-center gap-2 rounded-full p-1"
+        >
           <Image
             src="/vybez-logo.png"
             alt={`${landingData.productName} logo`}
@@ -78,9 +103,10 @@ export function Navbar() {
 
         <nav className="hidden items-center gap-2 md:flex" aria-label="Primary navigation">
           {navItems.map((item) => (
-            <Link
+            <button
+              type="button"
               key={item.href}
-              href={item.href}
+              onClick={() => scrollToSection(item.href)}
               className={clsx(
                 "rounded-full px-4 py-2 text-sm font-medium transition",
                 activeSection === item.href
@@ -89,7 +115,7 @@ export function Navbar() {
               )}
             >
               {item.label}
-            </Link>
+            </button>
           ))}
         </nav>
 
@@ -133,10 +159,13 @@ export function Navbar() {
           >
             <nav className="mx-auto flex w-full max-w-6xl flex-col gap-2" aria-label="Mobile navigation">
               {navItems.map((item) => (
-                <Link
+                <button
+                  type="button"
                   key={item.href}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => {
+                    scrollToSection(item.href);
+                    setIsOpen(false);
+                  }}
                   className={clsx(
                     "rounded-xl px-4 py-3 text-sm font-medium transition",
                     activeSection === item.href
@@ -145,7 +174,7 @@ export function Navbar() {
                   )}
                 >
                   {item.label}
-                </Link>
+                </button>
               ))}
               <Link
                 href="/login"

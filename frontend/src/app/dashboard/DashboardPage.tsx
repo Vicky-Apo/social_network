@@ -107,7 +107,7 @@ type UserListItem = {
 };
 
 const quickLinks = [
-  { label: "Explore", href: "#", icon: Compass },
+  { label: "Explore", href: "/explore", icon: Compass },
   { label: "Groups", href: "#", icon: Users },
   { label: "Messages", href: "#", icon: MessageSquare },
 ];
@@ -307,6 +307,9 @@ export default function DashboardPage() {
       window.clearTimeout(timeoutID);
     };
   }, [apiBaseUrl, searchQuery, user?.id]);
+
+  // Intentionally do not surface backend internal objects (follow requests, profiles, etc.)
+  // in the UI. The dashboard should only present user-facing content.
 
   useEffect(() => {
     if (!user?.id) {
@@ -833,19 +836,14 @@ export default function DashboardPage() {
                     .map((person) => (
                       <div
                         key={person.id}
-                        className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
+                        className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
                       >
-                        <div>
-                          <p className="text-xs font-semibold text-neutral-800">
-                            {person.first_name} {person.last_name}
-                          </p>
-                          <p className="text-[11px] text-neutral-500">
-                            @{person.nickname || `user-${person.id}`}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-500">
-                          ID {person.id}
-                        </span>
+                        <p className="text-xs font-semibold text-neutral-800">
+                          {person.first_name} {person.last_name}
+                        </p>
+                        <p className="text-[11px] text-neutral-500">
+                          @{person.nickname || `user-${person.id}`}
+                        </p>
                       </div>
                     ))
                 )}
@@ -1139,21 +1137,13 @@ export default function DashboardPage() {
                   .filter((person) => person.id !== user?.id)
                   .slice(0, 8)
                   .map((person) => (
-                    <div
-                      key={`right-user-${person.id}`}
-                      className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-800">
-                          {person.first_name} {person.last_name}
-                        </p>
-                        <p className="text-[11px] text-neutral-500">
-                          @{person.nickname || `user-${person.id}`}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-500">
-                        ID {person.id}
-                      </span>
+                    <div key={`right-user-${person.id}`} className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
+                      <p className="text-xs font-semibold text-neutral-800">
+                        {person.first_name} {person.last_name}
+                      </p>
+                      <p className="text-[11px] text-neutral-500">
+                        @{person.nickname || `user-${person.id}`}
+                      </p>
                     </div>
                   ))
               )}

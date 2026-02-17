@@ -9,6 +9,19 @@ import { landingData } from "@/lib/data";
 
 export function Hero() {
   const reducedMotion = useReducedMotion();
+  const scrollToWorkflow = () => {
+    const section = document.querySelector("#workflow");
+    if (!(section instanceof HTMLElement)) return;
+
+    const offset = 88;
+    const nextTop = section.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({
+      top: Math.max(0, nextTop),
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
+    const cleanUrl = `${window.location.pathname}${window.location.search}`;
+    window.history.replaceState(null, "", cleanUrl);
+  };
 
   return (
     <Section id="top" className="relative overflow-hidden pt-28 md:pt-36">
@@ -51,12 +64,13 @@ export function Hero() {
               <span>{landingData.ctaPrimary}</span>
               <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
             </Link>
-            <Link
-              href="#workflow"
+            <button
+              type="button"
+              onClick={scrollToWorkflow}
               className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-800 transition hover:-translate-y-0.5 hover:border-neutral-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
             >
               {landingData.ctaSecondary}
-            </Link>
+            </button>
           </motion.div>
         </motion.div>
 

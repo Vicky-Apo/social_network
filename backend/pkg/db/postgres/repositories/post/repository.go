@@ -329,17 +329,16 @@ func baseJoins(viewerParam int) string {
 func visibilityWhereForFeed(viewerParam int) string {
 	return fmt.Sprintf(`
 		(
-			u.is_public = TRUE
-			OR p.author_id = $%d
-			OR f.follower_id IS NOT NULL
-		)
-		AND (
+			-- Always allow viewing your own posts
 			p.author_id = $%d
+			-- Public posts should be visible regardless of profile visibility
 			OR p.visibility = 'public'
+			-- Followers-only posts require an actual follow relationship
 			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
+			-- Private posts require explicit allow-list access
 			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
 		)
-	`, viewerParam, viewerParam)
+	`, viewerParam)
 }
 
 func visibilityWhereForAuthor(isFollowerParam, isOwnerParam int) string {
