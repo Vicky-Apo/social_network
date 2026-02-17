@@ -4,10 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
-import { motion } from "framer-motion";
 import { useAuth } from "../component/AuthContext";
 import { landingData } from "@/lib/data";
-import { fadeUp, staggerContainer } from "@/components/Motion";
+import { apiJson, asString, isRecord } from "@/lib/api";
 
 type FormState = {
   email: string;
@@ -16,21 +15,6 @@ type FormState = {
 };
 
 type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
-type LoginResponse = {
-  token?: string;
-  user?: {
-    id?: number;
-    email?: string;
-    first_name?: string;
-    last_name?: string;
-  };
-};
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
 
 export default function LoginPage() {
   const [formData, setFormData] = useState<FormState>({
@@ -81,7 +65,6 @@ export default function LoginPage() {
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
       "http://localhost:8080";
-    const endpoint = `${apiBaseUrl}/auth/login`;
 
     const payload = {
       email: formData.email.trim(),
@@ -89,37 +72,35 @@ export default function LoginPage() {
     };
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await apiJson(apiBaseUrl, "/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
 
-      const result = (await response.json().catch(() => null)) as ApiResponse<LoginResponse> | null;
-      if (!response.ok || !result?.success) {
+      if (!response.ok || !response.json?.success) {
         setErrors({
-          submit: result?.error || "Login failed. Please try again.",
+          submit: response.json?.error || "Login failed. Please try again.",
         });
         return;
       }
 
-      const token = result?.data?.token;
-      if (!token) {
-        setErrors({ submit: "Login failed. Missing token in response." });
-        return;
-      }
-
-      const user = {
-        id: result?.data?.user?.id,
-        email: result?.data?.user?.email,
-        firstName: result?.data?.user?.first_name,
-        lastName: result?.data?.user?.last_name,
-      };
-
-      login(token, user, formData.remember);
+      // Backend sets an HttpOnly session cookie. Keep AuthContext for UI state only.
+      const token = "session";
+      const data = response.json?.data;
+      const user = isRecord(data) && isRecord(data.user) ? data.user : null;
+      login(
+        token,
+        {
+          id: user && typeof user.id === "number" ? user.id : undefined,
+          email: user ? asString(user.email) ?? undefined : undefined,
+          firstName: user ? asString(user.first_name) ?? undefined : undefined,
+          lastName: user ? asString(user.last_name) ?? undefined : undefined,
+        },
+        formData.remember,
+      );
       router.push("/dashboard");
     } catch {
       setErrors({ submit: "Network error. Please try again." });
@@ -134,26 +115,18 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -right-28 top-20 h-72 w-72 rounded-full bg-cyan-200/35 blur-3xl" />
 
       <main className="mx-auto grid min-h-screen w-full max-w-6xl items-center gap-8 px-4 py-24 sm:px-6 lg:grid-cols-[1fr_480px]">
-        <motion.section
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-          className="hidden rounded-[2rem] border border-neutral-200 bg-white/85 p-10 shadow-[0_40px_90px_-50px_rgba(2,6,23,0.45)] lg:block"
-        >
-          <motion.p
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600"
-          >
+        <section className="hidden rounded-[2rem] border border-neutral-200 bg-white/85 p-10 shadow-[0_40px_90px_-50px_rgba(2,6,23,0.45)] lg:block">
+          <p className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600">
             <ShieldCheck className="h-3.5 w-3.5" />
             Secure Access
-          </motion.p>
-          <motion.h1 variants={fadeUp} className="mt-5 text-4xl font-semibold tracking-tight text-neutral-900">
+          </p>
+          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-neutral-900">
             Welcome back to {landingData.productName}
-          </motion.h1>
-          <motion.p variants={fadeUp} className="mt-4 max-w-md text-sm leading-relaxed text-neutral-600">
+          </h1>
+          <p className="mt-4 max-w-md text-sm leading-relaxed text-neutral-600">
             Sign in to continue your conversations, follow new threads, and manage your community space.
-          </motion.p>
-          <motion.div variants={fadeUp} className="mt-8 grid grid-cols-2 gap-4">
+          </p>
+          <div className="mt-8 grid grid-cols-2 gap-4">
             <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
               <p className="text-2xl font-semibold tracking-tight text-neutral-900">99.9%</p>
               <p className="mt-1 text-xs text-neutral-600">Platform uptime</p>
@@ -162,22 +135,17 @@ export default function LoginPage() {
               <p className="text-2xl font-semibold tracking-tight text-neutral-900">24/7</p>
               <p className="mt-1 text-xs text-neutral-600">Moderation visibility</p>
             </div>
-          </motion.div>
-        </motion.section>
+          </div>
+        </section>
 
-        <motion.section
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-          className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_35px_80px_-50px_rgba(2,6,23,0.45)] sm:p-8"
-        >
-          <motion.div variants={fadeUp}>
+        <section className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_35px_80px_-50px_rgba(2,6,23,0.45)] sm:p-8">
+          <div>
             <p className="text-sm font-semibold text-neutral-500">{landingData.productName}</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900">Sign in</h2>
             <p className="mt-2 text-sm text-neutral-600">Access your dashboard and continue where you left off.</p>
-          </motion.div>
+          </div>
 
-          <motion.form variants={fadeUp} className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
+          <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
             <div className="space-y-2">
               <label htmlFor="email" className="text-sm font-semibold text-neutral-700">
                 Email
@@ -249,8 +217,8 @@ export default function LoginPage() {
                 Create one
               </Link>
             </p>
-          </motion.form>
-        </motion.section>
+          </form>
+        </section>
       </main>
     </div>
   );

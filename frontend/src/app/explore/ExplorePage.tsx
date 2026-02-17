@@ -5,36 +5,17 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, Search, ArrowLeft } from "lucide-react";
-import { motion } from "framer-motion";
 import { landingData } from "@/lib/data";
-import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
-
-type User = {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  nickname?: string | null;
-};
+import { apiJson, asArray, asNumber, asString, isRecord } from "@/lib/api";
 
 type Post = {
   id: number;
-  author_id: number;
-  author_first_name: string;
-  author_last_name: string;
+  authorName: string;
   content: string;
   media_path?: string | null;
-  privacy: string;
-  created_at: string;
-  comment_count: number;
-  like_count: number;
-  dislike_count: number;
+  privacyLabel: string;
+  createdAt: string;
+  counts: { likes: number; comments: number; dislikes: number };
 };
 
 function initials(first?: string, last?: string) {
@@ -49,11 +30,38 @@ function shortDate(value: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function toPost(value: unknown): Post | null {
+  if (!isRecord(value)) return null;
+
+  const id = asNumber(value.id);
+  const first = asString(value.author_first_name) ?? "";
+  const last = asString(value.author_last_name) ?? "";
+  const content = asString(value.content) ?? "";
+  const createdAt = asString(value.created_at) ?? "";
+  const privacyLabel = asString(value.privacy) ?? "public";
+  const media_path = asString(value.media_path);
+  const likes = asNumber(value.like_count) ?? 0;
+  const comments = asNumber(value.comment_count) ?? 0;
+  const dislikes = asNumber(value.dislike_count) ?? 0;
+
+  if (!id) return null;
+
+  return {
+    id,
+    authorName: `${first} ${last}`.trim() || "Member",
+    content,
+    media_path: media_path ?? null,
+    privacyLabel,
+    createdAt,
+    counts: { likes, comments, dislikes },
+  };
+}
+
 export default function ExplorePage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [query, setQuery] = useState("");
@@ -65,66 +73,58 @@ export default function ExplorePage() {
     [],
   );
 
-  const load = async () => {
-    setIsLoading(true);
+  const load = async (mode: "initial" | "refresh" = "initial") => {
+    if (mode === "initial") {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     setError(null);
 
     try {
-      const meRes = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-      const meJson = (await meRes.json().catch(() => null)) as ApiResponse<User> | null;
-      if (!meRes.ok || !meJson?.success) {
+      const [postsRes, unreadRes] = await Promise.all([
+        apiJson(apiBaseUrl, "/posts"),
+        apiJson(apiBaseUrl, "/notifications/unread-count").catch(() => null),
+      ]);
+
+      if (postsRes.status === 401) {
         router.replace("/login");
         return;
       }
-      setUser(meJson.data ?? null);
 
-      const unreadRes = await fetch(`${apiBaseUrl}/notifications/unread-count`, {
-        credentials: "include",
-      }).catch(() => null);
-      if (unreadRes?.ok) {
-        const unreadJson = (await unreadRes.json().catch(() => null)) as
-          | ApiResponse<{ count: number }>
-          | null;
-        if (unreadJson?.success) {
-          setNotificationCount(Number(unreadJson.data?.count ?? 0));
-        }
-      }
-
-      const postsRes = await fetch(`${apiBaseUrl}/posts`, { credentials: "include" });
-      const postsJson = (await postsRes.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (!postsRes.ok || !postsJson?.success) {
-        setError(postsJson?.error || "Unable to load explore feed.");
+      if (!postsRes.ok || !postsRes.json?.success) {
+        setError(postsRes.json?.error || "Unable to load explore feed.");
         setPosts([]);
         return;
       }
-      setPosts(postsJson.data ?? []);
+
+      const rawPosts = asArray(postsRes.json.data) ?? [];
+      const nextPosts = rawPosts.map(toPost).filter(Boolean) as Post[];
+      setPosts(nextPosts);
+
+      if (unreadRes?.ok && unreadRes.json?.success && isRecord(unreadRes.json.data)) {
+        const count = asNumber(unreadRes.json.data.count) ?? 0;
+        setNotificationCount(count);
+      }
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiBaseUrl]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => void load(), 8000);
-    return () => window.clearInterval(id);
+    void load("initial");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBaseUrl]);
 
   const filtered = query.trim()
     ? posts.filter((post) => {
         const q = query.trim().toLowerCase();
-        const author = `${post.author_first_name} ${post.author_last_name}`.toLowerCase();
-        return author.includes(q) || post.content.toLowerCase().includes(q);
+        return post.authorName.toLowerCase().includes(q) || post.content.toLowerCase().includes(q);
       })
     : posts;
-
-  const displayName = user ? `${user.first_name} ${user.last_name}` : "Explore";
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -172,29 +172,21 @@ export default function ExplorePage() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-        <motion.div
-          initial="hidden"
-          whileInView="show"
-          viewport={viewportOnce}
-          variants={fadeUp}
-          className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
-        >
+        <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Explore</h1>
-              <p className="text-sm text-neutral-600">
-                Browse the latest posts from the community. You’re signed in as {displayName}.
-              </p>
+              <p className="text-sm text-neutral-600">Browse the latest posts from the community.</p>
             </div>
             <button
               type="button"
-              onClick={() => void load()}
+              onClick={() => void load("refresh")}
               className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
             >
-              Refresh
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
-        </motion.div>
+        </div>
 
         <div className="mt-5">
           {isLoading ? (
@@ -212,50 +204,52 @@ export default function ExplorePage() {
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map((post) => (
-                <motion.article
+                <article
                   key={post.id}
-                  initial="hidden"
-                  whileInView="show"
-                  viewport={viewportOnce}
-                  variants={fadeUp}
                   className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="p-4">
-                    <header className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                          {initials(post.author_first_name, post.author_last_name)}
-                        </span>
-                        <div>
-                          <p className="text-sm font-semibold text-neutral-900">
-                            {post.author_first_name} {post.author_last_name}
-                          </p>
-                          <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
+                  <Link href={`/posts/${post.id}`} className="block">
+                    <div className="p-4">
+                      <header className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                            {initials(post.authorName.split(" ")[0], post.authorName.split(" ")[1])}
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold text-neutral-900">
+                              {post.authorName}
+                            </p>
+                            <p className="text-xs text-neutral-500">{shortDate(post.createdAt)}</p>
+                          </div>
                         </div>
-                      </div>
-                      <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
-                        {post.privacy}
-                      </span>
-                    </header>
+                        <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
+                          {post.privacyLabel}
+                        </span>
+                      </header>
 
-                    <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-neutral-700">
-                      {post.content}
-                    </p>
+                      <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-neutral-700">
+                        {post.content}
+                      </p>
 
-                    {post.media_path ? (
-                      <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={post.media_path} alt="Post media" className="h-36 w-full object-cover" />
-                      </div>
-                    ) : null}
-                  </div>
+                      {post.media_path ? (
+                        <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={post.media_path}
+                            alt="Post media"
+                            className="h-36 w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
 
-                  <footer className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
-                    <span>{post.like_count} likes</span>
-                    <span>{post.comment_count} comments</span>
-                    <span>{post.dislike_count} dislikes</span>
-                  </footer>
-                </motion.article>
+                    <footer className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
+                      <span>{post.counts.likes} likes</span>
+                      <span>{post.counts.comments} comments</span>
+                      <span>{post.counts.dislikes} dislikes</span>
+                    </footer>
+                  </Link>
+                </article>
               ))}
             </div>
           )}

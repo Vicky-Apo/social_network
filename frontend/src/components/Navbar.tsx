@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { MouseEvent } from "react";
 import { Menu, X, ArrowRight } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useReducedMotion } from "framer-motion";
 import clsx from "clsx";
 import { landingData } from "@/lib/data";
 
@@ -147,54 +147,48 @@ export function Navbar() {
         </button>
       </div>
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            id="mobile-menu"
-            initial={reducedMotion ? false : { opacity: 0, y: -8 }}
-            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-            transition={{ duration: reducedMotion ? 0.01 : 0.25 }}
-            className="border-b border-neutral-200 bg-white/95 px-4 pb-5 pt-2 backdrop-blur md:hidden"
-          >
-            <nav className="mx-auto flex w-full max-w-6xl flex-col gap-2" aria-label="Mobile navigation">
-              {navItems.map((item) => (
-                <button
-                  type="button"
-                  key={item.href}
-                  onClick={() => {
-                    scrollToSection(item.href);
-                    setIsOpen(false);
-                  }}
-                  className={clsx(
-                    "rounded-xl px-4 py-3 text-sm font-medium transition",
-                    activeSection === item.href
-                      ? "brand-gradient text-white"
-                      : "bg-neutral-100/70 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900",
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
-              <Link
-                href="/login"
-                onClick={() => setIsOpen(false)}
-                className="mt-2 inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+      {isOpen ? (
+        <div
+          id="mobile-menu"
+          className="border-b border-neutral-200 bg-white/95 px-4 pb-5 pt-2 backdrop-blur md:hidden"
+        >
+          <nav className="mx-auto flex w-full max-w-6xl flex-col gap-2" aria-label="Mobile navigation">
+            {navItems.map((item) => (
+              <button
+                type="button"
+                key={item.href}
+                onClick={() => {
+                  scrollToSection(item.href);
+                  setIsOpen(false);
+                }}
+                className={clsx(
+                  "rounded-xl px-4 py-3 text-sm font-medium transition",
+                  activeSection === item.href
+                    ? "brand-gradient text-white"
+                    : "bg-neutral-100/70 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900",
+                )}
               >
-                Login
-              </Link>
-              <Link
-                href="/register"
-                onClick={() => setIsOpen(false)}
-                className="brand-gradient inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
-              >
-                <span>Register</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                {item.label}
+              </button>
+            ))}
+            <Link
+              href="/login"
+              onClick={() => setIsOpen(false)}
+              className="mt-2 inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+            >
+              Login
+            </Link>
+            <Link
+              href="/register"
+              onClick={() => setIsOpen(false)}
+              className="brand-gradient inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+            >
+              <span>Register</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </nav>
+        </div>
+      ) : null}
     </header>
   );
 }

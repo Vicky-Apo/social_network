@@ -2,9 +2,7 @@
 
 import Image from "next/image";
 import { MessageSquareText, Rocket, Sparkles, Users } from "lucide-react";
-import { motion } from "framer-motion";
 import { Section } from "@/components/Section";
-import { fadeUp, staggerContainer, viewportOnce } from "@/components/Motion";
 import { landingData, type WorkflowStep } from "@/lib/data";
 
 const iconByKey = {
@@ -36,41 +34,24 @@ function createThumb(step: WorkflowStep) {
 export function Workflow() {
   return (
     <Section id="workflow">
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        viewport={viewportOnce}
-        variants={staggerContainer}
-        className="mx-auto max-w-3xl text-center"
-      >
-        <motion.p
-          variants={fadeUp}
-          className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500"
-        >
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
           {landingData.workflow.label}
-        </motion.p>
-        <motion.h2
+        </p>
+        <h2
           id="workflow-heading"
-          variants={fadeUp}
           className="mt-4 text-balance text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl"
         >
           {landingData.workflow.title}
-        </motion.h2>
-      </motion.div>
+        </h2>
+      </div>
 
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        viewport={viewportOnce}
-        variants={staggerContainer}
-        className="mt-12 grid gap-6 md:grid-cols-2"
-      >
+      <div className="mt-12 grid gap-6 md:grid-cols-2">
         {landingData.workflow.steps.map((step) => {
           const Icon = iconByKey[step.icon];
           return (
-            <motion.article
+            <article
               key={step.title}
-              variants={fadeUp}
               className="group rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
               <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-neutral-900 text-white">
@@ -87,10 +68,10 @@ export function Workflow() {
                   className="h-32 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
                 />
               </div>
-            </motion.article>
+            </article>
           );
         })}
-      </motion.div>
+      </div>
     </Section>
   );
 }

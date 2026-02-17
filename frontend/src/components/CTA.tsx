@@ -2,21 +2,13 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { motion } from "framer-motion";
 import { Section } from "@/components/Section";
-import { fadeUp, viewportOnce } from "@/components/Motion";
 import { landingData } from "@/lib/data";
 
 export function CTA() {
   return (
     <Section id="cta" className="pb-10 pt-10">
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        viewport={viewportOnce}
-        variants={fadeUp}
-        className="brand-gradient-soft rounded-[2rem] border brand-border p-8 shadow-[0_30px_60px_-40px_rgba(2,6,23,0.45)] md:p-12"
-      >
+      <div className="brand-gradient-soft rounded-[2rem] border brand-border p-8 shadow-[0_30px_60px_-40px_rgba(2,6,23,0.45)] md:p-12">
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="text-balance text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl">
             {landingData.ctaBand.title}
@@ -30,7 +22,7 @@ export function CTA() {
             <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
           </Link>
         </div>
-      </motion.div>
+      </div>
     </Section>
   );
 }

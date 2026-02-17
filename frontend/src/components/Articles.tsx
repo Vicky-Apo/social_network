@@ -3,9 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { motion } from "framer-motion";
 import { Section } from "@/components/Section";
-import { fadeUp, staggerContainer, viewportOnce } from "@/components/Motion";
 import { landingData, type ArticleItem } from "@/lib/data";
 
 function articleThumb(item: ArticleItem) {
@@ -29,36 +27,22 @@ function articleThumb(item: ArticleItem) {
 export function Articles() {
   return (
     <Section id="articles">
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        viewport={viewportOnce}
-        variants={staggerContainer}
-        className="mx-auto max-w-3xl text-center"
-      >
-        <motion.h2
+      <div className="mx-auto max-w-3xl text-center">
+        <h2
           id="articles-heading"
-          variants={fadeUp}
           className="text-balance text-3xl font-semibold tracking-tight text-neutral-900 sm:text-4xl"
         >
           {landingData.articles.title}
-        </motion.h2>
-        <motion.p variants={fadeUp} className="mt-4 text-neutral-600">
+        </h2>
+        <p className="mt-4 text-neutral-600">
           {landingData.articles.subtitle}
-        </motion.p>
-      </motion.div>
+        </p>
+      </div>
 
-      <motion.div
-        initial="hidden"
-        whileInView="show"
-        viewport={viewportOnce}
-        variants={staggerContainer}
-        className="mt-12 grid gap-6 md:grid-cols-2"
-      >
+      <div className="mt-12 grid gap-6 md:grid-cols-2">
         {landingData.articles.items.map((article) => (
-          <motion.article
+          <article
             key={article.title}
-            variants={fadeUp}
             className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
           >
             <Image
@@ -80,9 +64,9 @@ export function Articles() {
                 <ArrowUpRight className="h-4 w-4" />
               </Link>
             </div>
-          </motion.article>
+          </article>
         ))}
-      </motion.div>
+      </div>
     </Section>
   );
 }

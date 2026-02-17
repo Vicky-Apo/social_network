@@ -4,9 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
 import { landingData } from "@/lib/data";
-import { fadeUp, staggerContainer } from "@/components/Motion";
+import { apiJson } from "@/lib/api";
 
 type FormState = {
   firstName: string;
@@ -20,11 +19,6 @@ type FormState = {
 };
 
 type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
 
 const initialFormData: FormState = {
   firstName: "",
@@ -109,7 +103,6 @@ export default function RegisterPage() {
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
       "http://localhost:8080";
-    const endpoint = `${apiBaseUrl}/auth/register`;
 
     const dateOfBirth = formatDateOfBirth(formData.dob);
     const payload = {
@@ -125,20 +118,17 @@ export default function RegisterPage() {
     };
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await apiJson(apiBaseUrl, "/auth/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
 
-      const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
-
-      if (!response.ok || !result?.success) {
+      if (!response.ok || !response.json?.success) {
         setErrors({
-          submit: result?.error || "Registration failed. Please try again.",
+          submit: response.json?.error || "Registration failed. Please try again.",
         });
         return;
       }
@@ -163,27 +153,19 @@ export default function RegisterPage() {
       <div className="pointer-events-none absolute -right-32 top-16 h-80 w-80 rounded-full bg-emerald-200/35 blur-3xl" />
 
       <main className="mx-auto w-full max-w-3xl px-4 py-20 sm:px-6">
-        <motion.section
-          variants={staggerContainer}
-          initial="hidden"
-          animate="show"
-          className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_35px_80px_-50px_rgba(2,6,23,0.45)] sm:p-8"
-        >
-          <motion.p
-            variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600"
-          >
+        <section className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_35px_80px_-50px_rgba(2,6,23,0.45)] sm:p-8">
+          <p className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600">
             <Sparkles className="h-3.5 w-3.5" />
             Create account
-          </motion.p>
-          <motion.h1 variants={fadeUp} className="mt-4 text-3xl font-semibold tracking-tight text-neutral-900">
+          </p>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-900">
             Join {landingData.productName}
-          </motion.h1>
-          <motion.p variants={fadeUp} className="mt-2 text-sm text-neutral-600">
+          </h1>
+          <p className="mt-2 text-sm text-neutral-600">
             Set up your profile and start participating in high-quality discussions.
-          </motion.p>
+          </p>
 
-          <motion.form variants={fadeUp} className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
+          <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field
                 id="firstName"
@@ -288,15 +270,15 @@ export default function RegisterPage() {
                 Account created successfully. Redirecting to login...
               </p>
             ) : null}
-          </motion.form>
+          </form>
 
-          <motion.p variants={fadeUp} className="mt-6 text-center text-sm text-neutral-600">
+          <p className="mt-6 text-center text-sm text-neutral-600">
             Already have an account?{" "}
             <Link href="/login" className="font-semibold text-neutral-900 hover:underline">
               Sign in
             </Link>
-          </motion.p>
-        </motion.section>
+          </p>
+        </section>
       </main>
     </div>
   );

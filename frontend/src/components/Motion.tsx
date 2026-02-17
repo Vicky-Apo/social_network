@@ -9,11 +9,10 @@ import {
 import type { PropsWithChildren, ReactNode } from "react";
 
 export const fadeUp: Variants = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    y: 0,
-    transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] },
   },
 };
 
@@ -70,19 +69,6 @@ export function MotionFloat({
   children: ReactNode;
   className?: string;
 }) {
-  const reducedMotion = useReducedMotion();
-
-  if (reducedMotion) {
-    return <div className={className}>{children}</div>;
-  }
-
-  return (
-    <motion.div
-      className={className}
-      animate={{ y: [0, -8, 0] }}
-      transition={{ duration: 7.5, ease: "easeInOut", repeat: Infinity }}
-    >
-      {children}
-    </motion.div>
-  );
+  // Use fade-in everywhere; no floating motion.
+  return <div className={className}>{children}</div>;
 }

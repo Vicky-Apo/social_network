@@ -20,54 +20,9 @@ import {
   Wifi,
   WifiOff,
 } from "lucide-react";
-import { motion } from "framer-motion";
 import { useAuth } from "../component/AuthContext";
 import { landingData } from "@/lib/data";
-import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
-
-type User = {
-  id: number;
-  email: string;
-  first_name: string;
-  last_name: string;
-  nickname?: string | null;
-};
-
-type Post = {
-  id: number;
-  author_id: number;
-  author_first_name: string;
-  author_last_name: string;
-  content: string;
-  media_path?: string | null;
-  privacy: string;
-  created_at: string;
-  comment_count: number;
-  like_count: number;
-  dislike_count: number;
-};
-
-type Comment = {
-  id: number;
-  post_id: number;
-  author_id: number;
-  content: string;
-  media_path?: string;
-  like_count: number;
-  dislike_count: number;
-  created_at: string;
-};
-
-type Reaction = {
-  user_id: number;
-  reaction: "like" | "dislike";
-};
+import { apiJson, asArray, asNumber, asString, isRecord } from "@/lib/api";
 
 type ReactionKind = "like" | "dislike";
 type ReactionMap = Record<number, ReactionKind | null>;
@@ -76,34 +31,52 @@ type WsMessage = {
   payload: unknown;
 };
 
-type NotificationItem = {
+type DashboardUser = {
   id: number;
-  user_id: number;
-  actor_id?: number;
-  type: string;
-  entity_type: string;
-  entity_id: number;
-  metadata?: Record<string, unknown>;
-  is_read: boolean;
-  read_at?: string;
-  created_at: string;
+  displayName: string;
+  handle: string;
+  initials: string;
 };
 
-type ChatMessage = {
+type DashboardPost = {
   id: number;
-  conversation_id: number;
-  sender_id: number;
-  content?: string;
-  media_path?: string;
-  created_at: string;
+  authorName: string;
+  authorInitials: string;
+  content: string;
+  mediaUrl?: string | null;
+  privacyLabel: string;
+  createdAt: string;
+  counts: { comments: number; likes: number; dislikes: number };
 };
 
-type UserListItem = {
+type DashboardComment = {
   id: number;
-  first_name: string;
-  last_name: string;
-  nickname?: string | null;
-  avatar_path?: string | null;
+  content: string;
+  createdAt: string;
+  counts: { likes: number; dislikes: number };
+};
+
+type DashboardNotification = {
+  id: number;
+  title: string;
+  subtitle: string;
+  isRead: boolean;
+  createdAt: string;
+};
+
+type DashboardChatMessage = {
+  id: number;
+  conversationId: number;
+  senderId: number;
+  content: string;
+  createdAt: string;
+};
+
+type DashboardPerson = {
+  id: number;
+  name: string;
+  handle: string;
+  avatarUrl?: string | null;
 };
 
 const quickLinks = [
@@ -132,12 +105,119 @@ function shortDate(value: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function toDashboardUser(value: unknown): DashboardUser | null {
+  if (!isRecord(value)) return null;
+  const id = asNumber(value.id);
+  if (!id) return null;
+
+  const first = asString(value.first_name) ?? "";
+  const last = asString(value.last_name) ?? "";
+  const email = asString(value.email) ?? "";
+  const nickname = asString(value.nickname) ?? "";
+
+  const displayName = `${first} ${last}`.trim() || "Member";
+  const handle =
+    nickname.trim() ||
+    (email.includes("@") ? email.split("@")[0] : "") ||
+    `user-${id}`;
+
+  return { id, displayName, handle, initials: initials(first, last) };
+}
+
+function toDashboardPost(value: unknown): DashboardPost | null {
+  if (!isRecord(value)) return null;
+  const id = asNumber(value.id);
+  if (!id) return null;
+
+  const first = asString(value.author_first_name) ?? "";
+  const last = asString(value.author_last_name) ?? "";
+  const authorName = `${first} ${last}`.trim() || "Member";
+
+  return {
+    id,
+    authorName,
+    authorInitials: initials(first, last),
+    content: asString(value.content) ?? "",
+    mediaUrl: asString(value.media_path),
+    privacyLabel: asString(value.privacy) ?? "public",
+    createdAt: asString(value.created_at) ?? "",
+    counts: {
+      comments: asNumber(value.comment_count) ?? 0,
+      likes: asNumber(value.like_count) ?? 0,
+      dislikes: asNumber(value.dislike_count) ?? 0,
+    },
+  };
+}
+
+function toDashboardComment(value: unknown): DashboardComment | null {
+  if (!isRecord(value)) return null;
+  const id = asNumber(value.id);
+  if (!id) return null;
+  return {
+    id,
+    content: asString(value.content) ?? "",
+    createdAt: asString(value.created_at) ?? "",
+    counts: {
+      likes: asNumber(value.like_count) ?? 0,
+      dislikes: asNumber(value.dislike_count) ?? 0,
+    },
+  };
+}
+
+function toDashboardNotification(value: unknown): DashboardNotification | null {
+  if (!isRecord(value)) return null;
+  const id = asNumber(value.id);
+  if (!id) return null;
+
+  const rawType = (asString(value.type) ?? "notification").replaceAll("_", " ");
+  const entityType = (asString(value.entity_type) ?? "").replaceAll("_", " ");
+  const createdAt = asString(value.created_at) ?? "";
+  const isRead = value.is_read === true;
+
+  const title = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+  const subtitle = entityType
+    ? `${entityType} · ${shortDate(createdAt)}`
+    : shortDate(createdAt);
+
+  return { id, title, subtitle, isRead, createdAt };
+}
+
+function toDashboardChatMessage(value: unknown): DashboardChatMessage | null {
+  if (!isRecord(value)) return null;
+  const id = asNumber(value.id);
+  const conversationId = asNumber(value.conversation_id);
+  const senderId = asNumber(value.sender_id);
+  if (!id || !conversationId || !senderId) return null;
+
+  return {
+    id,
+    conversationId,
+    senderId,
+    content: asString(value.content) ?? "",
+    createdAt: asString(value.created_at) ?? "",
+  };
+}
+
+function toDashboardPerson(value: unknown): DashboardPerson | null {
+  if (!isRecord(value)) return null;
+  const id = asNumber(value.id);
+  if (!id) return null;
+
+  const first = asString(value.first_name) ?? "";
+  const last = asString(value.last_name) ?? "";
+  const nickname = asString(value.nickname) ?? "";
+  const name = `${first} ${last}`.trim() || "Member";
+  const handle = nickname.trim() || `user-${id}`;
+
+  return { id, name, handle, avatarUrl: asString(value.avatar_path) };
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { logout } = useAuth();
 
-  const [user, setUser] = useState<User | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [user, setUser] = useState<DashboardUser | null>(null);
+  const [posts, setPosts] = useState<DashboardPost[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -147,22 +227,22 @@ export default function DashboardPage() {
   const [groupsOnly, setGroupsOnly] = useState(false);
   const [postReactionMap, setPostReactionMap] = useState<ReactionMap>({});
   const [commentReactionMap, setCommentReactionMap] = useState<ReactionMap>({});
-  const [commentsByPost, setCommentsByPost] = useState<Record<number, Comment[]>>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, DashboardComment[]>>({});
   const [commentsOpenByPost, setCommentsOpenByPost] = useState<Record<number, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<number, boolean>>({});
   const [commentDraftByPost, setCommentDraftByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<DashboardNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [chatRecipientID, setChatRecipientID] = useState("");
   const [chatDraft, setChatDraft] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<DashboardChatMessage[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatConnected, setChatConnected] = useState(false);
   const [chatUnreadMap, setChatUnreadMap] = useState<Record<number, number>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [people, setPeople] = useState<UserListItem[]>([]);
+  const [people, setPeople] = useState<DashboardPerson[]>([]);
   const [peopleLoading, setPeopleLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -181,21 +261,13 @@ export default function DashboardPage() {
   useEffect(() => {
     let cancelled = false;
 
-    const fetchJson = async <T,>(path: string) => {
-      const response = await fetch(`${apiBaseUrl}${path}`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<T> | null;
-      return { response, result };
-    };
-
     const load = async () => {
       setIsLoading(true);
       setFeedError(null);
 
       try {
-        const me = await fetchJson<User>("/auth/me");
-        if (!me.response.ok || !me.result?.success) {
+        const me = await apiJson(apiBaseUrl, "/auth/me");
+        if (!me.ok || !me.json?.success || !me.json.data) {
           if (!cancelled) {
             router.replace("/login");
           }
@@ -203,58 +275,36 @@ export default function DashboardPage() {
         }
 
         if (!cancelled) {
-          setUser(me.result.data ?? null);
+          setUser(toDashboardUser(me.json.data));
         }
 
-        const unread = await fetchJson<{ count: number }>("/notifications/unread-count");
-        if (!cancelled && unread.response.ok && unread.result?.success) {
-          setNotificationCount(Number(unread.result.data?.count ?? 0));
+        const unread = await apiJson(apiBaseUrl, "/notifications/unread-count").catch(() => null);
+        if (!cancelled && unread?.ok && unread.json?.success && isRecord(unread.json.data)) {
+          setNotificationCount(asNumber(unread.json.data.count) ?? 0);
         }
 
-        const notificationsRes = await fetchJson<NotificationItem[]>("/notifications?limit=10");
-        if (!cancelled && notificationsRes.response.ok && notificationsRes.result?.success) {
-          setNotifications(notificationsRes.result.data ?? []);
+        const notificationsRes = await apiJson(apiBaseUrl, "/notifications?limit=10").catch(
+          () => null,
+        );
+        if (!cancelled && notificationsRes?.ok && notificationsRes.json?.success) {
+          const raw = asArray(notificationsRes.json.data) ?? [];
+          setNotifications(raw.map(toDashboardNotification).filter(Boolean) as DashboardNotification[]);
         }
 
         const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
-        const feed = await fetchJson<Post[]>(feedPath);
-        if (!feed.response.ok || !feed.result?.success) {
+        const feed = await apiJson(apiBaseUrl, feedPath);
+        if (!feed.ok || !feed.json?.success) {
           if (!cancelled) {
-            setFeedError(feed.result?.error || "Unable to load your feed.");
+            setFeedError(feed.json?.error || "Unable to load your feed.");
             setPosts([]);
           }
           return;
         }
 
         if (!cancelled) {
-          const nextPosts = feed.result.data ?? [];
-          setPosts(nextPosts);
-
-          const currentUserID = me.result.data?.id;
-          if (currentUserID) {
-            void Promise.all(
-              nextPosts.map(async (post) => {
-                try {
-                  const reactionRes = await fetchJson<Reaction[]>(
-                    `/posts/${post.id}/reactions`,
-                  );
-                  if (!reactionRes.response.ok || !reactionRes.result?.success) {
-                    return [post.id, null] as const;
-                  }
-                  const mine = (reactionRes.result.data ?? []).find(
-                    (item) => item.user_id === currentUserID,
-                  );
-                  return [post.id, mine?.reaction ?? null] as const;
-                } catch {
-                  return [post.id, null] as const;
-                }
-              }),
-            ).then((entries) => {
-              if (!cancelled) {
-                setPostReactionMap(Object.fromEntries(entries));
-              }
-            });
-          }
+          const raw = asArray(feed.json.data) ?? [];
+          setPosts(raw.map(toDashboardPost).filter(Boolean) as DashboardPost[]);
+          setPostReactionMap({});
         }
       } catch {
         if (!cancelled) {
@@ -285,14 +335,10 @@ export default function DashboardPage() {
       try {
         const query = searchQuery.trim();
         const path = query ? `/users?q=${encodeURIComponent(query)}` : "/users";
-        const response = await fetch(`${apiBaseUrl}${path}`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<UserListItem[]>
-          | null;
-        if (!cancelled && response.ok && result?.success) {
-          setPeople(result.data ?? []);
+        const response = await apiJson(apiBaseUrl, path);
+        if (!cancelled && response.ok && response.json?.success) {
+          const raw = asArray(response.json.data) ?? [];
+          setPeople(raw.map(toDashboardPerson).filter(Boolean) as DashboardPerson[]);
         }
       } finally {
         if (!cancelled) {
@@ -318,16 +364,10 @@ export default function DashboardPage() {
 
     const intervalID = window.setInterval(async () => {
       const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
-      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
-        credentials: "include",
-      }).catch(() => null);
-      if (!response?.ok) {
-        return;
-      }
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (result?.success) {
-        setPosts(result.data ?? []);
-      }
+      const response = await apiJson(apiBaseUrl, feedPath).catch(() => null);
+      if (!response?.ok || !response.json?.success) return;
+      const raw = asArray(response.json.data) ?? [];
+      setPosts(raw.map(toDashboardPost).filter(Boolean) as DashboardPost[]);
     }, 7000);
 
     return () => {
@@ -352,26 +392,40 @@ export default function DashboardPage() {
       const chunks = String(event.data).split("\n").filter(Boolean);
       chunks.forEach((raw) => {
         try {
-          const msg = JSON.parse(raw) as WsMessage;
-          if (msg.type === "chat_message") {
-            const payload = msg.payload as ChatMessage;
-            setChatMessages((prev) => [payload, ...prev].slice(0, 50));
-          } else if (msg.type === "notification") {
-            const payload = msg.payload as NotificationItem;
-            setNotifications((prev) => [payload, ...prev].slice(0, 20));
-            setNotificationCount((prev) => prev + 1);
-          } else if (msg.type === "unread_counts") {
-            const payload = msg.payload as Array<{ conversation_id: number; unread_count: number }>;
+          const parsed = JSON.parse(raw) as unknown;
+          if (!isRecord(parsed)) return;
+
+          const type = asString(parsed.type) ?? "";
+          const payload = parsed.payload;
+
+          if (type === "chat_message") {
+            const next = toDashboardChatMessage(payload);
+            if (next) {
+              setChatMessages((prev) => [next, ...prev].slice(0, 50));
+            }
+          } else if (type === "notification") {
+            const next = toDashboardNotification(payload);
+            if (next) {
+              setNotifications((prev) => [next, ...prev].slice(0, 20));
+              setNotificationCount((prev) => prev + 1);
+            }
+          } else if (type === "unread_counts") {
+            const list = asArray(payload) ?? [];
             setChatUnreadMap((prev) => {
               const next = { ...prev };
-              payload.forEach((item) => {
-                next[item.conversation_id] = item.unread_count;
+              list.forEach((item) => {
+                if (!isRecord(item)) return;
+                const id = asNumber(item.conversation_id);
+                const count = asNumber(item.unread_count);
+                if (!id || count === null) return;
+                next[id] = count;
               });
               return next;
             });
-          } else if (msg.type === "error") {
-            const payload = msg.payload as { message?: string };
-            setChatError(payload.message || "Chat error.");
+          } else if (type === "error") {
+            const message =
+              isRecord(payload) ? asString(payload.message) ?? "Chat error." : "Chat error.";
+            setChatError(message);
           }
         } catch {
           // Ignore malformed websocket payload chunks.
@@ -395,10 +449,7 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${apiBaseUrl}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiJson(apiBaseUrl, "/auth/logout", { method: "POST" }).catch(() => undefined);
     } finally {
       logout();
       router.replace("/login");
@@ -417,25 +468,26 @@ export default function DashboardPage() {
     setComposerError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts`, {
+      const response = await apiJson(apiBaseUrl, "/posts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify({
           content,
           privacy: "public",
         }),
       });
 
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
-      if (!response.ok || !result?.success || !result.data) {
-        setComposerError(result?.error || "Could not publish your post.");
+      if (!response.ok || !response.json?.success || !response.json.data) {
+        setComposerError(response.json?.error || "Could not publish your post.");
         return;
       }
 
-      setPosts((prev) => [result.data as Post, ...prev]);
+      const created = toDashboardPost(response.json.data);
+      if (created) {
+        setPosts((prev) => [created, ...prev]);
+      }
       setComposerText("");
     } catch {
       setComposerError("Network error. Please try again.");
@@ -447,14 +499,10 @@ export default function DashboardPage() {
   const refreshNotifications = async () => {
     setNotificationsLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/notifications?limit=20`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<NotificationItem[]>
-        | null;
-      if (response.ok && result?.success) {
-        setNotifications(result.data ?? []);
+      const response = await apiJson(apiBaseUrl, "/notifications?limit=20");
+      if (response.ok && response.json?.success) {
+        const raw = asArray(response.json.data) ?? [];
+        setNotifications(raw.map(toDashboardNotification).filter(Boolean) as DashboardNotification[]);
       }
     } finally {
       setNotificationsLoading(false);
@@ -464,14 +512,13 @@ export default function DashboardPage() {
   const markNotificationRead = async (id: number) => {
     const old = notifications;
     setNotifications((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, is_read: true } : item)),
+      prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)),
     );
     setNotificationCount((prev) => Math.max(0, prev - 1));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/notifications/${id}/read`, {
+      const response = await apiJson(apiBaseUrl, `/notifications/${id}/read`, {
         method: "PATCH",
-        credentials: "include",
       });
       if (!response.ok) {
         setNotifications(old);
@@ -482,12 +529,9 @@ export default function DashboardPage() {
   };
 
   const markAllNotificationsRead = async () => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
+    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
     setNotificationCount(0);
-    await fetch(`${apiBaseUrl}/notifications/read-all`, {
-      method: "PATCH",
-      credentials: "include",
-    }).catch(() => undefined);
+    await apiJson(apiBaseUrl, "/notifications/read-all", { method: "PATCH" }).catch(() => undefined);
   };
 
   const sendChatMessage = () => {
@@ -519,15 +563,13 @@ export default function DashboardPage() {
     setFeedError(null);
     try {
       const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
-      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (!response.ok || !result?.success) {
-        setFeedError(result?.error || "Could not refresh feed.");
+      const response = await apiJson(apiBaseUrl, feedPath);
+      if (!response.ok || !response.json?.success) {
+        setFeedError(response.json?.error || "Could not refresh feed.");
         return;
       }
-      setPosts(result.data ?? []);
+      const raw = asArray(response.json.data) ?? [];
+      setPosts(raw.map(toDashboardPost).filter(Boolean) as DashboardPost[]);
     } catch {
       setFeedError("Network error. Please try again.");
     } finally {
@@ -540,41 +582,18 @@ export default function DashboardPage() {
     setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
-
-      if (!response.ok || !result?.success) {
+      const response = await apiJson(apiBaseUrl, `/posts/${postID}/comments`);
+      if (!response.ok || !response.json?.success) {
         setCommentErrorByPost((prev) => ({
           ...prev,
-          [postID]: result?.error || "Could not load comments.",
+          [postID]: response.json?.error || "Could not load comments.",
         }));
         return;
       }
 
-      const comments = result.data ?? [];
+      const raw = asArray(response.json.data) ?? [];
+      const comments = raw.map(toDashboardComment).filter(Boolean) as DashboardComment[];
       setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
-
-      if (user?.id && comments.length > 0) {
-        const entries = await Promise.all(
-          comments.map(async (comment) => {
-            const reactionRes = await fetch(
-              `${apiBaseUrl}/comments/${comment.id}/reactions`,
-              { credentials: "include" },
-            );
-            const reactionJson = (await reactionRes.json().catch(() => null)) as
-              | ApiResponse<Reaction[]>
-              | null;
-            if (!reactionRes.ok || !reactionJson?.success) {
-              return [comment.id, null] as const;
-            }
-            const mine = (reactionJson.data ?? []).find((item) => item.user_id === user.id);
-            return [comment.id, mine?.reaction ?? null] as const;
-          }),
-        );
-        setCommentReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      }
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -605,31 +624,34 @@ export default function DashboardPage() {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+      const response = await apiJson(apiBaseUrl, `/posts/${postID}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ content: draft }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
 
-      if (!response.ok || !result?.success || !result.data) {
+      if (!response.ok || !response.json?.success || !response.json.data) {
         setCommentErrorByPost((prev) => ({
           ...prev,
-          [postID]: result?.error || "Could not post comment.",
+          [postID]: response.json?.error || "Could not post comment.",
         }));
         return;
       }
 
+      const created = toDashboardComment(response.json.data);
+      if (!created) return;
+
       setCommentsByPost((prev) => ({
         ...prev,
-        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
+        [postID]: [created, ...(prev[postID] ?? [])],
       }));
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
       setPosts((prev) =>
         prev.map((post) =>
-          post.id === postID ? { ...post, comment_count: post.comment_count + 1 } : post,
+          post.id === postID
+            ? { ...post, counts: { ...post.counts, comments: post.counts.comments + 1 } }
+            : post,
         ),
       );
       setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
@@ -649,25 +671,27 @@ export default function DashboardPage() {
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id !== postID) return post;
-        let like = post.like_count;
-        let dislike = post.dislike_count;
+        let like = post.counts.likes;
+        let dislike = post.counts.dislikes;
         if (previous === "like") like -= 1;
         if (previous === "dislike") dislike -= 1;
         if (next === "like") like += 1;
         if (next === "dislike") dislike += 1;
         return {
           ...post,
-          like_count: Math.max(0, like),
-          dislike_count: Math.max(0, dislike),
+          counts: {
+            ...post.counts,
+            likes: Math.max(0, like),
+            dislikes: Math.max(0, dislike),
+          },
         };
       }),
     );
 
     try {
-      await fetch(`${apiBaseUrl}/posts/${postID}/reactions`, {
+      await apiJson(apiBaseUrl, `/posts/${postID}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ reaction }),
       });
     } catch {
@@ -675,16 +699,19 @@ export default function DashboardPage() {
       setPosts((prev) =>
         prev.map((post) => {
           if (post.id !== postID) return post;
-          let like = post.like_count;
-          let dislike = post.dislike_count;
+          let like = post.counts.likes;
+          let dislike = post.counts.dislikes;
           if (next === "like") like -= 1;
           if (next === "dislike") dislike -= 1;
           if (previous === "like") like += 1;
           if (previous === "dislike") dislike += 1;
           return {
             ...post,
-            like_count: Math.max(0, like),
-            dislike_count: Math.max(0, dislike),
+            counts: {
+              ...post.counts,
+              likes: Math.max(0, like),
+              dislikes: Math.max(0, dislike),
+            },
           };
         }),
       );
@@ -704,25 +731,27 @@ export default function DashboardPage() {
       ...prev,
       [postID]: (prev[postID] ?? []).map((comment) => {
         if (comment.id !== commentID) return comment;
-        let like = comment.like_count;
-        let dislike = comment.dislike_count;
+        let like = comment.counts.likes;
+        let dislike = comment.counts.dislikes;
         if (previous === "like") like -= 1;
         if (previous === "dislike") dislike -= 1;
         if (next === "like") like += 1;
         if (next === "dislike") dislike += 1;
         return {
           ...comment,
-          like_count: Math.max(0, like),
-          dislike_count: Math.max(0, dislike),
+          counts: {
+            ...comment.counts,
+            likes: Math.max(0, like),
+            dislikes: Math.max(0, dislike),
+          },
         };
       }),
     }));
 
     try {
-      await fetch(`${apiBaseUrl}/comments/${commentID}/reactions`, {
+      await apiJson(apiBaseUrl, `/comments/${commentID}/reactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           reaction,
           user_id: user?.id ?? 0,
@@ -733,9 +762,8 @@ export default function DashboardPage() {
     }
   };
 
-  const displayName = user ? `${user.first_name} ${user.last_name}` : "Loading";
-  const userTag =
-    user?.nickname || (user?.email ? user.email.split("@")[0] : "community-member");
+  const displayName = user ? user.displayName : "Loading";
+  const userTag = user ? user.handle : "community-member";
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -798,7 +826,7 @@ export default function DashboardPage() {
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(user?.first_name, user?.last_name)}
+                {user?.initials ?? "U"}
               </div>
               <div>
                 <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
@@ -838,12 +866,8 @@ export default function DashboardPage() {
                         key={person.id}
                         className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
                       >
-                        <p className="text-xs font-semibold text-neutral-800">
-                          {person.first_name} {person.last_name}
-                        </p>
-                        <p className="text-[11px] text-neutral-500">
-                          @{person.nickname || `user-${person.id}`}
-                        </p>
+                        <p className="text-xs font-semibold text-neutral-800">{person.name}</p>
+                        <p className="text-[11px] text-neutral-500">@{person.handle}</p>
                       </div>
                     ))
                 )}
@@ -853,13 +877,7 @@ export default function DashboardPage() {
         </aside>
 
         <section className="space-y-5">
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
-          >
+          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Dashboard</h1>
@@ -884,15 +902,9 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
-          >
+          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
             <textarea
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
@@ -919,15 +931,9 @@ export default function DashboardPage() {
               </button>
             </div>
             {composerError ? <p className="mt-3 text-xs text-rose-600">{composerError}</p> : null}
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm lg:hidden"
-          >
+          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm lg:hidden">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
               <span
@@ -965,7 +971,7 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-          </motion.div>
+          </div>
 
           <div className="space-y-4">
             <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
@@ -992,25 +998,31 @@ export default function DashboardPage() {
                   <header className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                        {initials(post.author_first_name, post.author_last_name)}
+                        {post.authorInitials}
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">
-                          {post.author_first_name} {post.author_last_name}
-                        </p>
-                        <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
+                        <p className="text-sm font-semibold text-neutral-900">{post.authorName}</p>
+                        <p className="text-xs text-neutral-500">{shortDate(post.createdAt)}</p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
-                      {post.privacy}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/posts/${post.id}`}
+                        className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+                      >
+                        Open
+                      </Link>
+                      <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
+                        {post.privacyLabel}
+                      </span>
+                    </div>
                   </header>
 
                   <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
 
-                  {post.media_path ? (
+                  {post.mediaUrl ? (
                     <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200">
-                      <img src={post.media_path} alt="Post media" className="h-72 w-full object-cover" />
+                      <img src={post.mediaUrl} alt="Post media" className="h-72 w-full object-cover" />
                     </div>
                   ) : null}
 
@@ -1025,7 +1037,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <ThumbsUp className="h-3.5 w-3.5" />
-                      {post.like_count}
+                      {post.counts.likes}
                     </button>
                     <button
                       type="button"
@@ -1037,7 +1049,7 @@ export default function DashboardPage() {
                       }`}
                     >
                       <ThumbsDown className="h-3.5 w-3.5" />
-                      {post.dislike_count}
+                      {post.counts.dislikes}
                     </button>
                     <button
                       type="button"
@@ -1045,7 +1057,7 @@ export default function DashboardPage() {
                       className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
-                      {post.comment_count}
+                      {post.counts.comments}
                     </button>
                   </footer>
 
@@ -1068,7 +1080,7 @@ export default function DashboardPage() {
                                 }`}
                               >
                                 <ThumbsUp className="h-3 w-3" />
-                                {comment.like_count}
+                                {comment.counts.likes}
                               </button>
                               <button
                                 type="button"
@@ -1082,7 +1094,7 @@ export default function DashboardPage() {
                                 }`}
                               >
                                 <ThumbsDown className="h-3 w-3" />
-                                {comment.dislike_count}
+                                {comment.counts.dislikes}
                               </button>
                             </div>
                           </article>
@@ -1138,12 +1150,8 @@ export default function DashboardPage() {
                   .slice(0, 8)
                   .map((person) => (
                     <div key={`right-user-${person.id}`} className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
-                      <p className="text-xs font-semibold text-neutral-800">
-                        {person.first_name} {person.last_name}
-                      </p>
-                      <p className="text-[11px] text-neutral-500">
-                        @{person.nickname || `user-${person.id}`}
-                      </p>
+                      <p className="text-xs font-semibold text-neutral-800">{person.name}</p>
+                      <p className="text-[11px] text-neutral-500">@{person.handle}</p>
                     </div>
                   ))
               )}
@@ -1173,15 +1181,13 @@ export default function DashboardPage() {
                     key={item.id}
                     onClick={() => markNotificationRead(item.id)}
                     className={`w-full rounded-2xl border px-3 py-2 text-left text-xs transition ${
-                      item.is_read
+                      item.isRead
                         ? "border-neutral-200 bg-neutral-50 text-neutral-500"
                         : "border-emerald-200 bg-emerald-50 text-emerald-900"
                     }`}
                   >
-                    <p className="font-semibold">{item.type.replace(/_/g, " ")}</p>
-                    <p className="mt-0.5 text-[11px]">
-                      {item.entity_type} #{item.entity_id}
-                    </p>
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="mt-0.5 text-[11px]">{item.subtitle}</p>
                   </button>
                 ))
               )}
@@ -1235,12 +1241,12 @@ export default function DashboardPage() {
                     <p className="text-xs text-neutral-500">No chat messages yet.</p>
                   ) : (
                     chatMessages.slice(0, 8).map((msg) => (
-                      <div key={`${msg.id}-${msg.created_at}`} className="rounded-lg bg-white px-2 py-1">
+                      <div key={`${msg.id}-${msg.createdAt}`} className="rounded-lg bg-white px-2 py-1">
                         <p className="text-[10px] font-semibold text-neutral-700">
-                          User {msg.sender_id} · Conv {msg.conversation_id}
+                          User {msg.senderId} · Conv {msg.conversationId}
                         </p>
                         <p className="text-xs text-neutral-600">{msg.content || "(media)"}</p>
-                        <p className="text-[10px] text-neutral-400">{shortDate(msg.created_at)}</p>
+                        <p className="text-[10px] text-neutral-400">{shortDate(msg.createdAt)}</p>
                       </div>
                     ))
                   )}
@@ -1287,15 +1293,13 @@ export default function DashboardPage() {
                 key={item.id}
                 onClick={() => markNotificationRead(item.id)}
                 className={`w-full rounded-xl border px-3 py-2 text-left text-xs ${
-                  item.is_read
+                  item.isRead
                     ? "border-neutral-200 bg-neutral-50 text-neutral-500"
                     : "border-emerald-200 bg-emerald-50 text-emerald-900"
                 }`}
               >
-                <p className="font-semibold">{item.type.replace(/_/g, " ")}</p>
-                <p className="mt-0.5 text-[11px]">
-                  {item.entity_type} #{item.entity_id}
-                </p>
+                <p className="font-semibold">{item.title}</p>
+                <p className="mt-0.5 text-[11px]">{item.subtitle}</p>
               </button>
             ))}
           </div>
