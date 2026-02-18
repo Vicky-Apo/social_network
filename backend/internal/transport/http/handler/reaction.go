@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -53,6 +54,11 @@ func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request
 
 	status, err := h.service.AddPostReaction(r.Context(), postID, req)
 	if err != nil {
+		if errors.Is(err, usecasereaction.ErrForbidden) {
+			logForbidden(h.log, "reactions.post.toggle", logger.F("post_id", postID), logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
 		logBadRequest(h.log, "reactions.post.toggle", logger.F("post_id", postID), logger.F("error", err.Error()))
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return
@@ -84,6 +90,14 @@ func (h *ReactionHandler) GetPostReactions(w http.ResponseWriter, r *http.Reques
 
 // AddCommentReaction handles POST /comments/{id}/reactions
 func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Request) {
+	// Get authenticated user ID from context
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "reactions.comment.toggle")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
 	// Parse comment ID from path parameter
 	commentIDStr := r.PathValue("id")
 	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
@@ -99,9 +113,15 @@ func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Requ
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
+	req.UserID = userID // Set user ID from authenticated session!
 
 	status, err := h.service.AddCommentReaction(r.Context(), commentID, req)
 	if err != nil {
+		if errors.Is(err, usecasereaction.ErrForbidden) {
+			logForbidden(h.log, "reactions.comment.toggle", logger.F("comment_id", commentID), logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
 		logBadRequest(h.log, "reactions.comment.toggle", logger.F("comment_id", commentID), logger.F("error", err.Error()))
 		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
 		return

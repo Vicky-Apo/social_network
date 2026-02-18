@@ -180,6 +180,96 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 	return post, nil
 }
 
+// Update updates a post and optionally replaces categories and allowed users.
+func (r *Repository) Update(ctx context.Context, post domainpost.Post, categoryIDs *[]int64, allowedUserIDs *[]int64) (domainpost.Post, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	const query = `
+		UPDATE posts
+		SET content = $1, media_path = $2, visibility = $3
+		WHERE id = $4
+	`
+	var mediaPath any
+	if post.MediaPath != nil && strings.TrimSpace(*post.MediaPath) != "" {
+		mediaPath = *post.MediaPath
+	}
+	result, err := tx.ExecContext(ctx, query, post.Content, mediaPath, post.Privacy, post.ID)
+	if err != nil {
+		return domainpost.Post{}, fmt.Errorf("update post: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return domainpost.Post{}, fmt.Errorf("check rows affected: %w", err)
+	}
+	if affected == 0 {
+		return domainpost.Post{}, domainpost.ErrNotFound
+	}
+
+	if categoryIDs != nil {
+		if _, err = tx.ExecContext(ctx, `DELETE FROM post_categories WHERE post_id = $1`, post.ID); err != nil {
+			return domainpost.Post{}, fmt.Errorf("clear post categories: %w", err)
+		}
+		if len(*categoryIDs) > 0 {
+			const catQuery = `
+				INSERT INTO post_categories (post_id, category_id)
+				VALUES ($1, $2)
+			`
+			for _, categoryID := range *categoryIDs {
+				if _, err = tx.ExecContext(ctx, catQuery, post.ID, categoryID); err != nil {
+					return domainpost.Post{}, fmt.Errorf("insert post category: %w", err)
+				}
+			}
+		}
+	}
+
+	if allowedUserIDs != nil {
+		if _, err = tx.ExecContext(ctx, `DELETE FROM post_allowed_users WHERE post_id = $1`, post.ID); err != nil {
+			return domainpost.Post{}, fmt.Errorf("clear allowed users: %w", err)
+		}
+		if len(*allowedUserIDs) > 0 {
+			const allowedQuery = `
+				INSERT INTO post_allowed_users (post_id, user_id)
+				VALUES ($1, $2)
+			`
+			for _, userID := range *allowedUserIDs {
+				if _, err = tx.ExecContext(ctx, allowedQuery, post.ID, userID); err != nil {
+					return domainpost.Post{}, fmt.Errorf("insert allowed user: %w", err)
+				}
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return domainpost.Post{}, fmt.Errorf("commit post update: %w", err)
+	}
+
+	return r.GetByID(ctx, post.ID)
+}
+
+// Delete removes a post by ID.
+func (r *Repository) Delete(ctx context.Context, id int64) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM posts WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check rows affected: %w", err)
+	}
+	if affected == 0 {
+		return domainpost.ErrNotFound
+	}
+	return nil
+}
+
 // ListByAuthor returns posts for a specific author with pagination.
 func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(2) + "\n" +
@@ -329,17 +419,12 @@ func baseJoins(viewerParam int) string {
 func visibilityWhereForFeed(viewerParam int) string {
 	return fmt.Sprintf(`
 		(
-			u.is_public = TRUE
-			OR p.author_id = $%d
-			OR f.follower_id IS NOT NULL
-		)
-		AND (
 			p.author_id = $%d
 			OR p.visibility = 'public'
 			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
 			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
 		)
-	`, viewerParam, viewerParam)
+	`, viewerParam)
 }
 
 func visibilityWhereForAuthor(isFollowerParam, isOwnerParam int) string {

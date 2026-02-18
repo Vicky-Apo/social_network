@@ -4,11 +4,15 @@ import "time"
 
 // CommentDTO is the API representation of a comment
 type CommentDTO struct {
-	ID           int64             `json:"id"`
-	PostID       int64             `json:"post_id"`
-	AuthorID     int64             `json:"author_id"`
-	Content      string            `json:"content"`
-	MediaPath    string            `json:"media_path,omitempty"`
+	ID           int64     `json:"id"`
+	PostID       int64     `json:"post_id"`
+	AuthorID     int64     `json:"author_id"`
+	AuthorFirstName string `json:"author_first_name"`
+	AuthorLastName  string `json:"author_last_name"`
+	AuthorNickname  *string `json:"author_nickname,omitempty"`
+	AuthorAvatarPath *string `json:"author_avatar_path,omitempty"`
+	Content      string    `json:"content"`
+	MediaPath    string    `json:"media_path,omitempty"`
 	LikeCount    int64     `json:"like_count"`
 	DislikeCount int64     `json:"dislike_count"`
 	CreatedAt    time.Time `json:"created_at"`
@@ -21,4 +25,10 @@ type CreateCommentRequest struct {
 	AuthorID  int64  `json:"-"` // Set by handler from authenticated session, not from request body
 	Content   string `json:"content"`
 	MediaPath string `json:"media_path,omitempty"`
+}
+
+// UpdateCommentRequest is the request to update a comment
+type UpdateCommentRequest struct {
+	Content   *string `json:"content,omitempty"`
+	MediaPath *string `json:"media_path,omitempty"`
 }

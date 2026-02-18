@@ -119,6 +119,66 @@ Response (201):
 }
 ```
 
+### Update post
+
+`PATCH /posts/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "content": "Updated content",
+  "media_path": "/uploads/new.gif",
+  "privacy": "followers",
+  "category_ids": [1, 3],
+  "allowed_user_ids": [5, 8]
+}
+```
+
+Notes:
+- All fields are optional, but at least one must be provided.
+- If `privacy` is set to `private`, `allowed_user_ids` is required and must be followers of the author.
+- If `privacy` is set to `public` or `followers`, the allowed users list is cleared.
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 10,
+    "author_id": 2,
+    "author_first_name": "Jane",
+    "author_last_name": "Doe",
+    "author_nickname": "jdoe",
+    "author_avatar_path": "/uploads/avatars/jane.png",
+    "content": "Updated content",
+    "media_path": "/uploads/new.gif",
+    "privacy": "followers",
+    "comment_count": 0,
+    "like_count": 0,
+    "dislike_count": 0,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T13:00:00Z"
+  }
+}
+```
+
+### Delete post
+
+`DELETE /posts/{id}`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "deleted"
+  }
+}
+```
+
 ### List posts by user
 
 `GET /posts?author_id={id}&limit=20&offset=0`

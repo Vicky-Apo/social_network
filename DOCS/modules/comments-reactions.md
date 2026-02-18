@@ -113,6 +113,67 @@ Retrieves all comments for a specific post.
 - Returns `404 Not Found` if the post doesn't exist
 - Requires authentication (session cookie)
 
+### Update Comment
+
+`PATCH /comments/{id}`
+
+Updates an existing comment.
+
+**URL Parameters:**
+- `id` - The comment ID (integer)
+
+**Request body (JSON):**
+
+```json
+{
+  "content": "Updated reply",
+  "media_path": "/uploads/new-reply.gif"
+}
+```
+
+**Notes:**
+- All fields are optional, but at least one must be provided.
+- `content` and `media_path` cannot both be empty after the update.
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "post_id": 1,
+    "author_id": 1,
+    "content": "Updated reply",
+    "media_path": null,
+    "like_count": 0,
+    "dislike_count": 0,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T13:00:00Z"
+  }
+}
+```
+
+### Delete Comment
+
+`DELETE /comments/{id}`
+
+Deletes an existing comment.
+
+**URL Parameters:**
+- `id` - The comment ID (integer)
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "deleted"
+  }
+}
+```
+
 ## Reactions Endpoints
 
 ### Toggle Post Reaction

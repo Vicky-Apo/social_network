@@ -3,6 +3,7 @@ package reaction
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	domaincomment "social-network/backend/internal/domain/comment"
@@ -17,6 +18,7 @@ type Service struct {
 	postRepo    domainpost.Repository
 	commentRepo domaincomment.Repository
 	notifier    Notifier
+	access      AccessService
 }
 
 // Notifier allows emitting notifications without coupling to transport details.
@@ -24,15 +26,45 @@ type Notifier interface {
 	CreateForUser(ctx context.Context, req usecasenotification.CreateRequest) (usecasenotification.NotificationDTO, error)
 }
 
+// AccessService provides centralized access checks.
+type AccessService interface {
+	CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error)
+}
+
+// ErrForbidden is returned when a viewer cannot access a post/comment.
+var ErrForbidden = errors.New("reaction access forbidden")
+
 // NewService creates a reaction service
-func NewService(repo domainreaction.Repository, postRepo domainpost.Repository, commentRepo domaincomment.Repository, notifier Notifier) *Service {
-	return &Service{repo: repo, postRepo: postRepo, commentRepo: commentRepo, notifier: notifier}
+func NewService(
+	repo domainreaction.Repository,
+	postRepo domainpost.Repository,
+	commentRepo domaincomment.Repository,
+	notifier Notifier,
+	access AccessService,
+) *Service {
+	return &Service{
+		repo:        repo,
+		postRepo:    postRepo,
+		commentRepo: commentRepo,
+		notifier:    notifier,
+		access:      access,
+	}
 }
 
 // AddPostReaction adds a reaction to a post
 func (s *Service) AddPostReaction(ctx context.Context, postID int64, req AddReactionRequest) (string, error) {
 	if req.UserID <= 0 {
 		return "", fmt.Errorf("invalid user id")
+	}
+	if s.access == nil {
+		return "", errors.New("access service not configured")
+	}
+	canView, err := s.access.CanViewPost(ctx, req.UserID, postID)
+	if err != nil {
+		return "", err
+	}
+	if !canView {
+		return "", ErrForbidden
 	}
 	reactionType := domainreaction.ReactionType(req.Reaction)
 
@@ -90,6 +122,20 @@ func (s *Service) GetPostReactions(ctx context.Context, postID int64) ([]Reactio
 func (s *Service) AddCommentReaction(ctx context.Context, commentID int64, req AddReactionRequest) (string, error) {
 	if req.UserID <= 0 {
 		return "", fmt.Errorf("invalid user id")
+	}
+	if s.access == nil {
+		return "", errors.New("access service not configured")
+	}
+	comment, err := s.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		return "", err
+	}
+	canView, err := s.access.CanViewPost(ctx, req.UserID, comment.PostID)
+	if err != nil {
+		return "", err
+	}
+	if !canView {
+		return "", ErrForbidden
 	}
 	reactionType := domainreaction.ReactionType(req.Reaction)
 

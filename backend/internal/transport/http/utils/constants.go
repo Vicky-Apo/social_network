@@ -8,6 +8,7 @@ const (
 	MsgNotFound              = "not found"
 	MsgInvalidPostID         = "invalid post id"
 	MsgInvalidCommentID      = "invalid comment id"
+	MsgCommentNotFound       = "comment not found"
 	MsgInvalidUserID         = "invalid user id"
 	MsgInvalidCategoryID     = "invalid category_id"
 	MsgInvalidAuthorID       = "invalid author_id"

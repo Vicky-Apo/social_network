@@ -198,3 +198,146 @@ func (s *Service) ListByCategory(ctx context.Context, categoryID, viewerID int64
 
 // ErrForbidden is returned when a viewer cannot access a post.
 var ErrForbidden = errors.New("post access forbidden")
+
+// ErrInvalidRequest is returned when a request is invalid.
+var ErrInvalidRequest = errors.New("invalid post request")
+
+// Update updates a post if the actor is the author.
+func (s *Service) Update(ctx context.Context, postID, actorID int64, req UpdatePostRequest) (PostDTO, error) {
+	if req.Content == nil && req.MediaPath == nil && req.Privacy == nil && req.CategoryIDs == nil && req.AllowedUserIDs == nil {
+		return PostDTO{}, ErrInvalidRequest
+	}
+
+	post, err := s.repo.GetByID(ctx, postID)
+	if err != nil {
+		if errors.Is(err, domainpost.ErrNotFound) {
+			return PostDTO{}, err
+		}
+		s.log.Error("failed to load post for update", err, logger.F("post_id", postID))
+		return PostDTO{}, fmt.Errorf("get post: %w", err)
+	}
+	if post.AuthorID != actorID {
+		return PostDTO{}, ErrForbidden
+	}
+
+	newContent := post.Content
+	if req.Content != nil {
+		newContent = *req.Content
+	}
+	newMediaPath := post.MediaPath
+	if req.MediaPath != nil {
+		trimmed := strings.TrimSpace(*req.MediaPath)
+		if trimmed == "" {
+			newMediaPath = nil
+		} else {
+			newMediaPath = req.MediaPath
+		}
+	}
+
+	newPrivacy := post.Privacy
+	if req.Privacy != nil {
+		privacy := strings.TrimSpace(*req.Privacy)
+		if privacy == "" {
+			return PostDTO{}, ErrInvalidRequest
+		}
+		switch privacy {
+		case "public", "followers", "private":
+			newPrivacy = privacy
+		default:
+			return PostDTO{}, ErrInvalidRequest
+		}
+	}
+
+	if strings.TrimSpace(newContent) == "" && (newMediaPath == nil || strings.TrimSpace(*newMediaPath) == "") {
+		return PostDTO{}, fmt.Errorf("%w: content or media_path is required", ErrInvalidRequest)
+	}
+
+	var categoryIDsUpdate *[]int64
+	if req.CategoryIDs != nil {
+		if len(*req.CategoryIDs) == 0 {
+			empty := []int64{}
+			categoryIDsUpdate = &empty
+		} else {
+			seen := make(map[int64]struct{}, len(*req.CategoryIDs))
+			deduped := make([]int64, 0, len(*req.CategoryIDs))
+			for _, categoryID := range *req.CategoryIDs {
+				if categoryID <= 0 {
+					return PostDTO{}, ErrInvalidRequest
+				}
+				if _, exists := seen[categoryID]; exists {
+					continue
+				}
+				seen[categoryID] = struct{}{}
+				deduped = append(deduped, categoryID)
+			}
+			categoryIDsUpdate = &deduped
+		}
+	}
+
+	var allowedUserIDsUpdate *[]int64
+	if newPrivacy == "private" {
+		if req.AllowedUserIDs != nil {
+			if len(*req.AllowedUserIDs) == 0 {
+				return PostDTO{}, ErrInvalidRequest
+			}
+			seen := make(map[int64]struct{}, len(*req.AllowedUserIDs))
+			deduped := make([]int64, 0, len(*req.AllowedUserIDs))
+			for _, allowedID := range *req.AllowedUserIDs {
+				if allowedID <= 0 {
+					return PostDTO{}, ErrInvalidRequest
+				}
+				if allowedID == actorID {
+					return PostDTO{}, ErrInvalidRequest
+				}
+				if _, exists := seen[allowedID]; exists {
+					continue
+				}
+				seen[allowedID] = struct{}{}
+				if s.access == nil {
+					return PostDTO{}, errors.New("access service not configured")
+				}
+				follows, err := s.access.IsFollowing(ctx, allowedID, actorID)
+				if err != nil {
+					return PostDTO{}, fmt.Errorf("check allowed users: %w", err)
+				}
+				if !follows {
+					return PostDTO{}, ErrInvalidRequest
+				}
+				deduped = append(deduped, allowedID)
+			}
+			allowedUserIDsUpdate = &deduped
+		} else if post.Privacy != "private" {
+			return PostDTO{}, ErrInvalidRequest
+		}
+	} else if post.Privacy == "private" || req.AllowedUserIDs != nil {
+		empty := []int64{}
+		allowedUserIDsUpdate = &empty
+	}
+
+	post.Content = newContent
+	post.MediaPath = newMediaPath
+	post.Privacy = newPrivacy
+
+	updated, err := s.repo.Update(ctx, post, categoryIDsUpdate, allowedUserIDsUpdate)
+	if err != nil {
+		if errors.Is(err, domainpost.ErrNotFound) {
+			return PostDTO{}, err
+		}
+		s.log.Error("failed to update post", err, logger.F("post_id", postID))
+		return PostDTO{}, fmt.Errorf("update post: %w", err)
+	}
+
+	return mapPost(updated), nil
+}
+
+// Delete removes a post if the actor is the author.
+func (s *Service) Delete(ctx context.Context, postID, actorID int64) error {
+	post, err := s.repo.GetByID(ctx, postID)
+	if err != nil {
+		return err
+	}
+	if post.AuthorID != actorID {
+		return ErrForbidden
+	}
+	return s.repo.Delete(ctx, postID)
+}

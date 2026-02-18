@@ -77,6 +77,9 @@ func (s *Service) CanViewPost(ctx context.Context, viewerID, postID int64) (bool
 	if viewerID == post.AuthorID {
 		return true, nil
 	}
+	if post.Privacy == "public" {
+		return true, nil
+	}
 	author, err := s.userRepo.GetByID(ctx, post.AuthorID)
 	if err != nil {
 		return false, err
@@ -94,8 +97,6 @@ func (s *Service) CanViewPost(ctx context.Context, viewerID, postID int64) (bool
 		}
 	}
 	switch post.Privacy {
-	case "public":
-		return true, nil
 	case "followers":
 		follows, err := s.followRepo.IsFollowing(ctx, viewerID, post.AuthorID)
 		if err != nil {

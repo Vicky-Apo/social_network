@@ -50,10 +50,13 @@ func (r *Repository) Create(ctx context.Context, comment domaincomment.Comment) 
 // GetByPostID gets all comments for a post
 func (r *Repository) GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]domaincomment.Comment, error) {
 	query := `
-		SELECT c.id, c.post_id, c.author_id, c.content, c.media_path, c.created_at, c.updated_at,
+		SELECT c.id, c.post_id, c.author_id,
+		       u.first_name, u.last_name, u.nickname, u.avatar_path,
+		       c.content, c.media_path, c.created_at, c.updated_at,
 		       COALESCE(rc.like_count, 0) AS like_count,
 		       COALESCE(rc.dislike_count, 0) AS dislike_count
 		FROM comments c
+		JOIN users u ON u.id = c.author_id
 		LEFT JOIN (
 			SELECT comment_id,
 			       COUNT(*) FILTER (WHERE reaction = 'like') AS like_count,
@@ -75,10 +78,16 @@ func (r *Repository) GetByPostID(ctx context.Context, postID int64, limit, offse
 	var comments []domaincomment.Comment
 	for rows.Next() {
 		var c domaincomment.Comment
+		var nickname sql.NullString
+		var avatarPath sql.NullString
 		err := rows.Scan(
 			&c.ID,
 			&c.PostID,
 			&c.AuthorID,
+			&c.AuthorFirstName,
+			&c.AuthorLastName,
+			&nickname,
+			&avatarPath,
 			&c.Content,
 			&c.MediaPath,
 			&c.CreatedAt,
@@ -89,6 +98,8 @@ func (r *Repository) GetByPostID(ctx context.Context, postID int64, limit, offse
 		if err != nil {
 			return nil, fmt.Errorf("scan comment: %w", err)
 		}
+		c.AuthorNickname = nullableString(nickname)
+		c.AuthorAvatarPath = nullableString(avatarPath)
 		comments = append(comments, c)
 	}
 
@@ -97,6 +108,14 @@ func (r *Repository) GetByPostID(ctx context.Context, postID int64, limit, offse
 	}
 
 	return comments, nil
+}
+
+func nullableString(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	v := value.String
+	return &v
 }
 
 // GetByID gets a comment by ID
@@ -125,6 +144,34 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domaincomment.Comme
 		return domaincomment.Comment{}, fmt.Errorf("get comment: %w", err)
 	}
 
+	return c, nil
+}
+
+// Update updates a comment.
+func (r *Repository) Update(ctx context.Context, comment domaincomment.Comment) (domaincomment.Comment, error) {
+	query := `
+		UPDATE comments
+		SET content = $1, media_path = $2
+		WHERE id = $3
+		RETURNING id, post_id, author_id, content, media_path, created_at, updated_at
+	`
+
+	var c domaincomment.Comment
+	err := r.db.QueryRowContext(ctx, query, comment.Content, comment.MediaPath, comment.ID).Scan(
+		&c.ID,
+		&c.PostID,
+		&c.AuthorID,
+		&c.Content,
+		&c.MediaPath,
+		&c.CreatedAt,
+		&c.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domaincomment.Comment{}, domaincomment.ErrNotFound
+		}
+		return domaincomment.Comment{}, fmt.Errorf("update comment: %w", err)
+	}
 	return c, nil
 }
 
