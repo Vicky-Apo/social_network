@@ -108,7 +108,7 @@ type UserListItem = {
 
 const quickLinks = [
   { label: "Explore", href: "#", icon: Compass },
-  { label: "Groups", href: "#", icon: Users },
+  { label: "Groups", href: "/groups", icon: Users },
   { label: "Messages", href: "#", icon: MessageSquare },
 ];
 
