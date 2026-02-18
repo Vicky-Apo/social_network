@@ -1,9 +1,21 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, Calendar, RefreshCw, Shield, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Calendar,
+  MessageCircle,
+  RefreshCw,
+  Send,
+  Shield,
+  ThumbsDown,
+  ThumbsUp,
+  Users,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
@@ -24,6 +36,37 @@ type GroupDetail = {
   updatedAt?: string;
 };
 
+type Post = {
+  id: number;
+  author_first_name: string;
+  author_last_name: string;
+  content: string;
+  media_path?: string | null;
+  created_at: string;
+  comment_count: number;
+  like_count: number;
+  dislike_count: number;
+};
+
+type Comment = {
+  id: number;
+  post_id: number;
+  author_id: number;
+  content: string;
+  media_path?: string;
+  like_count: number;
+  dislike_count: number;
+  created_at: string;
+};
+
+type Reaction = {
+  user_id: number;
+  reaction: "like" | "dislike";
+};
+
+type ReactionKind = "like" | "dislike";
+type ReactionMap = Record<number, ReactionKind | null>;
+
 function toNumber(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -34,6 +77,14 @@ function formatDate(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function shortDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Just now";
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function parseGroup(data: unknown): GroupDetail | null {
@@ -92,6 +143,24 @@ export default function GroupDetailsPage() {
   const [group, setGroup] = useState<GroupDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userID, setUserID] = useState<number | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postsError, setPostsError] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [pageSize] = useState(8);
+  const [composerText, setComposerText] = useState("");
+  const [mediaUrl, setMediaUrl] = useState("");
+  const [composerError, setComposerError] = useState<string | null>(null);
+  const [isPosting, setIsPosting] = useState(false);
+  const [postReactionMap, setPostReactionMap] = useState<ReactionMap>({});
+  const [commentReactionMap, setCommentReactionMap] = useState<ReactionMap>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, Comment[]>>({});
+  const [commentsOpenByPost, setCommentsOpenByPost] = useState<Record<number, boolean>>({});
+  const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<number, boolean>>({});
+  const [commentDraftByPost, setCommentDraftByPost] = useState<Record<number, string>>({});
+  const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
 
   const apiBaseUrl = useMemo(
     () =>
@@ -104,6 +173,7 @@ export default function GroupDetailsPage() {
     if (!Number.isFinite(groupIDNumber) || groupIDNumber <= 0) {
       setError("Invalid group id.");
       setIsLoading(false);
+      setPostsLoading(false);
       return;
     }
 
@@ -111,6 +181,9 @@ export default function GroupDetailsPage() {
     const load = async () => {
       setIsLoading(true);
       setError(null);
+      setPostsLoading(true);
+      setPostsError(null);
+      setHasMorePosts(true);
 
       try {
         const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
@@ -123,43 +196,102 @@ export default function GroupDetailsPage() {
           }
           return;
         }
+        const meUser = meResult.data as { id?: number } | null;
+        if (!cancelled) {
+          setUserID(typeof meUser?.id === "number" ? meUser.id : null);
+        }
 
-        const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
-        if (!response.ok || !result?.success) {
+        const [groupResponse, postsResponse] = await Promise.all([
+          fetch(`${apiBaseUrl}/groups/${groupIDNumber}`, {
+            credentials: "include",
+          }),
+          fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=0`, {
+            credentials: "include",
+          }),
+        ]);
+
+        const groupResult = (await groupResponse.json().catch(() => null)) as
+          | ApiResponse<unknown>
+          | null;
+        if (!groupResponse.ok || !groupResult?.success) {
           if (!cancelled) {
-            if (response.status === 404) {
+            if (groupResponse.status === 404) {
               setError("Group endpoint is not available yet or this group does not exist.");
             } else {
-              setError(result?.error || "Could not load this group.");
+              setError(groupResult?.error || "Could not load this group.");
             }
             setGroup(null);
           }
-          return;
-        }
-
-        const normalized = parseGroup(result.data);
-        if (!normalized) {
-          if (!cancelled) {
-            setError("Received an unexpected group response format.");
-            setGroup(null);
+        } else {
+          const normalized = parseGroup(groupResult.data);
+          if (!normalized) {
+            if (!cancelled) {
+              setError("Received an unexpected group response format.");
+              setGroup(null);
+            }
+          } else if (!cancelled) {
+            setGroup(normalized);
           }
-          return;
         }
 
-        if (!cancelled) {
-          setGroup(normalized);
+        const postsResult = (await postsResponse.json().catch(() => null)) as
+          | ApiResponse<Post[]>
+          | null;
+        if (!postsResponse.ok || !postsResult?.success) {
+          if (!cancelled) {
+            if (postsResponse.status === 404) {
+              setPostsError("Group posts endpoint is not available yet.");
+            } else {
+              setPostsError(postsResult?.error || "Could not load group posts.");
+            }
+            setPosts([]);
+          }
+        } else if (!cancelled) {
+          const nextPosts = postsResult.data ?? [];
+          setPosts(nextPosts);
+          setHasMorePosts(nextPosts.length >= pageSize);
+
+          const currentUserID = typeof meUser?.id === "number" ? meUser.id : null;
+          if (currentUserID && nextPosts.length > 0) {
+            void Promise.all(
+              nextPosts.map(async (post) => {
+                try {
+                  const reactionRes = await fetch(`${apiBaseUrl}/posts/${post.id}/reactions`, {
+                    credentials: "include",
+                  });
+                  const reactionJson = (await reactionRes.json().catch(() => null)) as
+                    | ApiResponse<Reaction[]>
+                    | null;
+                  if (!reactionRes.ok || !reactionJson?.success) {
+                    return [post.id, null] as const;
+                  }
+                  const mine = (reactionJson.data ?? []).find(
+                    (item) => item.user_id === currentUserID,
+                  );
+                  return [post.id, mine?.reaction ?? null] as const;
+                } catch {
+                  return [post.id, null] as const;
+                }
+              }),
+            ).then((entries) => {
+              if (!cancelled) {
+                setPostReactionMap(Object.fromEntries(entries));
+              }
+            });
+          }
         }
       } catch {
         if (!cancelled) {
           setError("Network error while loading group details.");
           setGroup(null);
+          setPostsError("Network error while loading group posts.");
+          setPosts([]);
+          setHasMorePosts(false);
         }
       } finally {
         if (!cancelled) {
           setIsLoading(false);
+          setPostsLoading(false);
         }
       }
     };
@@ -168,7 +300,273 @@ export default function GroupDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, groupIDNumber, router]);
+  }, [apiBaseUrl, groupIDNumber, pageSize, router]);
+
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMorePosts) return;
+    setIsLoadingMore(true);
+    setPostsError(null);
+    try {
+      const offset = posts.length;
+      const response = await fetch(
+        `${apiBaseUrl}/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=${offset}`,
+        { credentials: "include" },
+      );
+      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
+      if (!response.ok || !result?.success) {
+        setPostsError(result?.error || "Could not load more posts.");
+        return;
+      }
+      const nextPosts = result.data ?? [];
+      setPosts((prev) => [...prev, ...nextPosts]);
+      setHasMorePosts(nextPosts.length >= pageSize);
+
+      if (userID && nextPosts.length > 0) {
+        const entries = await Promise.all(
+          nextPosts.map(async (post) => {
+            try {
+              const reactionRes = await fetch(`${apiBaseUrl}/posts/${post.id}/reactions`, {
+                credentials: "include",
+              });
+              const reactionJson = (await reactionRes.json().catch(() => null)) as
+                | ApiResponse<Reaction[]>
+                | null;
+              if (!reactionRes.ok || !reactionJson?.success) {
+                return [post.id, null] as const;
+              }
+              const mine = (reactionJson.data ?? []).find((item) => item.user_id === userID);
+              return [post.id, mine?.reaction ?? null] as const;
+            } catch {
+              return [post.id, null] as const;
+            }
+          }),
+        );
+        setPostReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      }
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const handleCreatePost = async () => {
+    if (isPosting) return;
+    const content = composerText.trim();
+    const media = mediaUrl.trim();
+    if (!content && !media) {
+      setComposerError("Add a message or a media URL before posting.");
+      return;
+    }
+
+    setIsPosting(true);
+    setComposerError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: content || undefined,
+          media_path: media || undefined,
+          privacy: "public",
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
+      if (!response.ok || !result?.success || !result.data) {
+        setComposerError(result?.error || "Could not publish your post.");
+        return;
+      }
+      setPosts((prev) => [result.data as Post, ...prev]);
+      setComposerText("");
+      setMediaUrl("");
+    } catch {
+      setComposerError("Network error. Please try again.");
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const loadCommentsForPost = async (postID: number) => {
+    setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: true }));
+    setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+        credentials: "include",
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
+
+      if (!response.ok || !result?.success) {
+        setCommentErrorByPost((prev) => ({
+          ...prev,
+          [postID]: result?.error || "Could not load comments.",
+        }));
+        return;
+      }
+
+      const comments = result.data ?? [];
+      setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
+
+      if (userID && comments.length > 0) {
+        const entries = await Promise.all(
+          comments.map(async (comment) => {
+            const reactionRes = await fetch(`${apiBaseUrl}/comments/${comment.id}/reactions`, {
+              credentials: "include",
+            });
+            const reactionJson = (await reactionRes.json().catch(() => null)) as
+              | ApiResponse<Reaction[]>
+              | null;
+            if (!reactionRes.ok || !reactionJson?.success) {
+              return [comment.id, null] as const;
+            }
+            const mine = (reactionJson.data ?? []).find((item) => item.user_id === userID);
+            return [comment.id, mine?.reaction ?? null] as const;
+          }),
+        );
+        setCommentReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      }
+    } catch {
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postID]: "Network error while loading comments.",
+      }));
+    } finally {
+      setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: false }));
+    }
+  };
+
+  const toggleComments = (postID: number) => {
+    const isOpen = commentsOpenByPost[postID] ?? false;
+    const nextOpen = !isOpen;
+    setCommentsOpenByPost((prev) => ({ ...prev, [postID]: nextOpen }));
+    if (nextOpen && !commentsByPost[postID]) {
+      void loadCommentsForPost(postID);
+    }
+  };
+
+  const handleCreateComment = async (postID: number) => {
+    const draft = (commentDraftByPost[postID] ?? "").trim();
+    if (!draft) {
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postID]: "Write a comment before posting.",
+      }));
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content: draft }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
+
+      if (!response.ok || !result?.success || !result.data) {
+        setCommentErrorByPost((prev) => ({
+          ...prev,
+          [postID]: result?.error || "Could not post comment.",
+        }));
+        return;
+      }
+
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
+      }));
+      setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
+      setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postID ? { ...post, comment_count: post.comment_count + 1 } : post,
+        ),
+      );
+      setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
+    } catch {
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postID]: "Network error while posting comment.",
+      }));
+    }
+  };
+
+  const handlePostReaction = async (postID: number, reaction: ReactionKind) => {
+    const previous = postReactionMap[postID] ?? null;
+    const next = previous === reaction ? null : reaction;
+    setPostReactionMap((prev) => ({ ...prev, [postID]: next }));
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== postID) return post;
+        let like = post.like_count;
+        let dislike = post.dislike_count;
+        if (previous === "like") like -= 1;
+        if (previous === "dislike") dislike -= 1;
+        if (next === "like") like += 1;
+        if (next === "dislike") dislike += 1;
+        return {
+          ...post,
+          like_count: Math.max(0, like),
+          dislike_count: Math.max(0, dislike),
+        };
+      }),
+    );
+
+    try {
+      await fetch(`${apiBaseUrl}/posts/${postID}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          reaction,
+          user_id: userID ?? 0,
+        }),
+      });
+    } catch {
+      setPostReactionMap((prev) => ({ ...prev, [postID]: previous }));
+    }
+  };
+
+  const handleCommentReaction = async (
+    postID: number,
+    commentID: number,
+    reaction: ReactionKind,
+  ) => {
+    const previous = commentReactionMap[commentID] ?? null;
+    const next = previous === reaction ? null : reaction;
+    setCommentReactionMap((prev) => ({ ...prev, [commentID]: next }));
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [postID]: (prev[postID] ?? []).map((comment) => {
+        if (comment.id !== commentID) return comment;
+        let like = comment.like_count;
+        let dislike = comment.dislike_count;
+        if (previous === "like") like -= 1;
+        if (previous === "dislike") dislike -= 1;
+        if (next === "like") like += 1;
+        if (next === "dislike") dislike += 1;
+        return {
+          ...comment,
+          like_count: Math.max(0, like),
+          dislike_count: Math.max(0, dislike),
+        };
+      }),
+    }));
+
+    try {
+      await fetch(`${apiBaseUrl}/comments/${commentID}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          reaction,
+          user_id: userID ?? 0,
+        }),
+      });
+    } catch {
+      setCommentReactionMap((prev) => ({ ...prev, [commentID]: previous }));
+    }
+  };
 
   return (
     <div className="min-h-screen bg-neutral-50 px-4 py-10 text-neutral-900 sm:px-6">
@@ -261,6 +659,216 @@ export default function GroupDetailsPage() {
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
+        </motion.section>
+
+        <motion.section
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportOnce}
+          variants={fadeUp}
+          className="mt-6 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-neutral-900">Group posts</h2>
+              <p className="text-sm text-neutral-600">
+                Latest posts shared with this group.
+              </p>
+            </div>
+            <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+              {posts.length} post(s)
+            </span>
+          </div>
+
+          <div className="mt-5 rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+            <textarea
+              value={composerText}
+              onChange={(event) => setComposerText(event.target.value)}
+              rows={4}
+              placeholder="Share an update with this group..."
+              className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+            />
+            <input
+              value={mediaUrl}
+              onChange={(event) => setMediaUrl(event.target.value)}
+              placeholder="Optional media URL (image or file)"
+              className="mt-3 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleCreatePost}
+                disabled={isPosting}
+                className="brand-gradient inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {isPosting ? "Posting..." : "Publish"}
+              </button>
+            </div>
+            {composerError ? (
+              <p className="mt-3 text-xs text-rose-600">{composerError}</p>
+            ) : null}
+          </div>
+
+          {postsLoading ? (
+            <p className="mt-4 text-sm text-neutral-600">Loading group posts...</p>
+          ) : postsError ? (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              {postsError}
+            </p>
+          ) : posts.length === 0 ? (
+            <p className="mt-4 text-sm text-neutral-600">
+              No posts yet. Be the first to share something.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {posts.map((post) => (
+                <article
+                  key={post.id}
+                  className="rounded-3xl border border-neutral-200 bg-neutral-50 p-5"
+                >
+                  <header className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">
+                        {post.author_first_name} {post.author_last_name}
+                      </p>
+                      <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleComments(post.id)}
+                      className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] text-neutral-500"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      {post.comment_count} comments
+                    </button>
+                  </header>
+
+                  <p className="mt-3 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+
+                  {post.media_path ? (
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                      <img
+                        src={post.media_path}
+                        alt="Post media"
+                        className="h-64 w-full object-cover"
+                      />
+                    </div>
+                  ) : null}
+
+                  <footer className="mt-4 flex items-center gap-3 text-xs text-neutral-500">
+                    <button
+                      type="button"
+                      onClick={() => handlePostReaction(post.id, "like")}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                        postReactionMap[post.id] === "like"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-white text-neutral-600 hover:bg-neutral-100"
+                      }`}
+                    >
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                      {post.like_count}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePostReaction(post.id, "dislike")}
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                        postReactionMap[post.id] === "dislike"
+                          ? "bg-rose-100 text-rose-800"
+                          : "bg-white text-neutral-600 hover:bg-neutral-100"
+                      }`}
+                    >
+                      <ThumbsDown className="h-3.5 w-3.5" />
+                      {post.dislike_count}
+                    </button>
+                  </footer>
+
+                  {commentsOpenByPost[post.id] ? (
+                    <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-3">
+                      <div className="space-y-2">
+                        {(commentsByPost[post.id] ?? []).map((comment) => (
+                          <article key={comment.id} className="rounded-xl bg-neutral-50 p-3">
+                            <p className="text-sm text-neutral-700">{comment.content}</p>
+                            <div className="mt-2 flex items-center gap-2 text-xs">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCommentReaction(post.id, comment.id, "like")
+                                }
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                                  commentReactionMap[comment.id] === "like"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-white text-neutral-600"
+                                }`}
+                              >
+                                <ThumbsUp className="h-3 w-3" />
+                                {comment.like_count}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCommentReaction(post.id, comment.id, "dislike")
+                                }
+                                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                                  commentReactionMap[comment.id] === "dislike"
+                                    ? "bg-rose-100 text-rose-800"
+                                    : "bg-white text-neutral-600"
+                                }`}
+                              >
+                                <ThumbsDown className="h-3 w-3" />
+                                {comment.dislike_count}
+                              </button>
+                            </div>
+                          </article>
+                        ))}
+
+                        {commentsLoadingByPost[post.id] ? (
+                          <p className="text-xs text-neutral-500">Loading comments...</p>
+                        ) : null}
+                        {commentErrorByPost[post.id] ? (
+                          <p className="text-xs text-rose-600">{commentErrorByPost[post.id]}</p>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={commentDraftByPost[post.id] ?? ""}
+                          onChange={(event) =>
+                            setCommentDraftByPost((prev) => ({
+                              ...prev,
+                              [post.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Write a comment..."
+                          className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleCreateComment(post.id)}
+                          className="rounded-xl bg-neutral-900 px-3 text-xs font-semibold text-white"
+                        >
+                          Comment
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
+                </article>
+              ))}
+            </div>
+          )}
+
+          {hasMorePosts && !postsLoading && !postsError ? (
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={loadMorePosts}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoadingMore ? "Loading..." : "Load more posts"}
+              </button>
+            </div>
+          ) : null}
         </motion.section>
       </main>
     </div>
