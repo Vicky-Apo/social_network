@@ -1,55 +1,470 @@
 # Groups API (Frontend Guide)
 
-This document describes the current backend surface area for groups based on the codebase scan.
+This document describes the REST API shape for groups, along with requests and responses.
 
-## Status
+## Base URL
 
-There are **no HTTP REST endpoints for groups** implemented in the backend at this time. The HTTP router does not register any `/groups` routes.
+- `http://localhost:8080` (backend)
+- `http://localhost:3000` (frontend)
 
-## What exists
+## Authentication
 
-### WebSocket (group chat)
+All endpoints require a valid session cookie. Use `credentials: "include"` in your requests.
 
-Group messages are supported **via WebSocket** as described in `DOCS/modules/chat.md`.
+## Models
 
-Send a group message by providing `group_id` in the WebSocket payload:
+### Group
 
 ```json
 {
-  "type": "chat_message",
-  "payload": {
-    "group_id": 7,
-    "content": "Hello group!"
+  "id": 7,
+  "title": "Gophers",
+  "description": "Go developers club",
+  "creator_id": 2,
+  "created_at": "2025-02-01T10:00:00Z",
+  "updated_at": "2025-02-01T10:00:00Z"
+}
+```
+
+### Group Member
+
+```json
+{
+  "group_id": 7,
+  "user_id": 3,
+  "joined_at": "2025-02-01T10:05:00Z"
+}
+```
+
+### Group Invitation
+
+```json
+{
+  "id": 15,
+  "group_id": 7,
+  "inviter_id": 2,
+  "invitee_id": 5,
+  "created_at": "2025-02-01T10:10:00Z",
+  "updated_at": "2025-02-01T10:10:00Z"
+}
+```
+
+### Group Join Request
+
+```json
+{
+  "id": 9,
+  "group_id": 7,
+  "user_id": 5,
+  "created_at": "2025-02-01T10:12:00Z",
+  "updated_at": "2025-02-01T10:12:00Z"
+}
+```
+
+### Group Event
+
+```json
+{
+  "id": 3,
+  "group_id": 7,
+  "creator_id": 2,
+  "title": "Monthly meetup",
+  "description": "Talks and Q&A",
+  "event_time": "2025-03-01T18:00:00Z",
+  "created_at": "2025-02-01T10:30:00Z",
+  "updated_at": "2025-02-01T10:30:00Z"
+}
+```
+
+## Endpoints
+
+### Create group
+
+`POST /groups`
+
+Request body (JSON):
+
+```json
+{
+  "title": "Gophers",
+  "description": "Go developers club"
+}
+```
+
+Response (201):
+
+```json
+{
+  "success": true,
+  "data": {
+    "group": { ... }
   }
 }
 ```
 
-### Internal access checks (server-side only)
+### List/search groups
 
-The backend contains access checks and data access for groups:
+`GET /groups?query=go&limit=20&offset=0`
 
-- `group` repository supports:
-  - `GetByID`
-  - `IsMember`
-  - `GetMemberIDs`
-- Access service includes:
-  - `CanViewGroup`
-  - `CanPostInGroup`
-  - `CanChatInGroup`
-  - `CanInviteToGroup`
-  - `CanApproveGroupJoin`
+Response (200):
 
-These are not exposed via REST yet.
+```json
+{
+  "success": true,
+  "data": [
+    { ... }
+  ]
+}
+```
 
-## Next steps (backend work required)
+Notes:
+- Private groups are only returned if the requester is a member.
 
-To support full group flows from the frontend, the backend needs HTTP endpoints for:
+### Get group by id
 
-- Create group
-- List groups / search groups
-- Invite / accept / decline invitations
-- Request to join / approve / decline
-- Group posts and comments
-- Group events (create + RSVP)
+`GET /groups/{id}`
 
-Once these endpoints exist, this document can be updated with concrete routes and examples.
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "group": { ... },
+    "members_count": 12,
+    "is_member": true,
+    "role": "member"
+  }
+}
+```
+
+### Update group
+
+`PATCH /groups/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "title": "New title",
+  "description": "Updated",
+}
+```
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "group": { ... }
+  }
+}
+```
+
+Notes:
+- Only the creator or admins can update the group.
+
+### Delete group
+
+`DELETE /groups/{id}`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "deleted"
+  }
+}
+```
+
+### List group members
+
+`GET /groups/{id}/members?limit=20&offset=0`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 3,
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "nickname": "jdoe",
+      "avatar_path": "/uploads/avatars/jane.png"
+    }
+  ]
+}
+```
+
+### Leave group
+
+`DELETE /groups/{id}/members/me`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "left"
+  }
+}
+```
+
+### Remove member (admin)
+
+`DELETE /groups/{id}/members/{user_id}`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "removed"
+  }
+}
+```
+
+### Invite user
+
+`POST /groups/{id}/invitations`
+
+Request body (JSON):
+
+```json
+{
+  "invitee_id": 5
+}
+```
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "invitation": { ... }
+  }
+}
+```
+
+### List received invitations (for me)
+
+`GET /group-invitations?limit=20&offset=0`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    { ... }
+  ]
+}
+```
+
+### Accept/decline invitation
+
+`PATCH /group-invitations/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "status": "accepted"
+}
+```
+
+Allowed values: `accepted`, `declined`.
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "accepted"
+  }
+}
+```
+
+### Request to join
+
+`POST /groups/{id}/join-requests`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "request": { ... }
+  }
+}
+```
+
+### List pending join requests (admin)
+
+`GET /groups/{id}/join-requests?limit=20&offset=0`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    { ... }
+  ]
+}
+```
+
+### Approve/decline join request (admin)
+
+`PATCH /groups/{id}/join-requests/{request_id}`
+
+Request body (JSON):
+
+```json
+{
+  "status": "accepted"
+}
+```
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "accepted"
+  }
+}
+```
+
+### Create group post
+
+`POST /groups/{id}/posts`
+
+Request body (JSON):
+
+```json
+{
+  "content": "Hello group",
+  "media_path": "/uploads/group-post.png"
+}
+```
+
+Response (201):
+
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+### List group posts
+
+`GET /groups/{id}/posts?limit=20&offset=0`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    { ... }
+  ]
+}
+```
+
+### Group post comments
+
+`POST /groups/{id}/posts/{post_id}/comments`
+
+`GET /groups/{id}/posts/{post_id}/comments`
+
+`PATCH /group-comments/{id}`
+
+`DELETE /group-comments/{id}`
+
+Notes:
+- Same request/response shape as standard comments.
+- Distinct routes avoid mixing group vs public posts.
+
+### Create event
+
+`POST /groups/{id}/events`
+
+Request body (JSON):
+
+```json
+{
+  "title": "Monthly meetup",
+  "description": "Talks and Q&A",
+  "event_time": "2025-03-01T18:00:00Z"
+}
+```
+
+Response (201):
+
+```json
+{
+  "success": true,
+  "data": { ... }
+}
+```
+
+### List events
+
+`GET /groups/{id}/events?limit=20&offset=0`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    { ... }
+  ]
+}
+```
+
+### RSVP to event
+
+`POST /groups/{id}/events/{event_id}/rsvp`
+
+Request body (JSON):
+
+```json
+{
+  "response": "going"
+}
+```
+
+Allowed values: `going`, `not_going`.
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "response": "going"
+  }
+}
+```
+
+## Error responses
+
+- `400 Bad Request` for invalid ids or request body.
+- `401 Unauthorized` when session is missing or invalid.
+- `403 Forbidden` when the requester lacks permission.
+- `404 Not Found` for missing entities.
+- `409 Conflict` for duplicate requests/invites/memberships.

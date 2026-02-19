@@ -245,36 +245,6 @@
           }
         },
         {
-          "name": "List Posts by Category",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/posts?category_id={{categoryId}}&limit={{limit}}&offset={{offset}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "posts"
-              ],
-              "query": [
-                {
-                  "key": "category_id",
-                  "value": "{{categoryId}}"
-                },
-                {
-                  "key": "limit",
-                  "value": "{{limit}}"
-                },
-                {
-                  "key": "offset",
-                  "value": "{{offset}}"
-                }
-              ]
-            }
-          }
-        },
-        {
           "name": "Get Post by ID",
           "request": {
             "method": "GET",
@@ -303,7 +273,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"category_ids\": [{{categoryId}}],\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"allowed_user_ids\": [\n    {{allowedUserId}}\n  ]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts",
@@ -703,6 +673,586 @@
                   "value": "{{searchQuery}}"
                 }
               ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups"
+              ],
+              "raw": "{{baseUrl}}/groups"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Gophers\",\n  \"description\": \"Go developers club\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups"
+              ],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "{{groupQuery}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/groups?query={{groupQuery}}&limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "Get Group",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}"
+            }
+          }
+        },
+        {
+          "name": "Update Group",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated title\",\n  \"description\": \"Updated description\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Group",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}"
+            }
+          }
+        },
+        {
+          "name": "List Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "members"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/members?limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "Leave Group",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "members",
+                "me"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/members/me"
+            }
+          }
+        },
+        {
+          "name": "Remove Member",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "members",
+                "{{memberId}}"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/members/{{memberId}}"
+            }
+          }
+        },
+        {
+          "name": "Invite User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "invitations"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/invitations"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invitee_id\": {{inviteeId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "List My Invitations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-invitations"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/group-invitations?limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "Respond Invitation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-invitations",
+                "{{groupInvitationId}}"
+              ],
+              "raw": "{{baseUrl}}/group-invitations/{{groupInvitationId}}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Request Join",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "join-requests"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/join-requests"
+            }
+          }
+        },
+        {
+          "name": "List Join Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "join-requests"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/join-requests?limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "Respond Join Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "join-requests",
+                "{{joinRequestId}}"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/join-requests/{{joinRequestId}}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Group Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "posts"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello group\",\n  \"media_path\": \"/uploads/group-post.png\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Group Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "posts"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts?limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "Create Group Comment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "posts",
+                "{{groupPostId}}",
+                "comments"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts/{{groupPostId}}/comments"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Nice post\",\n  \"media_path\": \"/uploads/comment.png\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Group Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "posts",
+                "{{groupPostId}}",
+                "comments"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts/{{groupPostId}}/comments?limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "Update Group Comment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-comments",
+                "{{groupCommentId}}"
+              ],
+              "raw": "{{baseUrl}}/group-comments/{{groupCommentId}}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Updated comment\",\n  \"media_path\": \"/uploads/comment.png\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Group Comment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-comments",
+                "{{groupCommentId}}"
+              ],
+              "raw": "{{baseUrl}}/group-comments/{{groupCommentId}}"
+            }
+          }
+        },
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "events"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/events"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Monthly meetup\",\n  \"description\": \"Talks and Q&A\",\n  \"event_time\": \"2026-03-01T18:00:00Z\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "events"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/events?limit={{limit}}&offset={{offset}}"
+            }
+          }
+        },
+        {
+          "name": "RSVP Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "events",
+                "{{eventId}}",
+                "rsvp"
+              ],
+              "raw": "{{baseUrl}}/groups/{{groupId}}/events/{{eventId}}/rsvp"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"response\": \"going\"\n}"
             }
           }
         }

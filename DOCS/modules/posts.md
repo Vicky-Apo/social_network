@@ -26,6 +26,7 @@ Response (200):
     {
       "id": 1,
       "author_id": 2,
+      "group_id": null,
       "author_first_name": "Jane",
       "author_last_name": "Doe",
       "author_nickname": "jdoe",
@@ -43,6 +44,9 @@ Response (200):
 }
 ```
 
+Notes:
+- The feed includes group posts only for groups the user is a member of.
+
 ### Get post by ID
 
 `GET /posts/{id}`
@@ -55,6 +59,7 @@ Response (200):
   "data": {
     "id": 1,
     "author_id": 2,
+    "group_id": null,
     "author_first_name": "Jane",
     "author_last_name": "Doe",
     "author_nickname": "jdoe",
@@ -82,7 +87,6 @@ Request body (JSON):
   "content": "My post",
   "media_path": "/uploads/cat.gif",
   "privacy": "public",
-  "category_ids": [1, 3],
   "allowed_user_ids": [5, 8]
 }
 ```
@@ -90,7 +94,6 @@ Request body (JSON):
 Notes:
 - `content` or `media_path` is required (one can be empty, not both).
 - `privacy` must be `public`, `followers`, or `private`.
-- `category_ids` is optional.
 - `followers` is the "almost private" option (only followers can see the post).
 - `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
 - `allowed_user_ids` is ignored for `public` and `followers`.
@@ -103,6 +106,7 @@ Response (201):
   "data": {
     "id": 10,
     "author_id": 2,
+    "group_id": null,
     "author_first_name": "Jane",
     "author_last_name": "Doe",
     "author_nickname": "jdoe",
@@ -130,7 +134,6 @@ Request body (JSON):
   "content": "Updated content",
   "media_path": "/uploads/new.gif",
   "privacy": "followers",
-  "category_ids": [1, 3],
   "allowed_user_ids": [5, 8]
 }
 ```
@@ -148,6 +151,7 @@ Response (200):
   "data": {
     "id": 10,
     "author_id": 2,
+    "group_id": null,
     "author_first_name": "Jane",
     "author_last_name": "Doe",
     "author_nickname": "jdoe",
@@ -195,6 +199,7 @@ Response (200):
     {
       "id": 2,
       "author_id": 2,
+      "group_id": null,
       "author_first_name": "Jane",
       "author_last_name": "Doe",
       "author_nickname": "jdoe",
@@ -212,10 +217,6 @@ Response (200):
 }
 ```
 
-### Filter posts by category
-
-`GET /posts?category_id=1&limit=20&offset=0`
-
 ## React fetch example
 
 ```ts
@@ -225,7 +226,6 @@ export async function createPost(payload: {
   content?: string;
   media_path?: string;
   privacy: "public" | "followers" | "private";
-  category_ids?: number[];
   allowed_user_ids?: number[];
 }) {
   const res = await fetch(`${API_BASE}/posts`, {

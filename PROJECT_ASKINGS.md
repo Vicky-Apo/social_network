@@ -37,3 +37,10 @@ This file summarizes the project requirements and constraints for the social net
 ## Status Notes
 - Groups HTTP endpoints are not implemented yet (see `DOCS/modules/groups.md`).
 - WebSocket chat is available at `/ws` (see `DOCS/modules/chat.md`).
+
+## Missing API Endpoints
+- Groups CRUD (create, list/search, get, update, delete).
+- Membership (list members, leave group, remove member).
+- Invitations and join requests (create, list, respond/approve/decline).
+- Group posts and group comments.
+- Events and RSVP.
