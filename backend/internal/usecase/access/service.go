@@ -74,6 +74,19 @@ func (s *Service) CanViewPost(ctx context.Context, viewerID, postID int64) (bool
 	if err != nil {
 		return false, err
 	}
+	if post.GroupID != nil {
+		if viewerID == post.AuthorID {
+			return true, nil
+		}
+		if viewerID == 0 {
+			return false, nil
+		}
+		isMember, err := s.groupRepo.IsMember(ctx, *post.GroupID, viewerID)
+		if err != nil {
+			return false, fmt.Errorf("check group membership: %w", err)
+		}
+		return isMember, nil
+	}
 	if viewerID == post.AuthorID {
 		return true, nil
 	}

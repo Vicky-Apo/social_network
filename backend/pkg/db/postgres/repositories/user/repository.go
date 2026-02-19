@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	domainuser "social-network/backend/internal/domain/user"
+	reposhared "social-network/backend/pkg/db/postgres/repositories/shared"
 )
 
 // Repository implements the user repository using Postgres.
@@ -47,9 +49,68 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainuser.User, er
 		}
 		return domainuser.User{}, fmt.Errorf("get user: %w", err)
 	}
-	u.AvatarPath = nullableString(avatar)
-	u.Nickname = nullableString(nickname)
-	u.About = nullableString(about)
+	u.AvatarPath = reposhared.NullableString(avatar)
+	u.Nickname = reposhared.NullableString(nickname)
+	u.About = reposhared.NullableString(about)
+	return u, nil
+}
+
+// UpdateProfile updates optional profile fields and returns the updated user.
+func (r *Repository) UpdateProfile(ctx context.Context, id int64, nickname, about, avatarPath *string) (domainuser.User, error) {
+	setClauses := make([]string, 0, 4)
+	args := make([]any, 0, 4)
+
+	if nickname != nil {
+		setClauses = append(setClauses, fmt.Sprintf("nickname = $%d", len(args)+1))
+		args = append(args, reposhared.NullableStringValue(nickname))
+	}
+	if about != nil {
+		setClauses = append(setClauses, fmt.Sprintf("about = $%d", len(args)+1))
+		args = append(args, reposhared.NullableStringValue(about))
+	}
+	if avatarPath != nil {
+		setClauses = append(setClauses, fmt.Sprintf("avatar_path = $%d", len(args)+1))
+		args = append(args, reposhared.NullableStringValue(avatarPath))
+	}
+
+	if len(setClauses) == 0 {
+		return r.GetByID(ctx, id)
+	}
+
+	setClauses = append(setClauses, "updated_at = now()")
+	args = append(args, id)
+
+	query := fmt.Sprintf(`
+		UPDATE users
+		SET %s
+		WHERE id = $%d
+		RETURNING id, email, first_name, last_name, date_of_birth, avatar_path, nickname, about, is_public, created_at, updated_at
+	`, strings.Join(setClauses, ", "), len(args))
+
+	var u domainuser.User
+	var avatar, nick, aboutStr sql.NullString
+	err := r.db.QueryRowContext(ctx, query, args...).Scan(
+		&u.ID,
+		&u.Email,
+		&u.FirstName,
+		&u.LastName,
+		&u.DateOfBirth,
+		&avatar,
+		&nick,
+		&aboutStr,
+		&u.IsPublic,
+		&u.CreatedAt,
+		&u.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domainuser.User{}, domainuser.ErrNotFound
+		}
+		return domainuser.User{}, fmt.Errorf("update profile: %w", err)
+	}
+	u.AvatarPath = reposhared.NullableString(avatar)
+	u.Nickname = reposhared.NullableString(nick)
+	u.About = reposhared.NullableString(aboutStr)
 	return u, nil
 }
 
@@ -141,10 +202,11 @@ func (r *Repository) SearchUsers(ctx context.Context, query string) ([]domainuse
 	const sqlQuery = `
 		SELECT id, email, first_name, last_name, date_of_birth, avatar_path, nickname, about, is_public, created_at, updated_at
 		FROM users
-		WHERE first_name ILIKE $1 OR last_name ILIKE $1 OR nickname ILIKE $1
+		WHERE first_name ILIKE $1 ESCAPE '\' OR last_name ILIKE $1 ESCAPE '\' OR nickname ILIKE $1 ESCAPE '\'
 		ORDER BY id
 	`
-	pattern := "%" + query + "%"
+	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
+	pattern := "%" + escaped + "%"
 	return r.listUsersWithArgs(ctx, sqlQuery, pattern)
 }
 
@@ -178,9 +240,9 @@ func (r *Repository) listUsersWithArgs(ctx context.Context, query string, args .
 		); err != nil {
 			return nil, fmt.Errorf("list users: %w", err)
 		}
-		u.AvatarPath = nullableString(avatar)
-		u.Nickname = nullableString(nickname)
-		u.About = nullableString(about)
+		u.AvatarPath = reposhared.NullableString(avatar)
+		u.Nickname = reposhared.NullableString(nickname)
+		u.About = reposhared.NullableString(about)
 		users = append(users, u)
 	}
 	if err := rows.Err(); err != nil {
@@ -189,10 +251,4 @@ func (r *Repository) listUsersWithArgs(ctx context.Context, query string, args .
 	return users, nil
 }
 
-func nullableString(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	v := value.String
-	return &v
-}
+// nullableString helpers moved to repositories/shared.

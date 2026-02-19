@@ -38,6 +38,8 @@ Creates a new comment on a post.
 - `author_id` is automatically determined from your authenticated session
 - `media_path` is optional (string path to image/GIF)
 - The `post_id` is automatically extracted from the URL path
+- Comments on group posts require group membership
+- Use `POST /uploads` to get a `media_path` if you need to attach an image/GIF
 
 **Response (201):**
 
@@ -61,6 +63,7 @@ Creates a new comment on a post.
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID or request body
 - `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to comment on this post
 - `500 Internal Server Error` - Failed to create comment (e.g., post doesn't exist)
 
 ### Get Post Comments
@@ -112,6 +115,7 @@ Retrieves all comments for a specific post.
 - Returns an empty array `[]` if the post has no comments
 - Returns `404 Not Found` if the post doesn't exist
 - Requires authentication (session cookie)
+- Group post comments require group membership
 
 ## Reactions Endpoints
 

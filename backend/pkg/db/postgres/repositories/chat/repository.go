@@ -65,10 +65,11 @@ func (r *Repository) GetOrCreateDirectConversation(ctx context.Context, userID1,
 			_ = tx.Rollback()
 			var existing domainchat.Conversation
 			var existingType string
-			if err := r.db.QueryRowContext(ctx, findQuery, directKey).Scan(&existing.ID, &existingType, &existing.CreatedAt); err == nil {
-				existing.Type = domainchat.ConversationType(existingType)
-				return existing, nil
+			if err := r.db.QueryRowContext(ctx, findQuery, directKey).Scan(&existing.ID, &existingType, &existing.CreatedAt); err != nil {
+				return domainchat.Conversation{}, fmt.Errorf("find conversation after conflict: %w", err)
 			}
+			existing.Type = domainchat.ConversationType(existingType)
+			return existing, nil
 		}
 		return domainchat.Conversation{}, fmt.Errorf("create conversation: %w", err)
 	}
@@ -128,6 +129,24 @@ func (r *Repository) GetGroupConversationID(ctx context.Context, groupID int64) 
 		return 0, fmt.Errorf("get group conversation: %w", err)
 	}
 	return convID, nil
+}
+
+// GetGroupIDByConversationID returns the group ID for a conversation, if any.
+func (r *Repository) GetGroupIDByConversationID(ctx context.Context, conversationID int64) (*int64, error) {
+	const query = `
+		SELECT group_id
+		FROM group_conversations
+		WHERE conversation_id = $1
+	`
+	var groupID int64
+	err := r.db.QueryRowContext(ctx, query, conversationID).Scan(&groupID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("get group id: %w", err)
+	}
+	return &groupID, nil
 }
 
 // ListUserConversations returns all conversations for a user.
@@ -204,6 +223,36 @@ func (r *Repository) GetConversationMembers(ctx context.Context, conversationID 
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 	return members, nil
+}
+
+// GetConversationMembersMap returns members grouped by conversation ID.
+func (r *Repository) GetConversationMembersMap(ctx context.Context, conversationIDs []int64) (map[int64][]int64, error) {
+	out := make(map[int64][]int64)
+	if len(conversationIDs) == 0 {
+		return out, nil
+	}
+	const query = `
+		SELECT conversation_id, user_id
+		FROM conversation_members
+		WHERE conversation_id = ANY($1)
+	`
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(conversationIDs))
+	if err != nil {
+		return nil, fmt.Errorf("list conversation members: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var convID, userID int64
+		if err := rows.Scan(&convID, &userID); err != nil {
+			return nil, fmt.Errorf("scan conversation member: %w", err)
+		}
+		out[convID] = append(out[convID], userID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list conversation members: %w", err)
+	}
+	return out, nil
 }
 
 // AddMember adds a user to a conversation.
@@ -291,6 +340,82 @@ func (r *Repository) GetMessagesByConversation(ctx context.Context, conversation
 		return nil, fmt.Errorf("rows error: %w", err)
 	}
 	return messages, nil
+}
+
+// GetLastMessages returns the latest message per conversation.
+func (r *Repository) GetLastMessages(ctx context.Context, conversationIDs []int64) (map[int64]domainchat.Message, error) {
+	out := make(map[int64]domainchat.Message)
+	if len(conversationIDs) == 0 {
+		return out, nil
+	}
+	const query = `
+		SELECT DISTINCT ON (conversation_id)
+			id, conversation_id, sender_id, content, media_path, created_at, updated_at
+		FROM messages
+		WHERE conversation_id = ANY($1)
+		ORDER BY conversation_id, created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(conversationIDs))
+	if err != nil {
+		return nil, fmt.Errorf("get last messages: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var msg domainchat.Message
+		var msgContent, msgMedia sql.NullString
+		if err := rows.Scan(
+			&msg.ID,
+			&msg.ConversationID,
+			&msg.SenderID,
+			&msgContent,
+			&msgMedia,
+			&msg.CreatedAt,
+			&msg.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan last message: %w", err)
+		}
+		if msgContent.Valid {
+			msg.Content = &msgContent.String
+		}
+		if msgMedia.Valid {
+			msg.MediaPath = &msgMedia.String
+		}
+		out[msg.ConversationID] = msg
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get last messages: %w", err)
+	}
+	return out, nil
+}
+
+// GetGroupConversationMap returns group_id keyed by conversation_id.
+func (r *Repository) GetGroupConversationMap(ctx context.Context, conversationIDs []int64) (map[int64]int64, error) {
+	out := make(map[int64]int64)
+	if len(conversationIDs) == 0 {
+		return out, nil
+	}
+	const query = `
+		SELECT conversation_id, group_id
+		FROM group_conversations
+		WHERE conversation_id = ANY($1)
+	`
+	rows, err := r.db.QueryContext(ctx, query, pq.Array(conversationIDs))
+	if err != nil {
+		return nil, fmt.Errorf("get group conversations: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var convID, groupID int64
+		if err := rows.Scan(&convID, &groupID); err != nil {
+			return nil, fmt.Errorf("scan group conversation: %w", err)
+		}
+		out[convID] = groupID
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("get group conversations: %w", err)
+	}
+	return out, nil
 }
 
 // MarkAsRead sets last_read_message_id to the latest message in the conversation for the given user.
@@ -388,4 +513,123 @@ func (r *Repository) GetMessageByID(ctx context.Context, id int64) (domainchat.M
 		msg.MediaPath = &msgMedia.String
 	}
 	return msg, nil
+}
+
+// HasMessageReaction checks if a user already reacted with the emoji.
+func (r *Repository) HasMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	const query = `
+		SELECT 1
+		FROM message_reactions
+		WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+	`
+	var exists int
+	err := r.db.QueryRowContext(ctx, query, messageID, userID, emoji).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check message reaction: %w", err)
+	}
+	return true, nil
+}
+
+// AddMessageReaction inserts a reaction to a message.
+func (r *Repository) AddMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
+	const query = `
+		INSERT INTO message_reactions (message_id, user_id, emoji)
+		VALUES ($1, $2, $3)
+	`
+	if _, err := r.db.ExecContext(ctx, query, messageID, userID, emoji); err != nil {
+		return fmt.Errorf("add message reaction: %w", err)
+	}
+	return nil
+}
+
+// RemoveMessageReaction removes a reaction from a message.
+func (r *Repository) RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
+	const query = `
+		DELETE FROM message_reactions
+		WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+	`
+	if _, err := r.db.ExecContext(ctx, query, messageID, userID, emoji); err != nil {
+		return fmt.Errorf("remove message reaction: %w", err)
+	}
+	return nil
+}
+
+// ToggleMessageReaction atomically adds or removes a reaction.
+func (r *Repository) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM messages WHERE id = $1 FOR UPDATE`, messageID).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, domainchat.ErrMessageNotFound
+		}
+		return false, fmt.Errorf("lock message: %w", err)
+	}
+
+	err = tx.QueryRowContext(ctx, `
+		SELECT 1
+		FROM message_reactions
+		WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+	`, messageID, userID, emoji).Scan(&exists)
+	if err == nil {
+		if _, err := tx.ExecContext(ctx, `
+			DELETE FROM message_reactions
+			WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+		`, messageID, userID, emoji); err != nil {
+			return false, fmt.Errorf("remove message reaction: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return false, fmt.Errorf("commit: %w", err)
+		}
+		return false, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return false, fmt.Errorf("check message reaction: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO message_reactions (message_id, user_id, emoji)
+		VALUES ($1, $2, $3)
+	`, messageID, userID, emoji); err != nil {
+		return false, fmt.Errorf("add message reaction: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return false, fmt.Errorf("commit: %w", err)
+	}
+	return true, nil
+}
+
+// ListMessageReactions returns reactions for a message.
+func (r *Repository) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
+	const query = `
+		SELECT message_id, user_id, emoji, created_at
+		FROM message_reactions
+		WHERE message_id = $1
+		ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, messageID)
+	if err != nil {
+		return nil, fmt.Errorf("list message reactions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domainchat.MessageReaction
+	for rows.Next() {
+		var rct domainchat.MessageReaction
+		if err := rows.Scan(&rct.MessageID, &rct.UserID, &rct.Emoji, &rct.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan message reaction: %w", err)
+		}
+		out = append(out, rct)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list message reactions: %w", err)
+	}
+	return out, nil
 }

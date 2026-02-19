@@ -74,6 +74,85 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 	utils.RespondWithSuccess(w, http.StatusOK, posts)
 }
 
+// ListByGroup handles GET /groups/{id}/posts.
+func (h *PostHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
+	groupIDStr := r.PathValue("id")
+	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
+	if err != nil || groupID <= 0 {
+		logBadRequest(h.log, "posts.list_by_group", logger.F("group_id", groupIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidGroupID)
+		return
+	}
+
+	limit, offset, err := utils.ParsePagination(r)
+	if err != nil {
+		logBadRequest(h.log, "posts.list_by_group", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	viewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "posts.list_by_group")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	posts, err := h.service.ListByGroup(r.Context(), groupID, viewerID, limit, offset)
+	if err != nil {
+		if errors.Is(err, usecasepost.ErrForbidden) {
+			logForbidden(h.log, "posts.list_by_group", logger.F("group_id", groupID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		logServerError(h.log, "posts.list_by_group", err, logger.F("group_id", groupID))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, posts)
+}
+
+// CreateInGroup handles POST /groups/{id}/posts.
+func (h *PostHandler) CreateInGroup(w http.ResponseWriter, r *http.Request) {
+	groupIDStr := r.PathValue("id")
+	groupID, err := strconv.ParseInt(groupIDStr, 10, 64)
+	if err != nil || groupID <= 0 {
+		logBadRequest(h.log, "posts.create_in_group", logger.F("group_id", groupIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidGroupID)
+		return
+	}
+
+	authorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "posts.create_in_group")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	var req usecasepost.CreatePostRequest
+	if err := utils.ReadJSON(r, &req); err != nil {
+		logBadRequest(h.log, "posts.create_in_group", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+	req.GroupID = &groupID
+
+	post, err := h.service.Create(r.Context(), authorID, req)
+	if err != nil {
+		if errors.Is(err, usecasepost.ErrForbidden) {
+			logForbidden(h.log, "posts.create_in_group", logger.F("group_id", groupID), logger.F("author_id", authorID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		logBadRequest(h.log, "posts.create_in_group", logger.F("author_id", authorID), logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusCreated, post)
+}
+
 // Create handles POST /posts.
 func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	authorID, ok := middleware.GetUserID(r.Context())
@@ -93,7 +172,7 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	post, err := h.service.Create(r.Context(), authorID, req)
 	if err != nil {
 		logBadRequest(h.log, "posts.create", logger.F("author_id", authorID), logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
 		return
 	}
 
@@ -102,10 +181,11 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // GetByID handles GET /posts/{id}.
 func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	id, ok := utils.ParsePathID(r.URL.Path, "/posts/")
-	if !ok {
-		logBadRequest(h.log, "posts.get", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "posts.get", logger.F("post_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidPostID)
 		return
 	}
 

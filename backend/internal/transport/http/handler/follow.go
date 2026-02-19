@@ -101,10 +101,11 @@ func (h *FollowHandler) ListSentRequests(w http.ResponseWriter, r *http.Request)
 
 // UpdateRequest handles PATCH /follow-requests/{id}.
 func (h *FollowHandler) UpdateRequest(w http.ResponseWriter, r *http.Request) {
-	id, remainder, ok := utils.ParsePathIDAndRemainder(r.URL.Path, "/follow-requests/")
-	if !ok || remainder != "" {
-		logBadRequest(h.log, "follow.request_update", logger.F("path", r.URL.Path))
-		utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		logBadRequest(h.log, "follow.request_update", logger.F("request_id", idStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidFollowRequestID)
 		return
 	}
 
