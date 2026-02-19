@@ -6,6 +6,7 @@ import "time"
 type Post struct {
 	ID        int64
 	AuthorID  int64
+	GroupID   *int64
 	AuthorFirstName string
 	AuthorLastName  string
 	AuthorNickname  *string

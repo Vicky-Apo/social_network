@@ -24,6 +24,8 @@ type AccessService interface {
 	IsFollowing(ctx context.Context, followerID, followingID int64) (bool, error)
 	CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error)
 	CanViewProfile(ctx context.Context, viewerID, ownerID int64) (bool, error)
+	CanViewGroup(ctx context.Context, userID, groupID int64) (bool, error)
+	CanPostInGroup(ctx context.Context, userID, groupID int64) (bool, error)
 }
 
 // NewService builds a post service with the given repository.
@@ -71,7 +73,7 @@ func (s *Service) GetByID(ctx context.Context, id int64, viewerID int64) (PostDT
 	return mapPost(post), nil
 }
 
-// Create creates a new post with optional categories.
+// Create creates a new post.
 func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequest) (PostDTO, error) {
 	privacy := strings.TrimSpace(req.Privacy)
 	if privacy == "" {
@@ -83,7 +85,7 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		return PostDTO{}, errors.New("invalid privacy")
 	}
 	if strings.TrimSpace(req.Content) == "" && (req.MediaPath == nil || strings.TrimSpace(*req.MediaPath) == "") {
-		return PostDTO{}, errors.New("content or media_path is required")
+		return PostDTO{}, ErrInvalidRequest
 	}
 
 	if privacy == "private" {
@@ -125,7 +127,7 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		Privacy:   privacy,
 	}
 
-	created, err := s.repo.Create(ctx, post, req.CategoryIDs, req.AllowedUserIDs)
+	created, err := s.repo.Create(ctx, post, req.AllowedUserIDs)
 	if err != nil {
 		s.log.Error("failed to create post", err, logger.F("author_id", authorID))
 		return PostDTO{}, fmt.Errorf("create post: %w", err)
@@ -141,6 +143,45 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 	created.AuthorNickname = author.Nickname
 	created.AuthorAvatarPath = author.AvatarPath
 
+	return mapPost(created), nil
+}
+
+// CreateGroupPost creates a new group post if the author is a member.
+func (s *Service) CreateGroupPost(ctx context.Context, authorID, groupID int64, req CreatePostRequest) (PostDTO, error) {
+	if s.access == nil {
+		return PostDTO{}, errors.New("access service not configured")
+	}
+	ok, err := s.access.CanPostInGroup(ctx, authorID, groupID)
+	if err != nil {
+		return PostDTO{}, err
+	}
+	if !ok {
+		return PostDTO{}, ErrForbidden
+	}
+	if strings.TrimSpace(req.Content) == "" && (req.MediaPath == nil || strings.TrimSpace(*req.MediaPath) == "") {
+		return PostDTO{}, errors.New("content or media_path is required")
+	}
+
+	post := domainpost.Post{
+		AuthorID:  authorID,
+		GroupID:   &groupID,
+		Content:   req.Content,
+		MediaPath: req.MediaPath,
+		Privacy:   "public",
+	}
+	created, err := s.repo.Create(ctx, post, nil)
+	if err != nil {
+		s.log.Error("failed to create group post", err, logger.F("author_id", authorID), logger.F("group_id", groupID))
+		return PostDTO{}, fmt.Errorf("create group post: %w", err)
+	}
+	if s.userRepo != nil {
+		if author, err := s.userRepo.GetByID(ctx, authorID); err == nil {
+			created.AuthorFirstName = author.FirstName
+			created.AuthorLastName = author.LastName
+			created.AuthorNickname = author.Nickname
+			created.AuthorAvatarPath = author.AvatarPath
+		}
+	}
 	return mapPost(created), nil
 }
 
@@ -185,16 +226,27 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 	return mapPosts(posts), nil
 }
 
-// ListByCategory returns posts for a category with pagination.
-func (s *Service) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]PostDTO, error) {
-	posts, err := s.repo.ListByCategory(ctx, categoryID, viewerID, limit, offset)
-	if err != nil {
-		s.log.Error("failed to list posts by category", err, logger.F("category_id", categoryID))
-		return nil, fmt.Errorf("list posts by category: %w", err)
+// ListByGroup returns posts for a group if viewer is a member.
+func (s *Service) ListByGroup(ctx context.Context, groupID, viewerID int64, limit, offset int) ([]PostDTO, error) {
+	if s.access == nil {
+		return nil, errors.New("access service not configured")
 	}
-	s.log.Debug("posts listed by category", logger.F("category_id", categoryID), logger.F("count", len(posts)))
+	ok, err := s.access.CanViewGroup(ctx, viewerID, groupID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
+	}
+	posts, err := s.repo.ListByGroup(ctx, groupID, limit, offset)
+	if err != nil {
+		s.log.Error("failed to list posts by group", err, logger.F("group_id", groupID))
+		return nil, fmt.Errorf("list posts by group: %w", err)
+	}
+	s.log.Debug("posts listed by group", logger.F("group_id", groupID), logger.F("count", len(posts)))
 	return mapPosts(posts), nil
 }
+
 
 // ErrForbidden is returned when a viewer cannot access a post.
 var ErrForbidden = errors.New("post access forbidden")
@@ -204,7 +256,7 @@ var ErrInvalidRequest = errors.New("invalid post request")
 
 // Update updates a post if the actor is the author.
 func (s *Service) Update(ctx context.Context, postID, actorID int64, req UpdatePostRequest) (PostDTO, error) {
-	if req.Content == nil && req.MediaPath == nil && req.Privacy == nil && req.CategoryIDs == nil && req.AllowedUserIDs == nil {
+	if req.Content == nil && req.MediaPath == nil && req.Privacy == nil && req.AllowedUserIDs == nil {
 		return PostDTO{}, ErrInvalidRequest
 	}
 
@@ -252,28 +304,6 @@ func (s *Service) Update(ctx context.Context, postID, actorID int64, req UpdateP
 		return PostDTO{}, fmt.Errorf("%w: content or media_path is required", ErrInvalidRequest)
 	}
 
-	var categoryIDsUpdate *[]int64
-	if req.CategoryIDs != nil {
-		if len(*req.CategoryIDs) == 0 {
-			empty := []int64{}
-			categoryIDsUpdate = &empty
-		} else {
-			seen := make(map[int64]struct{}, len(*req.CategoryIDs))
-			deduped := make([]int64, 0, len(*req.CategoryIDs))
-			for _, categoryID := range *req.CategoryIDs {
-				if categoryID <= 0 {
-					return PostDTO{}, ErrInvalidRequest
-				}
-				if _, exists := seen[categoryID]; exists {
-					continue
-				}
-				seen[categoryID] = struct{}{}
-				deduped = append(deduped, categoryID)
-			}
-			categoryIDsUpdate = &deduped
-		}
-	}
-
 	var allowedUserIDsUpdate *[]int64
 	if newPrivacy == "private" {
 		if req.AllowedUserIDs != nil {
@@ -318,7 +348,7 @@ func (s *Service) Update(ctx context.Context, postID, actorID int64, req UpdateP
 	post.MediaPath = newMediaPath
 	post.Privacy = newPrivacy
 
-	updated, err := s.repo.Update(ctx, post, categoryIDsUpdate, allowedUserIDsUpdate)
+	updated, err := s.repo.Update(ctx, post, allowedUserIDsUpdate)
 	if err != nil {
 		if errors.Is(err, domainpost.ErrNotFound) {
 			return PostDTO{}, err

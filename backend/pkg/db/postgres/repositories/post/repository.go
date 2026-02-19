@@ -38,9 +38,11 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 		var mediaPath sql.NullString
 		var nickname sql.NullString
 		var avatarPath sql.NullString
+		var groupID sql.NullInt64
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&groupID,
 			&p.AuthorFirstName,
 			&p.AuthorLastName,
 			&nickname,
@@ -56,6 +58,7 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
+		p.GroupID = nullableInt64(groupID)
 		p.MediaPath = nullableString(mediaPath)
 		p.AuthorNickname = nullableString(nickname)
 		p.AuthorAvatarPath = nullableString(avatarPath)
@@ -70,7 +73,7 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 // GetByID returns a post by ID.
 func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	const query = `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		SELECT p.id, p.author_id, p.group_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(cc.comment_count, 0) AS comment_count,
 		       COALESCE(rc.like_count, 0) AS like_count,
@@ -82,12 +85,14 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 		WHERE p.id = $1
 	`
 	var p domainpost.Post
+	var groupID sql.NullInt64
 	var mediaPath sql.NullString
 	var nickname sql.NullString
 	var avatarPath sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&p.ID,
 		&p.AuthorID,
+		&groupID,
 		&p.AuthorFirstName,
 		&p.AuthorLastName,
 		&nickname,
@@ -107,14 +112,15 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 		}
 		return domainpost.Post{}, fmt.Errorf("get post: %w", err)
 	}
+	p.GroupID = nullableInt64(groupID)
 	p.MediaPath = nullableString(mediaPath)
 	p.AuthorNickname = nullableString(nickname)
 	p.AuthorAvatarPath = nullableString(avatarPath)
 	return p, nil
 }
 
-// Create inserts a new post and optional categories.
-func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
+// Create inserts a new post.
+func (r *Repository) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
@@ -126,36 +132,25 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 	}()
 
 	const query = `
-		INSERT INTO posts (author_id, content, media_path, visibility)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO posts (author_id, group_id, content, media_path, visibility)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, updated_at
 	`
+	var groupID any
+	if post.GroupID != nil {
+		groupID = *post.GroupID
+	}
 	var mediaPath any
 	if post.MediaPath != nil && strings.TrimSpace(*post.MediaPath) != "" {
 		mediaPath = *post.MediaPath
 	}
 
-	if err = tx.QueryRowContext(ctx, query, post.AuthorID, post.Content, mediaPath, post.Privacy).Scan(
+	if err = tx.QueryRowContext(ctx, query, post.AuthorID, groupID, post.Content, mediaPath, post.Privacy).Scan(
 		&post.ID,
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	); err != nil {
 		return domainpost.Post{}, fmt.Errorf("create post: %w", err)
-	}
-
-	if len(categoryIDs) > 0 {
-		const catQuery = `
-			INSERT INTO post_categories (post_id, category_id)
-			VALUES ($1, $2)
-		`
-		for _, categoryID := range categoryIDs {
-			if categoryID <= 0 {
-				return domainpost.Post{}, fmt.Errorf("invalid category id")
-			}
-			if _, err = tx.ExecContext(ctx, catQuery, post.ID, categoryID); err != nil {
-				return domainpost.Post{}, fmt.Errorf("insert post category: %w", err)
-			}
-		}
 	}
 
 	if len(allowedUserIDs) > 0 {
@@ -180,8 +175,8 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 	return post, nil
 }
 
-// Update updates a post and optionally replaces categories and allowed users.
-func (r *Repository) Update(ctx context.Context, post domainpost.Post, categoryIDs *[]int64, allowedUserIDs *[]int64) (domainpost.Post, error) {
+// Update updates a post and optionally replaces allowed users.
+func (r *Repository) Update(ctx context.Context, post domainpost.Post, allowedUserIDs *[]int64) (domainpost.Post, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
@@ -211,23 +206,6 @@ func (r *Repository) Update(ctx context.Context, post domainpost.Post, categoryI
 	}
 	if affected == 0 {
 		return domainpost.Post{}, domainpost.ErrNotFound
-	}
-
-	if categoryIDs != nil {
-		if _, err = tx.ExecContext(ctx, `DELETE FROM post_categories WHERE post_id = $1`, post.ID); err != nil {
-			return domainpost.Post{}, fmt.Errorf("clear post categories: %w", err)
-		}
-		if len(*categoryIDs) > 0 {
-			const catQuery = `
-				INSERT INTO post_categories (post_id, category_id)
-				VALUES ($1, $2)
-			`
-			for _, categoryID := range *categoryIDs {
-				if _, err = tx.ExecContext(ctx, catQuery, post.ID, categoryID); err != nil {
-					return domainpost.Post{}, fmt.Errorf("insert post category: %w", err)
-				}
-			}
-		}
 	}
 
 	if allowedUserIDs != nil {
@@ -288,9 +266,11 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 		var mediaPath sql.NullString
 		var nickname sql.NullString
 		var avatarPath sql.NullString
+		var groupID sql.NullInt64
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&groupID,
 			&p.AuthorFirstName,
 			&p.AuthorLastName,
 			&nickname,
@@ -306,6 +286,7 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
+		p.GroupID = nullableInt64(groupID)
 		p.MediaPath = nullableString(mediaPath)
 		p.AuthorNickname = nullableString(nickname)
 		p.AuthorAvatarPath = nullableString(avatarPath)
@@ -317,29 +298,31 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 	return posts, nil
 }
 
-// ListByCategory returns posts for a category with pagination.
-func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
+// ListByGroup returns posts for a group with pagination.
+func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" +
-		"JOIN post_categories pc ON pc.post_id = p.id\n" +
-		baseJoins(2) + "\n" +
-		"WHERE pc.category_id = $1 AND " + visibilityWhereForFeed(2) + "\n" +
+		"LEFT JOIN post_comment_counts cc ON cc.post_id = p.id\n" +
+		"LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id\n" +
+		"WHERE p.group_id = $1\n" +
 		"ORDER BY p.created_at DESC\n" +
-		"LIMIT $3 OFFSET $4"
-	rows, err := r.db.QueryContext(ctx, query, categoryID, viewerID, limit, offset)
+		"LIMIT $2 OFFSET $3"
+	rows, err := r.db.QueryContext(ctx, query, groupID, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("list posts by category: %w", err)
+		return nil, fmt.Errorf("list posts by group: %w", err)
 	}
 	defer rows.Close()
 
 	var posts []domainpost.Post
 	for rows.Next() {
 		var p domainpost.Post
+		var groupIDVal sql.NullInt64
 		var mediaPath sql.NullString
 		var nickname sql.NullString
 		var avatarPath sql.NullString
 		if err := rows.Scan(
 			&p.ID,
 			&p.AuthorID,
+			&groupIDVal,
 			&p.AuthorFirstName,
 			&p.AuthorLastName,
 			&nickname,
@@ -355,13 +338,14 @@ func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID in
 		); err != nil {
 			return nil, fmt.Errorf("scan post: %w", err)
 		}
+		p.GroupID = nullableInt64(groupIDVal)
 		p.MediaPath = nullableString(mediaPath)
 		p.AuthorNickname = nullableString(nickname)
 		p.AuthorAvatarPath = nullableString(avatarPath)
 		posts = append(posts, p)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list posts by category: %w", err)
+		return nil, fmt.Errorf("list posts by group: %w", err)
 	}
 	return posts, nil
 }
@@ -390,9 +374,17 @@ func nullableString(value sql.NullString) *string {
 	return &v
 }
 
+func nullableInt64(value sql.NullInt64) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	v := value.Int64
+	return &v
+}
+
 func baseSelect() string {
 	return `
-		SELECT p.id, p.author_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		SELECT p.id, p.author_id, p.group_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
 		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(cc.comment_count, 0) AS comment_count,
 		       COALESCE(rc.like_count, 0) AS like_count,
@@ -411,29 +403,48 @@ func baseJoins(viewerParam int) string {
 	return fmt.Sprintf(`
 		LEFT JOIN follows f ON f.follower_id = $%d AND f.following_id = p.author_id
 		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $%d
+		LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $%d
 		LEFT JOIN post_comment_counts cc ON cc.post_id = p.id
 		LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id
-	`, viewerParam, viewerParam)
+	`, viewerParam, viewerParam, viewerParam)
 }
 
 func visibilityWhereForFeed(viewerParam int) string {
 	return fmt.Sprintf(`
 		(
-			p.author_id = $%d
-			OR p.visibility = 'public'
-			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
-			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+			(
+				p.group_id IS NULL
+				AND (
+					p.author_id = $%d
+					OR p.visibility = 'public'
+					OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
+					OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+				)
+			)
+			OR (
+				p.group_id IS NOT NULL
+				AND (gm.user_id IS NOT NULL OR p.author_id = $%d)
+			)
 		)
-	`, viewerParam)
+	`, viewerParam, viewerParam)
 }
 
 func visibilityWhereForAuthor(isFollowerParam, isOwnerParam int) string {
 	return fmt.Sprintf(`
 		(
-			$%d = TRUE
-			OR p.visibility = 'public'
-			OR ($%d = TRUE AND p.visibility = 'followers')
-			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+			(
+				p.group_id IS NULL
+				AND (
+					$%d = TRUE
+					OR p.visibility = 'public'
+					OR ($%d = TRUE AND p.visibility = 'followers')
+					OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+				)
+			)
+			OR (
+				p.group_id IS NOT NULL
+				AND gm.user_id IS NOT NULL
+			)
 		)
 	`, isOwnerParam, isFollowerParam)
 }

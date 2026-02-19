@@ -29,6 +29,7 @@ func NewRouter(
 	followHandler *handler.FollowHandler,
 	userHandler *handler.UserHandler,
 	notificationHandler *handler.NotificationHandler,
+	groupHandler *handler.GroupHandler,
 	wsHandler *transportws.Handler,
 	mw Middlewares,
 ) http.Handler {
@@ -91,6 +92,31 @@ func NewRouter(
 	mux.Handle("GET /notifications/unread-count", mw.Auth(http.HandlerFunc(notificationHandler.UnreadCount)))
 	mux.Handle("PATCH /notifications/{id}/read", mw.Auth(http.HandlerFunc(notificationHandler.MarkRead)))
 	mux.Handle("PATCH /notifications/read-all", mw.Auth(http.HandlerFunc(notificationHandler.MarkAllRead)))
+
+	// Group routes (protected)
+	mux.Handle("POST /groups", mw.Auth(http.HandlerFunc(groupHandler.Create)))
+	mux.Handle("GET /groups", mw.Auth(http.HandlerFunc(groupHandler.List)))
+	mux.Handle("GET /groups/{id}", mw.Auth(http.HandlerFunc(groupHandler.Get)))
+	mux.Handle("PATCH /groups/{id}", mw.Auth(http.HandlerFunc(groupHandler.Update)))
+	mux.Handle("DELETE /groups/{id}", mw.Auth(http.HandlerFunc(groupHandler.Delete)))
+	mux.Handle("GET /groups/{id}/members", mw.Auth(http.HandlerFunc(groupHandler.ListMembers)))
+	mux.Handle("DELETE /groups/{id}/members/me", mw.Auth(http.HandlerFunc(groupHandler.Leave)))
+	mux.Handle("DELETE /groups/{id}/members/{user_id}", mw.Auth(http.HandlerFunc(groupHandler.RemoveMember)))
+	mux.Handle("POST /groups/{id}/invitations", mw.Auth(http.HandlerFunc(groupHandler.Invite)))
+	mux.Handle("GET /group-invitations", mw.Auth(http.HandlerFunc(groupHandler.ListInvitations)))
+	mux.Handle("PATCH /group-invitations/{id}", mw.Auth(http.HandlerFunc(groupHandler.RespondInvitation)))
+	mux.Handle("POST /groups/{id}/join-requests", mw.Auth(http.HandlerFunc(groupHandler.RequestJoin)))
+	mux.Handle("GET /groups/{id}/join-requests", mw.Auth(http.HandlerFunc(groupHandler.ListJoinRequests)))
+	mux.Handle("PATCH /groups/{id}/join-requests/{request_id}", mw.Auth(http.HandlerFunc(groupHandler.RespondJoinRequest)))
+	mux.Handle("POST /groups/{id}/posts", mw.Auth(http.HandlerFunc(groupHandler.CreateGroupPost)))
+	mux.Handle("GET /groups/{id}/posts", mw.Auth(http.HandlerFunc(groupHandler.ListGroupPosts)))
+	mux.Handle("POST /groups/{id}/posts/{post_id}/comments", mw.Auth(http.HandlerFunc(groupHandler.CreateGroupComment)))
+	mux.Handle("GET /groups/{id}/posts/{post_id}/comments", mw.Auth(http.HandlerFunc(groupHandler.ListGroupComments)))
+	mux.Handle("PATCH /group-comments/{id}", mw.Auth(http.HandlerFunc(groupHandler.UpdateGroupComment)))
+	mux.Handle("DELETE /group-comments/{id}", mw.Auth(http.HandlerFunc(groupHandler.DeleteGroupComment)))
+	mux.Handle("POST /groups/{id}/events", mw.Auth(http.HandlerFunc(groupHandler.CreateEvent)))
+	mux.Handle("GET /groups/{id}/events", mw.Auth(http.HandlerFunc(groupHandler.ListEvents)))
+	mux.Handle("POST /groups/{id}/events/{event_id}/rsvp", mw.Auth(http.HandlerFunc(groupHandler.RSVPEvent)))
 
 	// WebSocket route (authentication handled inside the handler)
 	mux.Handle("/ws", wsHandler)

@@ -36,23 +36,6 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	viewerID, _ := middleware.GetUserID(r.Context())
 
-	if rawCategory := r.URL.Query().Get("category_id"); rawCategory != "" {
-		categoryID, err := strconv.ParseInt(rawCategory, 10, 64)
-		if err != nil || categoryID <= 0 {
-			logBadRequest(h.log, "posts.list", logger.F("category_id", rawCategory))
-			utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidCategoryID)
-			return
-		}
-		posts, err := h.service.ListByCategory(r.Context(), categoryID, viewerID, limit, offset)
-		if err != nil {
-			logServerError(h.log, "posts.list", err, logger.F("category_id", categoryID))
-			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
-			return
-		}
-		utils.RespondWithSuccess(w, http.StatusOK, posts)
-		return
-	}
-
 	if rawAuthor := r.URL.Query().Get("author_id"); rawAuthor != "" {
 		authorID, err := strconv.ParseInt(rawAuthor, 10, 64)
 		if err != nil || authorID <= 0 {

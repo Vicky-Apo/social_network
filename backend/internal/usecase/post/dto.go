@@ -6,6 +6,7 @@ import "time"
 type PostDTO struct {
 	ID               int64     `json:"id"`
 	AuthorID         int64     `json:"author_id"`
+	GroupID          *int64    `json:"group_id,omitempty"`
 	AuthorFirstName  string    `json:"author_first_name"`
 	AuthorLastName   string    `json:"author_last_name"`
 	AuthorNickname   *string   `json:"author_nickname,omitempty"`
@@ -25,7 +26,6 @@ type CreatePostRequest struct {
 	Content        string  `json:"content"`
 	MediaPath      *string `json:"media_path,omitempty"`
 	Privacy        string  `json:"privacy"`
-	CategoryIDs    []int64 `json:"category_ids,omitempty"`
 	AllowedUserIDs []int64 `json:"allowed_user_ids,omitempty"`
 }
 
@@ -34,6 +34,5 @@ type UpdatePostRequest struct {
 	Content        *string  `json:"content,omitempty"`
 	MediaPath      *string  `json:"media_path,omitempty"`
 	Privacy        *string  `json:"privacy,omitempty"`
-	CategoryIDs    *[]int64 `json:"category_ids,omitempty"`
 	AllowedUserIDs *[]int64 `json:"allowed_user_ids,omitempty"`
 }

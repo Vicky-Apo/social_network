@@ -17,6 +17,7 @@ import (
 	chatusecase "social-network/backend/internal/usecase/chat"
 	commentusecase "social-network/backend/internal/usecase/comment"
 	followusecase "social-network/backend/internal/usecase/follow"
+	groupusecase "social-network/backend/internal/usecase/group"
 	notificationusecase "social-network/backend/internal/usecase/notification"
 	postusecase "social-network/backend/internal/usecase/post"
 	profileusecase "social-network/backend/internal/usecase/profile"
@@ -102,6 +103,7 @@ func Run(ctx context.Context) error {
 	accessService := accessusecase.NewService(userRepository, followRepository, postRepository, groupRepository, log)
 	postService := postusecase.NewService(postRepository, userRepository, accessService, log)
 	commentService := commentusecase.NewService(commentRepository, postRepository, userRepository, notificationService)
+	groupService := groupusecase.NewService(groupRepository, userRepository, accessService, notificationService)
 	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, notificationService, accessService)
 	profileService := profileusecase.NewService(userRepository, accessService)
 	followService := followusecase.NewService(userRepository, followRepository, notificationService)
@@ -121,6 +123,7 @@ func Run(ctx context.Context) error {
 	followHandler := handler.NewFollowHandler(followService, log)
 	userHandler := handler.NewUserHandler(userService, log)
 	notificationHandler := handler.NewNotificationHandler(notificationService, log)
+	groupHandler := handler.NewGroupHandler(groupService, postService, commentService, log)
 
 	// Middleware (authService implements middleware.SessionValidator)
 	authMiddleware := middleware.Auth(authService, cfg.Auth.SessionCookieName, log)
@@ -175,6 +178,7 @@ func Run(ctx context.Context) error {
 		followHandler,
 		userHandler,
 		notificationHandler,
+		groupHandler,
 		wsHandler,
 		mw,
 	)

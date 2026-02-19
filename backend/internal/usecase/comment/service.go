@@ -30,6 +30,11 @@ func NewService(repo domaincomment.Repository, postRepo domainpost.Repository, u
 	return &Service{repo: repo, postRepo: postRepo, userRepo: userRepo, notifier: notifier}
 }
 
+// GetByID returns a comment by ID (no author enrichment).
+func (s *Service) GetByID(ctx context.Context, commentID int64) (domaincomment.Comment, error) {
+	return s.repo.GetByID(ctx, commentID)
+}
+
 // Create creates a new comment
 func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (CommentDTO, error) {
 	if strings.TrimSpace(req.Content) == "" && strings.TrimSpace(req.MediaPath) == "" {
