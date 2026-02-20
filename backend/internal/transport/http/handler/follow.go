@@ -172,6 +172,36 @@ func (h *FollowHandler) Unfollow(w http.ResponseWriter, r *http.Request) {
 	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": "unfollowed"})
 }
 
+// RemoveFollower handles DELETE /followers/{id}.
+func (h *FollowHandler) RemoveFollower(w http.ResponseWriter, r *http.Request) {
+	targetID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	followerIDStr := r.PathValue("id")
+	followerID, err := strconv.ParseInt(followerIDStr, 10, 64)
+	if err != nil || followerID <= 0 {
+		logBadRequest(h.log, "follow.remove_follower", logger.F("user_id", followerIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidUserID)
+		return
+	}
+
+	if err := h.service.RemoveFollower(r.Context(), targetID, followerID); err != nil {
+		status, message := mapFollowError(err)
+		if status >= http.StatusInternalServerError {
+			logServerError(h.log, "follow.remove_follower", err, logger.F("target_id", targetID), logger.F("follower_id", followerID))
+		} else {
+			logBadRequest(h.log, "follow.remove_follower", logger.F("target_id", targetID), logger.F("follower_id", followerID), logger.F("reason", message))
+		}
+		utils.RespondWithError(w, status, message)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": "removed"})
+}
+
 func mapFollowError(err error) (int, string) {
 	switch {
 	case errors.Is(err, domainuser.ErrNotFound):

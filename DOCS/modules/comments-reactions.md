@@ -155,6 +155,7 @@ Adds, updates, or removes a reaction to a post.
 - If the same reaction is sent again, it is removed (`status: "removed"`).
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
 - `user_id` is automatically determined from your authenticated session
+- You must be allowed to view the post (public/followers/private rules). Group posts require membership.
 
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID, invalid reaction type, or invalid request body
@@ -197,6 +198,7 @@ Retrieves all reactions for a specific post.
 - `created_at` - When the user first reacted (never changes)
 - `updated_at` - When the user last changed their reaction
 - Requires authentication (session cookie)
+- You must be allowed to view the post (public/followers/private rules). Group posts require membership.
 
 ### Toggle Comment Reaction
 
@@ -234,6 +236,7 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 - If the same reaction is sent again, it is removed (`status: "removed"`).
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
 - `user_id` is automatically determined from your authenticated session
+- You must be allowed to view the comment’s post. Group posts require membership.
 
 **Error Responses:**
 - `400 Bad Request` - Invalid comment ID, invalid reaction type, or invalid request body
@@ -276,6 +279,7 @@ Retrieves all reactions for a specific comment.
 - `created_at` - When the user first reacted (never changes)
 - `updated_at` - When the user last changed their reaction
 - Requires authentication (session cookie)
+- You must be allowed to view the comment’s post. Group posts require membership.
 
 ## React Fetch Examples
 

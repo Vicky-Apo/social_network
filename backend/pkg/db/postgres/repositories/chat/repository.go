@@ -149,16 +149,17 @@ func (r *Repository) GetGroupIDByConversationID(ctx context.Context, conversatio
 	return &groupID, nil
 }
 
-// ListUserConversations returns all conversations for a user.
-func (r *Repository) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
+// ListUserConversations returns conversations for a user with pagination.
+func (r *Repository) ListUserConversations(ctx context.Context, userID int64, limit, offset int) ([]domainchat.Conversation, error) {
 	const query = `
 		SELECT c.id, c.type, c.created_at
 		FROM conversations c
 		JOIN conversation_members cm ON cm.conversation_id = c.id
 		WHERE cm.user_id = $1
 		ORDER BY c.created_at DESC
+		LIMIT $2 OFFSET $3
 	`
-	rows, err := r.db.QueryContext(ctx, query, userID)
+	rows, err := r.db.QueryContext(ctx, query, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}

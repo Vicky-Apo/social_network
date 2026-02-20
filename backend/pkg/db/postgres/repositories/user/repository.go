@@ -187,27 +187,33 @@ func (r *Repository) ListFollowing(ctx context.Context, userID int64) ([]domainu
 	return r.listUsers(ctx, query, userID)
 }
 
-// ListUsers returns all user profiles.
-func (r *Repository) ListUsers(ctx context.Context) ([]domainuser.User, error) {
+// ListUsers returns user profiles visible to the viewer with pagination.
+func (r *Repository) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]domainuser.User, error) {
 	const query = `
-		SELECT id, email, first_name, last_name, date_of_birth, avatar_path, nickname, about, is_public, created_at, updated_at
-		FROM users
-		ORDER BY id
+		SELECT u.id, u.email, u.first_name, u.last_name, u.date_of_birth, u.avatar_path, u.nickname, u.about, u.is_public, u.created_at, u.updated_at
+		FROM users u
+		LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = u.id
+		WHERE u.is_public = true OR u.id = $1 OR f.follower_id IS NOT NULL
+		ORDER BY u.id
+		LIMIT $2 OFFSET $3
 	`
-	return r.listUsersWithArgs(ctx, query)
+	return r.listUsersWithArgs(ctx, query, viewerID, limit, offset)
 }
 
 // SearchUsers returns users matching the query in first name, last name, or nickname.
-func (r *Repository) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+func (r *Repository) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]domainuser.User, error) {
 	const sqlQuery = `
-		SELECT id, email, first_name, last_name, date_of_birth, avatar_path, nickname, about, is_public, created_at, updated_at
-		FROM users
-		WHERE first_name ILIKE $1 ESCAPE '\' OR last_name ILIKE $1 ESCAPE '\' OR nickname ILIKE $1 ESCAPE '\'
-		ORDER BY id
+		SELECT u.id, u.email, u.first_name, u.last_name, u.date_of_birth, u.avatar_path, u.nickname, u.about, u.is_public, u.created_at, u.updated_at
+		FROM users u
+		LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = u.id
+		WHERE (u.is_public = true OR u.id = $1 OR f.follower_id IS NOT NULL)
+		  AND (u.first_name ILIKE $2 ESCAPE '\' OR u.last_name ILIKE $2 ESCAPE '\' OR u.nickname ILIKE $2 ESCAPE '\')
+		ORDER BY u.id
+		LIMIT $3 OFFSET $4
 	`
 	escaped := strings.NewReplacer("%", "\\%", "_", "\\_").Replace(query)
 	pattern := "%" + escaped + "%"
-	return r.listUsersWithArgs(ctx, sqlQuery, pattern)
+	return r.listUsersWithArgs(ctx, sqlQuery, viewerID, pattern, limit, offset)
 }
 
 func (r *Repository) listUsers(ctx context.Context, query string, userID int64) ([]domainuser.User, error) {

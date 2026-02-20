@@ -114,7 +114,7 @@ Request body (JSON):
 }
 ```
 
-Allowed values: `accepted`, `declined`.
+Allowed values: `accepted`, `declined`, `canceled`.
 
 Response (200):
 
@@ -138,6 +138,21 @@ Response (200):
   "success": true,
   "data": {
     "status": "unfollowed"
+  }
+}
+```
+
+### Remove follower
+
+`DELETE /followers/{id}`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "removed"
   }
 }
 ```
@@ -166,7 +181,7 @@ export async function listFollowRequests() {
   return res.json();
 }
 
-export async function updateFollowRequest(id: number, status: "accepted" | "declined") {
+export async function updateFollowRequest(id: number, status: "accepted" | "declined" | "canceled") {
   const res = await fetch(`${API_BASE}/follow-requests/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -182,6 +197,14 @@ export async function unfollow(userId: number) {
     credentials: "include",
   });
   if (!res.ok) throw new Error("Unfollow failed");
+}
+
+export async function removeFollower(userId: number) {
+  const res = await fetch(`${API_BASE}/followers/${userId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Remove follower failed");
 }
 ```
 

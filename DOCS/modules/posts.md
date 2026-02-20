@@ -18,7 +18,8 @@ Listing and creating posts require a valid session cookie. Use `credentials: "in
 `GET /posts`
 
 Notes:
-- Returns only non-group posts (global feed).
+- Returns non-group posts the user can see (public/followers/private rules)
+  plus group posts from groups the user is a member of.
 
 Response (200):
 
@@ -88,7 +89,6 @@ Request body (JSON):
   "media_path": "/uploads/cat.gif",
   "privacy": "public",
   "group_id": null,
-  "category_ids": [1, 3],
   "allowed_user_ids": [5, 8]
 }
 ```
@@ -96,11 +96,10 @@ Request body (JSON):
 Notes:
 - `content` or `media_path` is required (one can be empty, not both).
 - `privacy` must be `public`, `followers`, or `private`.
-- `category_ids` is optional.
 - `followers` is the "almost private" option (only followers can see the post).
 - `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
 - `allowed_user_ids` is ignored for `public` and `followers`.
-- `group_id` is optional here. For group posts, prefer `POST /groups/{id}/posts` and do not send `category_ids` or `allowed_user_ids`.
+- `group_id` is optional here. For group posts, prefer `POST /groups/{id}/posts` and do not send `allowed_user_ids`.
 - Use `POST /uploads` to get a `media_path` if you need to attach an image/GIF.
 
 Response (201):
@@ -162,19 +161,13 @@ Response (200):
 }
 ```
 
-### Filter posts by category
-
-`GET /posts?category_id=1&limit=20&offset=0`
-
-Notes:
-- Category filtering applies only to non-group posts.
-
 ### List posts by group
 
 `GET /groups/{id}/posts?limit=20&offset=0`
 
 Notes:
 - Only group members can access group posts.
+- Returns `404` if the group does not exist.
 
 ### Create post in group
 
@@ -192,8 +185,9 @@ Request body (JSON):
 
 Notes:
 - `group_id` is taken from the URL.
-- `category_ids` and `allowed_user_ids` are not allowed for group posts.
+- `allowed_user_ids` is not allowed for group posts.
 - `privacy` is still required, but `private` is rejected for group posts.
+- Returns `404` if the group does not exist.
 
 ## React fetch example
 
@@ -204,7 +198,6 @@ export async function createPost(payload: {
   content?: string;
   media_path?: string;
   privacy: "public" | "followers" | "private";
-  category_ids?: number[];
   allowed_user_ids?: number[];
 }) {
   const res = await fetch(`${API_BASE}/posts`, {

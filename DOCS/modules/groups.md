@@ -85,6 +85,7 @@ Notes:
 
 Notes:
 - Only group members can access the member list.
+- Returns `404` if the group does not exist.
 
 ### Invite user to group
 
@@ -120,9 +121,15 @@ Allowed values: `accepted`, `declined`.
 
 `POST /groups/{id}/join-requests`
 
+Notes:
+- Returns `404` if the group does not exist.
+
 ### List join requests (creator only)
 
 `GET /groups/{id}/join-requests`
+
+Notes:
+- Returns `404` if the group does not exist.
 
 ### Accept or decline join request
 

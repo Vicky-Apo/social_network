@@ -13,13 +13,23 @@ All user endpoints require a valid session cookie. Use `credentials: "include"` 
 
 ## Endpoints
 
-### List users (optional search)
+### List users (optional search + pagination)
 
 `GET /users`
 
 Search:
 
 `GET /users?q=jo`
+
+Pagination:
+
+`GET /users?limit=20&offset=0`
+
+`GET /users?q=jo&limit=20&offset=0`
+
+Notes:
+- Only public users are returned unless the current user is following them (or the user is themselves).
+- Results are always limited to lightweight fields (id/name/avatar/nickname).
 
 Response (200):
 
@@ -62,18 +72,21 @@ Response (200):
 ```ts
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-export async function listUsers() {
-  const res = await fetch(`${API_BASE}/users`, {
+export async function listUsers(limit = 20, offset = 0) {
+  const res = await fetch(`${API_BASE}/users?limit=${limit}&offset=${offset}`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error("List users failed");
   return res.json();
 }
 
-export async function searchUsers(query: string) {
-  const res = await fetch(`${API_BASE}/users?q=${encodeURIComponent(query)}`, {
-    credentials: "include",
-  });
+export async function searchUsers(query: string, limit = 20, offset = 0) {
+  const res = await fetch(
+    `${API_BASE}/users?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,
+    {
+      credentials: "include",
+    }
+  );
   if (!res.ok) throw new Error("Search users failed");
   return res.json();
 }

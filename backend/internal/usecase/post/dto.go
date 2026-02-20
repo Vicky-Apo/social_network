@@ -27,6 +27,5 @@ type CreatePostRequest struct {
 	MediaPath      *string `json:"media_path,omitempty"`
 	Privacy        string  `json:"privacy"`
 	GroupID        *int64  `json:"group_id,omitempty"`
-	CategoryIDs    []int64 `json:"category_ids,omitempty"`
 	AllowedUserIDs []int64 `json:"allowed_user_ids,omitempty"`
 }

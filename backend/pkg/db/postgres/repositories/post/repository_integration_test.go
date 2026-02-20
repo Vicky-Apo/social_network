@@ -68,11 +68,11 @@ func findModuleRoot(t *testing.T) string {
 	}
 }
 
-func TestList_ExcludesGroupPosts(t *testing.T) {
+func TestList_IncludesGroupPostsForMembers(t *testing.T) {
 	db := openTestDB(t)
 	defer db.Close()
 
-	cleanup(t, db, "post_allowed_users", "post_categories", "comments", "posts", "group_members", "groups", "users")
+	cleanup(t, db, "post_allowed_users", "comments", "posts", "group_members", "groups", "users")
 
 	// user
 	var userID int64
@@ -94,6 +94,13 @@ func TestList_ExcludesGroupPosts(t *testing.T) {
 	`, userID).Scan(&groupID)
 	if err != nil {
 		t.Fatalf("insert group: %v", err)
+	}
+	_, err = db.ExecContext(context.Background(), `
+		INSERT INTO group_members (group_id, user_id)
+		VALUES ($1, $2)
+	`, groupID, userID)
+	if err != nil {
+		t.Fatalf("insert group member: %v", err)
 	}
 
 	// group post
@@ -119,10 +126,20 @@ func TestList_ExcludesGroupPosts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list posts: %v", err)
 	}
-	if len(posts) != 1 {
-		t.Fatalf("expected 1 post, got %d", len(posts))
+	if len(posts) != 2 {
+		t.Fatalf("expected 2 posts, got %d", len(posts))
 	}
-	if posts[0].Content != "normal post" {
-		t.Fatalf("expected normal post, got %q", posts[0].Content)
+	foundGroup := false
+	foundNormal := false
+	for _, p := range posts {
+		if p.Content == "group post" {
+			foundGroup = true
+		}
+		if p.Content == "normal post" {
+			foundNormal = true
+		}
+	}
+	if !foundGroup || !foundNormal {
+		t.Fatalf("expected both group and normal posts")
 	}
 }

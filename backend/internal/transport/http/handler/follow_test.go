@@ -54,10 +54,10 @@ func (r *fakeFollowUserRepo) ListFollowers(ctx context.Context, userID int64) ([
 func (r *fakeFollowUserRepo) ListFollowing(ctx context.Context, userID int64) ([]domainuser.User, error) {
 	return nil, nil
 }
-func (r *fakeFollowUserRepo) ListUsers(ctx context.Context) ([]domainuser.User, error) {
+func (r *fakeFollowUserRepo) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]domainuser.User, error) {
 	return nil, nil
 }
-func (r *fakeFollowUserRepo) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+func (r *fakeFollowUserRepo) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]domainuser.User, error) {
 	return nil, nil
 }
 

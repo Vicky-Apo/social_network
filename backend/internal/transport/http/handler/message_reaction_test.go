@@ -63,7 +63,7 @@ func (r *fakeMessageReactionChatRepo) GetGroupIDByConversationID(ctx context.Con
 func (r *fakeMessageReactionChatRepo) GetGroupConversationMap(ctx context.Context, conversationIDs []int64) (map[int64]int64, error) {
 	return map[int64]int64{}, nil
 }
-func (r *fakeMessageReactionChatRepo) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
+func (r *fakeMessageReactionChatRepo) ListUserConversations(ctx context.Context, userID int64, limit, offset int) ([]domainchat.Conversation, error) {
 	return nil, nil
 }
 func (r *fakeMessageReactionChatRepo) GetConversationMembers(ctx context.Context, conversationID int64) ([]int64, error) {

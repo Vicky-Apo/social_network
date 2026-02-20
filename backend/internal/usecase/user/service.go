@@ -17,9 +17,9 @@ func NewService(repo domainuser.Repository) *Service {
 	return &Service{repo: repo}
 }
 
-// ListUsers returns all users as lightweight DTOs.
-func (s *Service) ListUsers(ctx context.Context) ([]UserListItemDTO, error) {
-	users, err := s.repo.ListUsers(ctx)
+// ListUsers returns users as lightweight DTOs with pagination and access filtering.
+func (s *Service) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]UserListItemDTO, error) {
+	users, err := s.repo.ListUsers(ctx, viewerID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
@@ -27,8 +27,8 @@ func (s *Service) ListUsers(ctx context.Context) ([]UserListItemDTO, error) {
 }
 
 // SearchUsers searches users by first name, last name, or nickname.
-func (s *Service) SearchUsers(ctx context.Context, query string) ([]UserListItemDTO, error) {
-	users, err := s.repo.SearchUsers(ctx, query)
+func (s *Service) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]UserListItemDTO, error) {
+	users, err := s.repo.SearchUsers(ctx, viewerID, query, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("search users: %w", err)
 	}

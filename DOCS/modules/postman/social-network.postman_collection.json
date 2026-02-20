@@ -57,7 +57,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\",\n  \"first_name\": \"{{firstNameA}}\",\n  \"last_name\": \"{{lastNameA}}\",\n  \"date_of_birth\": \"{{dateOfBirthA}}\",\n  \"nickname\": \"{{nicknameA}}\",\n  \"about\": \"{{aboutA}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\",\n  \"first_name\": \"{{firstNameA}}\",\n  \"last_name\": \"{{lastNameA}}\",\n  \"date_of_birth\": \"{{dateOfBirthA}}\",\n  \"avatar_path\": \"{{avatarPathA}}\",\n  \"nickname\": \"{{nicknameA}}\",\n  \"about\": \"{{aboutA}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
@@ -83,7 +83,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\",\n  \"first_name\": \"{{firstNameB}}\",\n  \"last_name\": \"{{lastNameB}}\",\n  \"date_of_birth\": \"{{dateOfBirthB}}\",\n  \"nickname\": \"{{nicknameB}}\",\n  \"about\": \"{{aboutB}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\",\n  \"first_name\": \"{{firstNameB}}\",\n  \"last_name\": \"{{lastNameB}}\",\n  \"date_of_birth\": \"{{dateOfBirthB}}\",\n  \"avatar_path\": \"{{avatarPathB}}\",\n  \"nickname\": \"{{nicknameB}}\",\n  \"about\": \"{{aboutB}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
@@ -245,36 +245,6 @@
           }
         },
         {
-          "name": "List Posts by Category",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/posts?category_id={{categoryId}}&limit={{limit}}&offset={{offset}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "posts"
-              ],
-              "query": [
-                {
-                  "key": "category_id",
-                  "value": "{{categoryId}}"
-                },
-                {
-                  "key": "limit",
-                  "value": "{{limit}}"
-                },
-                {
-                  "key": "offset",
-                  "value": "{{offset}}"
-                }
-              ]
-            }
-          }
-        },
-        {
           "name": "Get Post by ID",
           "request": {
             "method": "GET",
@@ -303,7 +273,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"category_ids\": [{{categoryId}}],\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts",
@@ -593,7 +563,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"accepted\"\n}"
+              "raw": "{\n  \"status\": \"{{followRequestStatus}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/follow-requests/{{requestId}}",
@@ -621,6 +591,23 @@
                 "users",
                 "{{targetId}}",
                 "followers"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Follower",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/followers/{{followerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "followers",
+                "{{followerId}}"
               ]
             }
           }
@@ -780,12 +767,22 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users",
+              "raw": "{{baseUrl}}/users?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "users"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
               ]
             }
           }
@@ -796,7 +793,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users?q={{searchQuery}}",
+              "raw": "{{baseUrl}}/users?q={{searchQuery}}&limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -807,6 +804,14 @@
                 {
                   "key": "q",
                   "value": "{{searchQuery}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
                 }
               ]
             }
@@ -1244,12 +1249,22 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/conversations",
+              "raw": "{{baseUrl}}/conversations?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "conversations"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
               ]
             }
           },

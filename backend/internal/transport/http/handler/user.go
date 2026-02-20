@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
 	usecaseuser "social-network/backend/internal/usecase/user"
 	"social-network/backend/pkg/logger"
@@ -25,15 +26,26 @@ func NewUserHandler(service *usecaseuser.Service, log logger.Logger) *UserHandle
 
 // ListUsers handles GET /users (optional search with ?q=).
 func (h *UserHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	viewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "users.list")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	limit, offset, err := utils.ParsePagination(r)
+	if err != nil {
+		logBadRequest(h.log, "users.list", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	var (
-		users []usecaseuser.UserListItemDTO
-		err   error
-	)
+	var users []usecaseuser.UserListItemDTO
 	if query == "" {
-		users, err = h.service.ListUsers(r.Context())
+		users, err = h.service.ListUsers(r.Context(), viewerID, limit, offset)
 	} else {
-		users, err = h.service.SearchUsers(r.Context(), query)
+		users, err = h.service.SearchUsers(r.Context(), viewerID, query, limit, offset)
 	}
 	if err != nil {
 		logServerError(h.log, "users.list", err, logger.F("query", query))

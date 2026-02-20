@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	domainevent "social-network/backend/internal/domain/event"
+	domaingroup "social-network/backend/internal/domain/group"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
 	usecaseevent "social-network/backend/internal/usecase/event"
@@ -337,6 +338,8 @@ func mapEventError(err error) (int, string) {
 		return http.StatusForbidden, utils.MsgForbidden
 	case errors.Is(err, domainevent.ErrNotFound):
 		return http.StatusNotFound, utils.MsgEventNotFound
+	case errors.Is(err, domaingroup.ErrGroupNotFound):
+		return http.StatusNotFound, utils.MsgGroupNotFound
 	default:
 		return http.StatusInternalServerError, utils.MsgInternalServerError
 	}

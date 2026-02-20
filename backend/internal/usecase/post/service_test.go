@@ -21,15 +21,12 @@ func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset i
 func (r *fakePostRepo) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	return domainpost.Post{ID: id, AuthorID: 1, Privacy: "public"}, nil
 }
-func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
+func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	r.created = post
 	post.ID = 1
 	return post, nil
 }
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
-	return nil, nil
-}
-func (r *fakePostRepo) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
 func (r *fakePostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
@@ -72,8 +69,8 @@ func (r *fakeUserRepo) ListFollowers(ctx context.Context, userID int64) ([]domai
 func (r *fakeUserRepo) ListFollowing(ctx context.Context, userID int64) ([]domainuser.User, error) {
 	return nil, nil
 }
-func (r *fakeUserRepo) ListUsers(ctx context.Context) ([]domainuser.User, error) { return nil, nil }
-func (r *fakeUserRepo) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+func (r *fakeUserRepo) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]domainuser.User, error) { return nil, nil }
+func (r *fakeUserRepo) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]domainuser.User, error) {
 	return nil, nil
 }
 
@@ -112,19 +109,6 @@ func TestCreate_GroupPostForbidden(t *testing.T) {
 	_, err := svc.Create(context.Background(), 1, CreatePostRequest{GroupID: &groupID, Content: "hello", Privacy: "public"})
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected forbidden, got %v", err)
-	}
-}
-
-func TestCreate_GroupPostRejectsCategory(t *testing.T) {
-	repo := &fakePostRepo{}
-	userRepo := newFakeUserRepo()
-	userRepo.users[1] = domainuser.User{ID: 1}
-
-	svc := NewService(repo, userRepo, &fakeAccess{canPostInGroup: true}, logger.NewDefault(false))
-	groupID := int64(10)
-	_, err := svc.Create(context.Background(), 1, CreatePostRequest{GroupID: &groupID, Content: "hello", Privacy: "public", CategoryIDs: []int64{1}})
-	if err == nil {
-		t.Fatalf("expected error for category_ids in group post")
 	}
 }
 

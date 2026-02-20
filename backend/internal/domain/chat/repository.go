@@ -19,7 +19,7 @@ type Repository interface {
 	GetConversationByID(ctx context.Context, id int64) (Conversation, error)
 	GetGroupConversationID(ctx context.Context, groupID int64) (int64, error)
 	GetGroupIDByConversationID(ctx context.Context, conversationID int64) (*int64, error)
-	ListUserConversations(ctx context.Context, userID int64) ([]Conversation, error)
+	ListUserConversations(ctx context.Context, userID int64, limit, offset int) ([]Conversation, error)
 	IsMember(ctx context.Context, conversationID, userID int64) (bool, error)
 	GetConversationMembers(ctx context.Context, conversationID int64) ([]int64, error)
 	GetConversationMembersMap(ctx context.Context, conversationIDs []int64) (map[int64][]int64, error)

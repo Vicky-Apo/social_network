@@ -10,7 +10,6 @@ const (
 	MsgInvalidCommentID       = "invalid comment id"
 	MsgInvalidUserID          = "invalid user id"
 	MsgInvalidGroupID         = "invalid group id"
-	MsgInvalidCategoryID      = "invalid category_id"
 	MsgInvalidAuthorID        = "invalid author_id"
 	MsgInvalidNotificationID  = "invalid notification id"
 	MsgInvalidFollowRequestID = "invalid follow request id"

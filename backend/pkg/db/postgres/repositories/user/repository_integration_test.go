@@ -175,16 +175,16 @@ func TestListAndSearchUsers(t *testing.T) {
 
 	cleanup(t, db, "users")
 
-	_ = createUser(t, db, "user5@example.com", "Eve", "Five", "eve")
+	viewerID := createUser(t, db, "user5@example.com", "Eve", "Five", "eve")
 	_ = createUser(t, db, "user6@example.com", "Frank", "Six", "franky")
 
 	repo := NewRepository(db)
-	users, err := repo.ListUsers(context.Background())
+	users, err := repo.ListUsers(context.Background(), viewerID, 50, 0)
 	if err != nil || len(users) != 2 {
 		t.Fatalf("expected 2 users")
 	}
 
-	search, err := repo.SearchUsers(context.Background(), "frank")
+	search, err := repo.SearchUsers(context.Background(), viewerID, "frank", 50, 0)
 	if err != nil {
 		t.Fatalf("search users: %v", err)
 	}

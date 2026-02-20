@@ -158,9 +158,29 @@ func (s *Service) UpdateRequest(ctx context.Context, requestID, actorID int64, s
 		return s.AcceptRequest(ctx, requestID, actorID)
 	case "declined":
 		return s.DeclineRequest(ctx, requestID, actorID)
+	case "canceled":
+		return s.CancelRequest(ctx, requestID, actorID)
 	default:
 		return ErrInvalidStatus
 	}
+}
+
+// CancelRequest cancels a follow request (requester only).
+func (s *Service) CancelRequest(ctx context.Context, requestID, actorID int64) error {
+	req, err := s.followRepo.GetRequestByID(ctx, requestID)
+	if err != nil {
+		return err
+	}
+	if req.RequesterID != actorID {
+		return ErrForbidden
+	}
+	if req.Status != "pending" {
+		return ErrRequestNotPending
+	}
+	if err := s.followRepo.UpdateRequestStatus(ctx, requestID, "canceled"); err != nil {
+		return fmt.Errorf("update request status: %w", err)
+	}
+	return nil
 }
 
 // ListRequests lists pending follow requests for a target user.
@@ -206,6 +226,24 @@ func (s *Service) Unfollow(ctx context.Context, followerID, followingID int64) e
 		return ErrNotFollowing
 	}
 	if err := s.followRepo.DeleteFollow(ctx, followerID, followingID); err != nil {
+		return fmt.Errorf("delete follow: %w", err)
+	}
+	return nil
+}
+
+// RemoveFollower removes a follower from the current user's followers list.
+func (s *Service) RemoveFollower(ctx context.Context, targetID, followerID int64) error {
+	if targetID == followerID {
+		return ErrCannotFollowSelf
+	}
+	isFollowing, err := s.followRepo.IsFollowing(ctx, followerID, targetID)
+	if err != nil {
+		return fmt.Errorf("check follow: %w", err)
+	}
+	if !isFollowing {
+		return ErrNotFollowing
+	}
+	if err := s.followRepo.DeleteFollow(ctx, followerID, targetID); err != nil {
 		return fmt.Errorf("delete follow: %w", err)
 	}
 	return nil

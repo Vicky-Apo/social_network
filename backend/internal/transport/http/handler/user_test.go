@@ -16,13 +16,13 @@ type fakeUserRepo struct {
 	err   error
 }
 
-func (r *fakeUserRepo) ListUsers(ctx context.Context) ([]domainuser.User, error) {
+func (r *fakeUserRepo) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]domainuser.User, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
 	return r.users, nil
 }
-func (r *fakeUserRepo) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+func (r *fakeUserRepo) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]domainuser.User, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -56,8 +56,10 @@ func TestUserList_Success(t *testing.T) {
 	h := NewUserHandler(svc, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/users", nil)
+	req.AddCookie(&http.Cookie{Name: testCookieName, Value: "token"})
 	rr := httptest.NewRecorder()
-	h.ListUsers(rr, req)
+	handler := authWrap(http.HandlerFunc(h.ListUsers), 1)
+	handler.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", rr.Code)
