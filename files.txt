@@ -1,19 +1,14 @@
-auth
-profile
-follow
-user (discovery/search)
-post
-comment
-reaction (post/comment)
-group
-event
-notification
-chat (conversations/messages)
-message_reaction (emoji reactions)
-media (serving uploads)
-upload
-access (centralized permission checks)
-websocket (realtime chat/notifications/presence)
-db (postgres repositories + migrations)
-config, logger, middleware, utils (supporting infra)
-If you want, I can produce a per-module checklist with endpoints + DB tables + current gaps.
+Modules in DOCS/modules:
+
+auth.md
+chat.md
+comments-reactions.md
+events.md
+follow.md
+groups.md
+notifications.md
+posts.md
+profile.md
+uploads.md
+users.md
+

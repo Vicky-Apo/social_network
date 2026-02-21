@@ -57,7 +57,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\",\n  \"first_name\": \"{{firstNameA}}\",\n  \"last_name\": \"{{lastNameA}}\",\n  \"date_of_birth\": \"{{dateOfBirthA}}\",\n  \"avatar_path\": \"{{avatarPathA}}\",\n  \"nickname\": \"{{nicknameA}}\",\n  \"about\": \"{{aboutA}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"password\": \"{{passwordA}}\",\n  \"first_name\": \"{{firstNameA}}\",\n  \"last_name\": \"{{lastNameA}}\",\n  \"date_of_birth\": \"{{dateOfBirthA}}\",\n  \"nickname\": \"{{nicknameA}}\",\n  \"about\": \"{{aboutA}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
@@ -83,7 +83,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\",\n  \"first_name\": \"{{firstNameB}}\",\n  \"last_name\": \"{{lastNameB}}\",\n  \"date_of_birth\": \"{{dateOfBirthB}}\",\n  \"avatar_path\": \"{{avatarPathB}}\",\n  \"nickname\": \"{{nicknameB}}\",\n  \"about\": \"{{aboutB}}\"\n}"
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"password\": \"{{passwordB}}\",\n  \"first_name\": \"{{firstNameB}}\",\n  \"last_name\": \"{{lastNameB}}\",\n  \"date_of_birth\": \"{{dateOfBirthB}}\",\n  \"nickname\": \"{{nicknameB}}\",\n  \"about\": \"{{aboutB}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
@@ -273,7 +273,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post/example.png\",\n  \"privacy\": \"public\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts",
@@ -292,7 +292,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/groups/{{groupId}}/posts?limit=20&offset=0",
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -854,7 +854,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/groups?limit=20&offset=0",
+              "raw": "{{baseUrl}}/groups?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -871,7 +871,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/groups?q=go&limit=20&offset=0",
+              "raw": "{{baseUrl}}/groups?q={{searchQuery}}&limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1115,7 +1115,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/groups/{{groupId}}/events?limit=20&offset=0",
+              "raw": "{{baseUrl}}/groups/{{groupId}}/events?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -1294,7 +1294,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/conversations/{{conversationId}}/messages?limit=20&offset=0",
+              "raw": "{{baseUrl}}/conversations/{{conversationId}}/messages?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],

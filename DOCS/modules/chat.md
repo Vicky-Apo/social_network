@@ -170,6 +170,9 @@ Sent when another member of a conversation starts or stops typing.
   }
 }
 ```
+Notes:
+- Typing is ephemeral and may be auto-cleared by the server after a short inactivity window (~5s).
+- If a client disconnects while typing, the server will send a final `is_typing: false` for that user.
 
 ### user_online / user_offline
 
@@ -266,6 +269,8 @@ Notify other members of a conversation that you are typing (or have stopped).
 Notes:
 - Send `is_typing: false` when the user stops typing.
 - You must be a member of the conversation.
+- The server will auto-clear typing after a short inactivity window (~5s).
+- If a client disconnects while typing, the server sends a final `is_typing: false` for that user.
 
 ### mark_read
 
@@ -283,6 +288,7 @@ Mark a conversation as fully read. This clears the unread count for that convers
 Notes:
 - You must be a member of the conversation.
 - The read pointer advances to the latest message in the conversation at the time of the request.
+- The server does not push an `unread_counts` update after `mark_read`. The client should update local unread state or refetch `GET /conversations/unread-counts`.
 
 ## Unread message tracking
 
@@ -457,3 +463,4 @@ Response (200):
 - The server rate-limits WebSocket messages per user. If the limit is hit, an `error` message with code `RATE_LIMIT` is sent back.
 - Messages are persisted to the database regardless of whether the recipient is online. Offline recipients will see the messages when they next open the conversation.
 - Conversation history fetching (loading past messages) is available over HTTP via `/conversations/{id}/messages`.
+- Typing indicators are ephemeral UI state. The frontend should still apply a local timeout (e.g., 4–6s) in case the client does not receive a stop-typing event.

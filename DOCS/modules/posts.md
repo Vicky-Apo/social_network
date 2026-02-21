@@ -21,6 +21,10 @@ Notes:
 - Returns non-group posts the user can see (public/followers/private rules)
   plus group posts from groups the user is a member of.
 
+Error responses:
+- `400 Bad Request` - Invalid pagination parameters
+- `401 Unauthorized` - Not logged in or invalid session
+
 Response (200):
 
 ```json
@@ -77,6 +81,12 @@ Response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid post id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this post
+- `404 Not Found` - Post not found
+
 ### Create post
 
 `POST /posts`
@@ -100,6 +110,7 @@ Notes:
 - `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
 - `allowed_user_ids` is ignored for `public` and `followers`.
 - `group_id` is optional here. For group posts, prefer `POST /groups/{id}/posts` and do not send `allowed_user_ids`.
+- If `group_id` is provided, the post is stored with `privacy = public` and access is enforced by group membership.
 - Use `POST /uploads` to get a `media_path` if you need to attach an image/GIF.
 
 Response (201):
@@ -127,12 +138,23 @@ Response (201):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid request body (bad privacy, missing content/media, invalid allowed_user_ids, invalid group_id)
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Not allowed to post in the group
+- `404 Not Found` - Group not found (for group posts)
+
 ### List posts by user
 
 `GET /posts?author_id={id}&limit=20&offset=0`
 
 Notes:
 - Results respect the author's profile privacy and post visibility.
+
+Error responses:
+- `400 Bad Request` - Invalid author id or pagination
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this user's posts
 
 Response (200):
 
@@ -169,6 +191,12 @@ Notes:
 - Only group members can access group posts.
 - Returns `404` if the group does not exist.
 
+Error responses:
+- `400 Bad Request` - Invalid group id or pagination
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not a member of the group
+- `404 Not Found` - Group not found
+
 ### Create post in group
 
 `POST /groups/{id}/posts`
@@ -186,8 +214,14 @@ Request body (JSON):
 Notes:
 - `group_id` is taken from the URL.
 - `allowed_user_ids` is not allowed for group posts.
-- `privacy` is still required, but `private` is rejected for group posts.
+- `privacy` is still required, but group posts are stored as `public` (group access enforced separately).
 - Returns `404` if the group does not exist.
+
+Error responses:
+- `400 Bad Request` - Invalid request body (missing content/media, invalid privacy)
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Not allowed to post in the group
+- `404 Not Found` - Group not found
 
 ## React fetch example
 

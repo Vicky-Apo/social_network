@@ -34,7 +34,7 @@ Creates a new comment on a post.
 ```
 
 **Notes:**
-- `content` is required and cannot be empty
+- `content` can be empty if `media_path` is provided
 - `author_id` is automatically determined from your authenticated session
 - `media_path` is optional (string path to image/GIF)
 - The `post_id` is automatically extracted from the URL path
@@ -64,7 +64,8 @@ Creates a new comment on a post.
 - `400 Bad Request` - Invalid post ID or request body
 - `401 Unauthorized` - Not logged in or invalid session
 - `403 Forbidden` - You are not allowed to comment on this post
-- `500 Internal Server Error` - Failed to create comment (e.g., post doesn't exist)
+- `404 Not Found` - Post doesn't exist
+- `500 Internal Server Error` - Failed to create comment
 
 ### Get Post Comments
 
@@ -160,6 +161,8 @@ Adds, updates, or removes a reaction to a post.
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID, invalid reaction type, or invalid request body
 - `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view/react to this post
+- `404 Not Found` - Post doesn't exist
 
 ### Get Post Reactions
 
@@ -241,6 +244,8 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 **Error Responses:**
 - `400 Bad Request` - Invalid comment ID, invalid reaction type, or invalid request body
 - `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view/react to this comment's post
+- `404 Not Found` - Comment (or its post) doesn't exist
 
 ### Get Comment Reactions
 
@@ -439,7 +444,7 @@ export async function getCommentReactions(commentId: number) {
 
 1. **Upsert Behavior**: When adding a reaction, if the user already has a reaction on that post/comment, it will be updated (not duplicated). This means each user can only have one reaction per post/comment.
 
-2. **Foreign Key Constraints**: Comments and reactions require valid post/user IDs. If you try to create a comment on a non-existent post, you'll get a 500 error.
+2. **Foreign Key Constraints**: Comments and reactions require valid post/user IDs. If you try to create a comment on a non-existent post, you'll get a 404 error.
 
 3. **Error Handling**: Always check `res.ok` or handle axios errors. The API returns standard HTTP status codes:
    - `200` - Success (GET requests)

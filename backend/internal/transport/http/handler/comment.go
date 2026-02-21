@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	domaincomment "social-network/backend/internal/domain/comment"
+	domainpost "social-network/backend/internal/domain/post"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
 	usecasecomment "social-network/backend/internal/usecase/comment"
@@ -63,6 +64,11 @@ func (h *CommentHandler) Create(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
 			return
 		}
+		if errors.Is(err, domainpost.ErrNotFound) {
+			logNotFound(h.log, "comments.create", logger.F("post_id", postID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
+			return
+		}
 		logServerError(h.log, "comments.create", err, logger.F("post_id", postID), logger.F("author_id", req.AuthorID))
 		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		return
@@ -101,9 +107,9 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
 			return
 		}
-		if errors.Is(err, domaincomment.ErrNotFound) {
+		if errors.Is(err, domainpost.ErrNotFound) || errors.Is(err, domaincomment.ErrNotFound) {
 			logNotFound(h.log, "comments.list", logger.F("post_id", postID))
-			utils.RespondWithError(w, http.StatusNotFound, utils.MsgCommentsNotFound)
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
 			return
 		}
 		logServerError(h.log, "comments.list", err, logger.F("post_id", postID))

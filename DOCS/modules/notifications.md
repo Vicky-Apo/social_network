@@ -20,7 +20,7 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
 **Query Parameters:**
 - `limit` (optional, default 20, max 100)
 - `offset` (optional, default 0)
-- `unread` (optional, `true` or `false`)
+- `unread` (optional, `true` or `false` — also accepts `1/0/yes/no`)
 
 **Response (200):**
 
@@ -51,6 +51,10 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
 - `metadata` is optional and varies by type.
 - Notifications are also pushed in real time over WebSocket with type `notification`.
 
+**Error Responses:**
+- `400 Bad Request` - Invalid pagination parameters or invalid `unread` value
+- `401 Unauthorized` - Not logged in or invalid session
+
 ### Unread count
 
 `GET /notifications/unread-count`
@@ -65,6 +69,9 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
   }
 }
 ```
+
+**Error Responses:**
+- `401 Unauthorized` - Not logged in or invalid session
 
 ### Mark notification as read
 
@@ -82,7 +89,9 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
 ```
 
 **Error Responses:**
-- `404 Not Found` if the notification does not exist or does not belong to the user
+- `400 Bad Request` - Invalid notification id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Notification does not exist or does not belong to the user
 
 ### Mark all notifications as read
 
@@ -98,6 +107,9 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
   }
 }
 ```
+
+**Error Responses:**
+- `401 Unauthorized` - Not logged in or invalid session
 
 ## Notification types
 

@@ -54,6 +54,12 @@ If the target profile is public, the response is:
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Missing/invalid `target_id`, or trying to follow yourself
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Target user not found
+- `409 Conflict` - Already following or a pending request already exists
+
 ### List pending requests
 
 `GET /follow-requests`
@@ -127,6 +133,13 @@ Response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid status
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to update this request
+- `404 Not Found` - Follow request not found
+- `409 Conflict` - Request is not pending
+
 ### Unfollow
 
 `DELETE /users/{id}/followers`
@@ -142,6 +155,12 @@ Response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid user id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - User not found
+- `409 Conflict` - You are not currently following this user
+
 ### Remove follower
 
 `DELETE /followers/{id}`
@@ -156,6 +175,12 @@ Response (200):
   }
 }
 ```
+
+Error responses:
+- `400 Bad Request` - Invalid user id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - User not found
+- `409 Conflict` - The user is not your follower
 
 ## React fetch example
 

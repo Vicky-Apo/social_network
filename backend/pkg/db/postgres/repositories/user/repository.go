@@ -192,8 +192,7 @@ func (r *Repository) ListUsers(ctx context.Context, viewerID int64, limit, offse
 	const query = `
 		SELECT u.id, u.email, u.first_name, u.last_name, u.date_of_birth, u.avatar_path, u.nickname, u.about, u.is_public, u.created_at, u.updated_at
 		FROM users u
-		LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = u.id
-		WHERE u.is_public = true OR u.id = $1 OR f.follower_id IS NOT NULL
+		WHERE u.id <> $1
 		ORDER BY u.id
 		LIMIT $2 OFFSET $3
 	`
@@ -205,8 +204,7 @@ func (r *Repository) SearchUsers(ctx context.Context, viewerID int64, query stri
 	const sqlQuery = `
 		SELECT u.id, u.email, u.first_name, u.last_name, u.date_of_birth, u.avatar_path, u.nickname, u.about, u.is_public, u.created_at, u.updated_at
 		FROM users u
-		LEFT JOIN follows f ON f.follower_id = $1 AND f.following_id = u.id
-		WHERE (u.is_public = true OR u.id = $1 OR f.follower_id IS NOT NULL)
+		WHERE u.id <> $1
 		  AND (u.first_name ILIKE $2 ESCAPE '\' OR u.last_name ILIKE $2 ESCAPE '\' OR u.nickname ILIKE $2 ESCAPE '\')
 		ORDER BY u.id
 		LIMIT $3 OFFSET $4

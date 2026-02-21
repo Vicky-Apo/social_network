@@ -28,8 +28,9 @@ Pagination:
 `GET /users?q=jo&limit=20&offset=0`
 
 Notes:
-- Only public users are returned unless the current user is following them (or the user is themselves).
+- All users are returned, including private users.
 - Results are always limited to lightweight fields (id/name/avatar/nickname).
+- The current user is not included in the results.
 
 Response (200):
 
@@ -49,6 +50,11 @@ Response (200):
 ```
 
 Searches `first_name`, `last_name`, and `nickname` (case-insensitive).
+
+Error responses:
+- `400 Bad Request` - Invalid pagination parameters
+- `401 Unauthorized` - Not logged in or invalid session
+- `500 Internal Server Error` - Failed to list users
 
 Response (200):
 

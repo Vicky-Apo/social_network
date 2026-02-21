@@ -60,6 +60,7 @@ Request body (JSON):
 Notes:
 - Only the event creator can update the event.
 - `event_time` must be in the future.
+- This endpoint expects a full update (provide `title`, `description`, and `event_time`).
 
 ### Delete event
 
