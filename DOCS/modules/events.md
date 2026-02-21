@@ -29,6 +29,7 @@ Request body (JSON):
 
 Notes:
 - Only group members can create events.
+- Returns `404` if the group does not exist.
 
 ### List group events
 
@@ -36,6 +37,7 @@ Notes:
 
 Notes:
 - Only group members can view group events.
+- Returns `404` if the group does not exist.
 
 ### Get event by ID
 
@@ -58,6 +60,7 @@ Request body (JSON):
 Notes:
 - Only the event creator can update the event.
 - `event_time` must be in the future.
+- This endpoint expects a full update (provide `title`, `description`, and `event_time`).
 
 ### Delete event
 

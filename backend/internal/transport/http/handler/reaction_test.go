@@ -61,13 +61,10 @@ func (r *fakeReactionPostRepo) GetByID(ctx context.Context, id int64) (domainpos
 func (r *fakeReactionPostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
-func (r *fakeReactionPostRepo) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
+func (r *fakeReactionPostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
 func (r *fakeReactionPostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
-	return nil, nil
-}
-func (r *fakeReactionPostRepo) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
 func (r *fakeReactionPostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
@@ -86,12 +83,18 @@ func (r *fakeReactionCommentRepo) GetByPostID(ctx context.Context, postID int64,
 	return nil, nil
 }
 func (r *fakeReactionCommentRepo) GetByID(ctx context.Context, id int64) (domaincomment.Comment, error) {
-	return domaincomment.Comment{}, nil
+	return domaincomment.Comment{ID: id, PostID: 1, AuthorID: 2}, nil
 }
 func (r *fakeReactionCommentRepo) Delete(ctx context.Context, id int64) error { return nil }
 
+type fakeReactionAccess struct{}
+
+func (f fakeReactionAccess) CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error) {
+	return true, nil
+}
+
 func TestReactionAddPost_Success(t *testing.T) {
-	svc := usecasereaction.NewService(&fakeReactionRepo{}, &fakeReactionPostRepo{}, &fakeReactionCommentRepo{}, nil)
+	svc := usecasereaction.NewService(&fakeReactionRepo{}, &fakeReactionPostRepo{}, &fakeReactionCommentRepo{}, fakeReactionAccess{}, nil)
 	h := NewReactionHandler(svc, logger.NewDefault(false))
 
 	req := newJSONRequest(t, http.MethodPost, "/posts/1/reactions", map[string]string{"reaction": "like"})

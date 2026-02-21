@@ -35,7 +35,14 @@ func (h *ChatHandler) ListConversations(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	conversations, err := h.service.ListConversations(r.Context(), userID)
+	limit, offset, err := utils.ParsePagination(r)
+	if err != nil {
+		logBadRequest(h.log, "conversations.list", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	conversations, err := h.service.ListConversations(r.Context(), userID, limit, offset)
 	if err != nil {
 		logServerError(h.log, "conversations.list", err, logger.F("user_id", userID))
 		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)

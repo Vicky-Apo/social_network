@@ -87,6 +87,7 @@ func NewRouter(
 	mux.Handle("GET /follow-requests/sent", mw.Auth(http.HandlerFunc(followHandler.ListSentRequests)))
 	mux.Handle("PATCH /follow-requests/{id}", mw.Auth(http.HandlerFunc(followHandler.UpdateRequest)))
 	mux.Handle("DELETE /users/{id}/followers", mw.Auth(http.HandlerFunc(followHandler.Unfollow)))
+	mux.Handle("DELETE /followers/{id}", mw.Auth(http.HandlerFunc(followHandler.RemoveFollower)))
 
 	// User routes (protected)
 	mux.Handle("GET /users", mw.Auth(http.HandlerFunc(userHandler.ListUsers)))

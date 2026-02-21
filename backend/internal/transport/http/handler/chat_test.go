@@ -27,7 +27,7 @@ func TestChatListConversations_Unauthorized(t *testing.T) {
 
 type fakeChatRepo struct{}
 
-func (r *fakeChatRepo) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
+func (r *fakeChatRepo) ListUserConversations(ctx context.Context, userID int64, limit, offset int) ([]domainchat.Conversation, error) {
 	return []domainchat.Conversation{{ID: 1, Type: domainchat.ConversationTypeDirect, CreatedAt: time.Now()}}, nil
 }
 func (r *fakeChatRepo) GetUnreadConversations(ctx context.Context, userID int64) (map[int64]int, error) {

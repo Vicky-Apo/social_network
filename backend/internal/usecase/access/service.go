@@ -139,26 +139,45 @@ func (s *Service) CanSendDirectMessage(ctx context.Context, senderID, receiverID
 	if err != nil {
 		return false, fmt.Errorf("check receiver follows: %w", err)
 	}
-	return reverse, nil
+	if reverse {
+		return true, nil
+	}
+	receiver, err := s.userRepo.GetByID(ctx, receiverID)
+	if err != nil {
+		return false, err
+	}
+	return receiver.IsPublic, nil
 }
 
 // CanViewGroup returns true if user is a member of the group.
 func (s *Service) CanViewGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return false, err
+	}
 	return s.groupRepo.IsMember(ctx, groupID, userID)
 }
 
 // CanPostInGroup returns true if user is a member of the group.
 func (s *Service) CanPostInGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return false, err
+	}
 	return s.groupRepo.IsMember(ctx, groupID, userID)
 }
 
 // CanChatInGroup returns true if user is a member of the group.
 func (s *Service) CanChatInGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return false, err
+	}
 	return s.groupRepo.IsMember(ctx, groupID, userID)
 }
 
 // CanInviteToGroup returns true if user is a member of the group.
 func (s *Service) CanInviteToGroup(ctx context.Context, userID, groupID int64) (bool, error) {
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return false, err
+	}
 	return s.groupRepo.IsMember(ctx, groupID, userID)
 }
 

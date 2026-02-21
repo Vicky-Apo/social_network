@@ -44,6 +44,11 @@ Response (201):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid request body or missing/empty title
+- `401 Unauthorized` - Not logged in or invalid session
+
+
 ### List groups (browse/search)
 
 `GET /groups?limit=20&offset=0`
@@ -72,6 +77,11 @@ Response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid pagination parameters
+- `401 Unauthorized` - Not logged in or invalid session
+
+
 ### Get group by ID
 
 `GET /groups/{id}`
@@ -79,12 +89,24 @@ Response (200):
 Notes:
 - Accessible to any authenticated user for discovery. Member-only data is exposed via other endpoints (members, posts, events, chat).
 
+Error responses:
+- `400 Bad Request` - Invalid group id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Group not found
+
 ### List group members
 
 `GET /groups/{id}/members`
 
 Notes:
 - Only group members can access the member list.
+- Returns `404` if the group does not exist.
+
+Error responses:
+- `400 Bad Request` - Invalid group id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not a member of the group
+- `404 Not Found` - Group not found
 
 ### Invite user to group
 
@@ -98,9 +120,19 @@ Request body (JSON):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid group id or invitee id, or inviting yourself
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to invite to this group
+- `404 Not Found` - Group not found
+- `409 Conflict` - User is already a member or invitation already exists
+
 ### List invitations for me
 
 `GET /group-invitations`
+
+Error responses:
+- `401 Unauthorized` - Not logged in or invalid session
 
 ### Accept or decline invitation
 
@@ -116,13 +148,37 @@ Request body (JSON):
 
 Allowed values: `accepted`, `declined`.
 
+Error responses:
+- `400 Bad Request` - Invalid status or invalid invitation id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to update this invitation
+- `404 Not Found` - Invitation not found
+
 ### Request to join group
 
 `POST /groups/{id}/join-requests`
 
+Notes:
+- Returns `404` if the group does not exist.
+
+Error responses:
+- `400 Bad Request` - Invalid group id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Group not found
+- `409 Conflict` - Already a member, already invited, or request already exists
+
 ### List join requests (creator only)
 
 `GET /groups/{id}/join-requests`
+
+Notes:
+- Returns `404` if the group does not exist.
+
+Error responses:
+- `400 Bad Request` - Invalid group id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Only the group creator can view join requests
+- `404 Not Found` - Group not found
 
 ### Accept or decline join request
 
@@ -138,12 +194,25 @@ Request body (JSON):
 
 Allowed values: `accepted`, `declined`.
 
+Error responses:
+- `400 Bad Request` - Invalid status or invalid join request id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Only the group creator can update join requests
+- `404 Not Found` - Join request not found
+
 ### Leave group
 
 `DELETE /groups/{id}/members/me`
 
 Notes:
 - Group creator cannot leave their own group.
+
+Error responses:
+- `400 Bad Request` - Invalid group id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not a member of the group
+- `404 Not Found` - Group not found
+- `409 Conflict` - Group creator cannot leave
 
 ## React fetch example
 

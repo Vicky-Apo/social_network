@@ -13,13 +13,13 @@ type fakeUserRepo struct {
 	err   error
 }
 
-func (r *fakeUserRepo) ListUsers(ctx context.Context) ([]domainuser.User, error) {
+func (r *fakeUserRepo) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]domainuser.User, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
 	return r.users, nil
 }
-func (r *fakeUserRepo) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+func (r *fakeUserRepo) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]domainuser.User, error) {
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -58,7 +58,7 @@ func TestListUsers_MapsDTO(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	items, err := svc.ListUsers(context.Background())
+	items, err := svc.ListUsers(context.Background(), 1, 20, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestSearchUsers_MapsDTO(t *testing.T) {
 	}
 	svc := NewService(repo)
 
-	items, err := svc.SearchUsers(context.Background(), "c")
+	items, err := svc.SearchUsers(context.Background(), 1, "c", 20, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -88,10 +88,10 @@ func TestUserService_PropagatesRepoError(t *testing.T) {
 	repo := &fakeUserRepo{err: errors.New("boom")}
 	svc := NewService(repo)
 
-	if _, err := svc.ListUsers(context.Background()); err == nil {
+	if _, err := svc.ListUsers(context.Background(), 1, 20, 0); err == nil {
 		t.Fatalf("expected error")
 	}
-	if _, err := svc.SearchUsers(context.Background(), "x"); err == nil {
+	if _, err := svc.SearchUsers(context.Background(), 1, "x", 20, 0); err == nil {
 		t.Fatalf("expected error")
 	}
 }

@@ -41,10 +41,10 @@ func (r *fakeUserRepo) ListFollowers(ctx context.Context, userID int64) ([]domai
 func (r *fakeUserRepo) ListFollowing(ctx context.Context, userID int64) ([]domainuser.User, error) {
 	return nil, nil
 }
-func (r *fakeUserRepo) ListUsers(ctx context.Context) ([]domainuser.User, error) {
+func (r *fakeUserRepo) ListUsers(ctx context.Context, viewerID int64, limit, offset int) ([]domainuser.User, error) {
 	return nil, nil
 }
-func (r *fakeUserRepo) SearchUsers(ctx context.Context, query string) ([]domainuser.User, error) {
+func (r *fakeUserRepo) SearchUsers(ctx context.Context, viewerID int64, query string, limit, offset int) ([]domainuser.User, error) {
 	return nil, nil
 }
 
@@ -109,13 +109,10 @@ func (r *fakePostRepo) IsUserAllowed(ctx context.Context, postID, userID int64) 
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
-func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
+func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
-	return nil, nil
-}
-func (r *fakePostRepo) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
 func (r *fakePostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
@@ -301,7 +298,7 @@ func TestCanSendDirectMessage(t *testing.T) {
 		{2, 1}: true,
 	}
 	svc := NewService(
-		&fakeUserRepo{},
+		&fakeUserRepo{users: map[int64]domainuser.User{2: {ID: 2, IsPublic: false}}},
 		&fakeFollowRepo{follows: follows},
 		&fakePostRepo{},
 		&fakeGroupRepo{},
@@ -311,6 +308,20 @@ func TestCanSendDirectMessage(t *testing.T) {
 	ok, err := svc.CanSendDirectMessage(context.Background(), 1, 2)
 	if err != nil || !ok {
 		t.Fatalf("expected can message when reverse follow exists")
+	}
+}
+
+func TestCanSendDirectMessage_PublicProfile(t *testing.T) {
+	svc := NewService(
+		&fakeUserRepo{users: map[int64]domainuser.User{2: {ID: 2, IsPublic: true}}},
+		&fakeFollowRepo{follows: map[[2]int64]bool{}},
+		&fakePostRepo{},
+		&fakeGroupRepo{},
+		logger.NewDefault(false),
+	)
+	ok, err := svc.CanSendDirectMessage(context.Background(), 1, 2)
+	if err != nil || !ok {
+		t.Fatalf("expected can message public profile")
 	}
 }
 

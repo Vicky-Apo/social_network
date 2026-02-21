@@ -71,6 +71,11 @@ Example limited response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid profile id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Profile not found
+
 ### List followers
 
 `GET /profiles/{id}/followers`
@@ -96,6 +101,15 @@ Response (200):
   ]
 }
 ```
+
+Notes:
+- Access follows the same privacy rules as the profile itself.
+
+Error responses:
+- `400 Bad Request` - Invalid profile id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found
 
 ### List following
 
@@ -123,6 +137,15 @@ Response (200):
 }
 ```
 
+Notes:
+- Access follows the same privacy rules as the profile itself.
+
+Error responses:
+- `400 Bad Request` - Invalid profile id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found
+
 ### Update visibility
 
 `PATCH /profiles/{id}/visibility`
@@ -147,6 +170,12 @@ Response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid profile id or request body
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Only the profile owner can update visibility
+- `404 Not Found` - Profile not found
+
 ### Update profile
 
 `PATCH /profiles/{id}`
@@ -165,6 +194,12 @@ Notes:
 - Only the profile owner can update their profile.
 - Use `POST /uploads` to get an `avatar_path`.
 - Sending empty strings clears a field (sets it to null).
+
+Error responses:
+- `400 Bad Request` - Invalid profile id or request body
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Only the profile owner can update profile
+- `404 Not Found` - Profile not found
 
 ## React fetch example
 
@@ -268,3 +303,9 @@ Response (200):
 Notes:
 - If the profile is private and the viewer is not allowed, `posts` and `activity`
   will be empty and `profile.limited` will be `true`.
+
+Error responses:
+- `400 Bad Request` - Invalid profile id or invalid pagination/activity_limit
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found

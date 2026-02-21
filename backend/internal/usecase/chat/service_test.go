@@ -86,7 +86,7 @@ func (r *fakeChatRepo) GetConversationByID(ctx context.Context, id int64) (domai
 	return conv, nil
 }
 
-func (r *fakeChatRepo) ListUserConversations(ctx context.Context, userID int64) ([]domainchat.Conversation, error) {
+func (r *fakeChatRepo) ListUserConversations(ctx context.Context, userID int64, limit, offset int) ([]domainchat.Conversation, error) {
 	var out []domainchat.Conversation
 	for id, conv := range r.conversations {
 		if r.members[id][userID] {
@@ -266,7 +266,7 @@ func TestListConversations_GroupIncludesGroupID(t *testing.T) {
 	repo.unread[1] = map[int64]int{1: 2}
 
 	svc := NewService(repo, &fakeGroupRepo{}, &fakeAccess{}, logger.NewDefault(false))
-	convs, err := svc.ListConversations(context.Background(), 1)
+	convs, err := svc.ListConversations(context.Background(), 1, 20, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

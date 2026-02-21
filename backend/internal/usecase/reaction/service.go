@@ -3,6 +3,7 @@ package reaction
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	domaincomment "social-network/backend/internal/domain/comment"
@@ -16,8 +17,17 @@ type Service struct {
 	repo        domainreaction.Repository
 	postRepo    domainpost.Repository
 	commentRepo domaincomment.Repository
+	access      AccessService
 	notifier    Notifier
 }
+
+// AccessService provides centralized access checks.
+type AccessService interface {
+	CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error)
+}
+
+// ErrForbidden is returned when a viewer cannot access a reaction target.
+var ErrForbidden = errors.New("reaction access forbidden")
 
 // Notifier allows emitting notifications without coupling to transport details.
 type Notifier interface {
@@ -25,8 +35,8 @@ type Notifier interface {
 }
 
 // NewService creates a reaction service
-func NewService(repo domainreaction.Repository, postRepo domainpost.Repository, commentRepo domaincomment.Repository, notifier Notifier) *Service {
-	return &Service{repo: repo, postRepo: postRepo, commentRepo: commentRepo, notifier: notifier}
+func NewService(repo domainreaction.Repository, postRepo domainpost.Repository, commentRepo domaincomment.Repository, access AccessService, notifier Notifier) *Service {
+	return &Service{repo: repo, postRepo: postRepo, commentRepo: commentRepo, access: access, notifier: notifier}
 }
 
 // AddPostReaction adds a reaction to a post
@@ -34,6 +44,17 @@ func (s *Service) AddPostReaction(ctx context.Context, postID int64, req AddReac
 	if req.UserID <= 0 {
 		return "", fmt.Errorf("invalid user id")
 	}
+	if s.access == nil {
+		return "", errors.New("access service not configured")
+	}
+	ok, err := s.access.CanViewPost(ctx, req.UserID, postID)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", ErrForbidden
+	}
+
 	reactionType := domainreaction.ReactionType(req.Reaction)
 
 	if reactionType != domainreaction.Like && reactionType != domainreaction.Dislike {
@@ -91,6 +112,24 @@ func (s *Service) AddCommentReaction(ctx context.Context, commentID int64, req A
 	if req.UserID <= 0 {
 		return "", fmt.Errorf("invalid user id")
 	}
+	if s.access == nil {
+		return "", errors.New("access service not configured")
+	}
+	if s.commentRepo == nil {
+		return "", errors.New("comment repository not configured")
+	}
+	comment, err := s.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		return "", err
+	}
+	ok, err := s.access.CanViewPost(ctx, req.UserID, comment.PostID)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", ErrForbidden
+	}
+
 	reactionType := domainreaction.ReactionType(req.Reaction)
 
 	if reactionType != domainreaction.Like && reactionType != domainreaction.Dislike {
@@ -136,6 +175,43 @@ func (s *Service) GetCommentReactions(ctx context.Context, commentID int64) ([]R
 	}
 
 	return mapCommentReactions(reactions), nil
+}
+
+// GetPostReactionsForViewer checks access and returns reactions for a post.
+func (s *Service) GetPostReactionsForViewer(ctx context.Context, viewerID, postID int64) ([]ReactionDTO, error) {
+	if s.access == nil {
+		return nil, errors.New("access service not configured")
+	}
+	ok, err := s.access.CanViewPost(ctx, viewerID, postID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
+	}
+	return s.GetPostReactions(ctx, postID)
+}
+
+// GetCommentReactionsForViewer checks access and returns reactions for a comment.
+func (s *Service) GetCommentReactionsForViewer(ctx context.Context, viewerID, commentID int64) ([]ReactionDTO, error) {
+	if s.access == nil {
+		return nil, errors.New("access service not configured")
+	}
+	if s.commentRepo == nil {
+		return nil, errors.New("comment repository not configured")
+	}
+	comment, err := s.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		return nil, err
+	}
+	ok, err := s.access.CanViewPost(ctx, viewerID, comment.PostID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrForbidden
+	}
+	return s.GetCommentReactions(ctx, commentID)
 }
 
 func mapPostReactions(reactions []domainreaction.PostReaction) []ReactionDTO {

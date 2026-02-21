@@ -73,7 +73,7 @@ func (s *Service) GetByID(ctx context.Context, id int64, viewerID int64) (PostDT
 	return mapPost(post), nil
 }
 
-// Create creates a new post with optional categories.
+// Create creates a new post.
 func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequest) (PostDTO, error) {
 	privacy := strings.TrimSpace(req.Privacy)
 	if privacy == "" {
@@ -101,9 +101,6 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		}
 		if !canPost {
 			return PostDTO{}, ErrForbidden
-		}
-		if len(req.CategoryIDs) > 0 {
-			return PostDTO{}, errors.New("category_ids are not allowed for group posts")
 		}
 		if len(req.AllowedUserIDs) > 0 {
 			return PostDTO{}, errors.New("allowed_user_ids are not allowed for group posts")
@@ -155,7 +152,7 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		Privacy:   privacy,
 	}
 
-	created, err := s.repo.Create(ctx, post, req.CategoryIDs, req.AllowedUserIDs)
+	created, err := s.repo.Create(ctx, post, req.AllowedUserIDs)
 	if err != nil {
 		s.log.Error("failed to create post", err, logger.F("author_id", authorID))
 		return PostDTO{}, fmt.Errorf("create post: %w", err)
@@ -232,17 +229,6 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 		return nil, fmt.Errorf("list posts by author: %w", err)
 	}
 	s.log.Debug("posts listed by author", logger.F("author_id", authorID), logger.F("count", len(posts)))
-	return mapPosts(posts), nil
-}
-
-// ListByCategory returns posts for a category with pagination.
-func (s *Service) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]PostDTO, error) {
-	posts, err := s.repo.ListByCategory(ctx, categoryID, viewerID, limit, offset)
-	if err != nil {
-		s.log.Error("failed to list posts by category", err, logger.F("category_id", categoryID))
-		return nil, fmt.Errorf("list posts by category: %w", err)
-	}
-	s.log.Debug("posts listed by category", logger.F("category_id", categoryID), logger.F("count", len(posts)))
 	return mapPosts(posts), nil
 }
 

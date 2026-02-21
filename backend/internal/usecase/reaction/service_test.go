@@ -88,13 +88,10 @@ func (r *fakePostRepo) GetByID(ctx context.Context, id int64) (domainpost.Post, 
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
-func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
+func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
-	return nil, nil
-}
-func (r *fakePostRepo) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
 func (r *fakePostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
@@ -129,6 +126,12 @@ type testNotifier struct {
 	lastMetadata map[string]any
 }
 
+type fakeAccess struct{}
+
+func (f fakeAccess) CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error) {
+	return true, nil
+}
+
 func (n *testNotifier) CreateForUser(ctx context.Context, req usecasenotification.CreateRequest) (usecasenotification.NotificationDTO, error) {
 	n.calls++
 	n.lastType = req.Type
@@ -145,7 +148,7 @@ func TestAddPostReaction_AddsAndNotifies(t *testing.T) {
 	commentRepo := &fakeCommentRepo{authorID: 3}
 	notify := &testNotifier{}
 
-	svc := NewService(repo, postRepo, commentRepo, notify)
+	svc := NewService(repo, postRepo, commentRepo, fakeAccess{}, notify)
 	status, err := svc.AddPostReaction(context.Background(), 10, AddReactionRequest{UserID: 1, Reaction: "like"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -164,7 +167,7 @@ func TestAddCommentReaction_AddsAndNotifies(t *testing.T) {
 	commentRepo := &fakeCommentRepo{authorID: 4}
 	notify := &testNotifier{}
 
-	svc := NewService(repo, postRepo, commentRepo, notify)
+	svc := NewService(repo, postRepo, commentRepo, fakeAccess{}, notify)
 	status, err := svc.AddCommentReaction(context.Background(), 10, AddReactionRequest{UserID: 1, Reaction: "like"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -180,7 +183,7 @@ func TestAddCommentReaction_AddsAndNotifies(t *testing.T) {
 func TestAddPostReaction_RemovesWhenSame(t *testing.T) {
 	repo := newFakeReactionRepo()
 	repo.postReactions[[2]int64{10, 1}] = domainreaction.PostReaction{PostID: 10, UserID: 1, Reaction: domainreaction.Like}
-	svc := NewService(repo, &fakePostRepo{authorID: 2}, &fakeCommentRepo{}, nil)
+	svc := NewService(repo, &fakePostRepo{authorID: 2}, &fakeCommentRepo{}, fakeAccess{}, nil)
 
 	status, err := svc.AddPostReaction(context.Background(), 10, AddReactionRequest{UserID: 1, Reaction: "like"})
 	if err != nil {
@@ -198,7 +201,7 @@ func TestAddPostReaction_UpdatesWhenDifferent(t *testing.T) {
 	repo := newFakeReactionRepo()
 	repo.postReactions[[2]int64{10, 1}] = domainreaction.PostReaction{PostID: 10, UserID: 1, Reaction: domainreaction.Like}
 	notify := &testNotifier{}
-	svc := NewService(repo, &fakePostRepo{authorID: 2}, &fakeCommentRepo{}, notify)
+	svc := NewService(repo, &fakePostRepo{authorID: 2}, &fakeCommentRepo{}, fakeAccess{}, notify)
 
 	status, err := svc.AddPostReaction(context.Background(), 10, AddReactionRequest{UserID: 1, Reaction: "dislike"})
 	if err != nil {
@@ -217,7 +220,7 @@ func TestAddPostReaction_UpdatesWhenDifferent(t *testing.T) {
 
 func TestAddPostReaction_InvalidInput(t *testing.T) {
 	repo := newFakeReactionRepo()
-	svc := NewService(repo, &fakePostRepo{}, &fakeCommentRepo{}, nil)
+	svc := NewService(repo, &fakePostRepo{}, &fakeCommentRepo{}, fakeAccess{}, nil)
 
 	if _, err := svc.AddPostReaction(context.Background(), 10, AddReactionRequest{UserID: 0, Reaction: "like"}); err == nil {
 		t.Fatalf("expected error for invalid user")
@@ -230,7 +233,7 @@ func TestAddPostReaction_InvalidInput(t *testing.T) {
 func TestAddCommentReaction_RemovesWhenSame(t *testing.T) {
 	repo := newFakeReactionRepo()
 	repo.commentReactions[[2]int64{20, 1}] = domainreaction.CommentReaction{CommentID: 20, UserID: 1, Reaction: domainreaction.Dislike}
-	svc := NewService(repo, &fakePostRepo{}, &fakeCommentRepo{authorID: 3}, nil)
+	svc := NewService(repo, &fakePostRepo{}, &fakeCommentRepo{authorID: 3}, fakeAccess{}, nil)
 
 	status, err := svc.AddCommentReaction(context.Background(), 20, AddReactionRequest{UserID: 1, Reaction: "dislike"})
 	if err != nil {
@@ -247,7 +250,7 @@ func TestAddCommentReaction_RemovesWhenSame(t *testing.T) {
 func TestAddCommentReaction_DoesNotNotifySelf(t *testing.T) {
 	repo := newFakeReactionRepo()
 	notify := &testNotifier{}
-	svc := NewService(repo, &fakePostRepo{}, &fakeCommentRepo{authorID: 1}, notify)
+	svc := NewService(repo, &fakePostRepo{}, &fakeCommentRepo{authorID: 1}, fakeAccess{}, notify)
 
 	_, err := svc.AddCommentReaction(context.Background(), 20, AddReactionRequest{UserID: 1, Reaction: "like"})
 	if err != nil {
@@ -262,7 +265,7 @@ func TestGetPostReactions_Maps(t *testing.T) {
 	repo := newFakeReactionRepo()
 	repo.postReactions[[2]int64{10, 1}] = domainreaction.PostReaction{PostID: 10, UserID: 1, Reaction: domainreaction.Like}
 	repo.postReactions[[2]int64{10, 2}] = domainreaction.PostReaction{PostID: 10, UserID: 2, Reaction: domainreaction.Dislike}
-	svc := NewService(repo, nil, nil, nil)
+	svc := NewService(repo, nil, nil, fakeAccess{}, nil)
 
 	reactions, err := svc.GetPostReactions(context.Background(), 10)
 	if err != nil {
@@ -276,7 +279,7 @@ func TestGetPostReactions_Maps(t *testing.T) {
 func TestGetCommentReactions_Maps(t *testing.T) {
 	repo := newFakeReactionRepo()
 	repo.commentReactions[[2]int64{20, 1}] = domainreaction.CommentReaction{CommentID: 20, UserID: 1, Reaction: domainreaction.Like}
-	svc := NewService(repo, nil, nil, nil)
+	svc := NewService(repo, nil, nil, fakeAccess{}, nil)
 
 	reactions, err := svc.GetCommentReactions(context.Background(), 20)
 	if err != nil {

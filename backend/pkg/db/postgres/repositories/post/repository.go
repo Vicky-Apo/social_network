@@ -60,7 +60,9 @@ func scanPost(scanner rowScanner) (domainpost.Post, error) {
 // List returns all posts ordered by creation time (newest first).
 func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +
-		"WHERE p.group_id IS NULL AND " + visibilityWhereForFeed(1) + "\n" +
+		"LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $1\n" +
+		"WHERE (p.group_id IS NULL AND " + visibilityWhereForFeed(1) + ")\n" +
+		"   OR (p.group_id IS NOT NULL AND gm.user_id IS NOT NULL)\n" +
 		"ORDER BY p.created_at DESC\n" +
 		"LIMIT $2 OFFSET $3"
 	rows, err := r.db.QueryContext(ctx, query, viewerID, limit, offset)
@@ -108,8 +110,8 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, er
 	return p, nil
 }
 
-// Create inserts a new post and optional categories.
-func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryIDs []int64, allowedUserIDs []int64) (domainpost.Post, error) {
+// Create inserts a new post.
+func (r *Repository) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
@@ -136,21 +138,6 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, categoryI
 		&post.UpdatedAt,
 	); err != nil {
 		return domainpost.Post{}, fmt.Errorf("create post: %w", err)
-	}
-
-	if len(categoryIDs) > 0 {
-		const catQuery = `
-			INSERT INTO post_categories (post_id, category_id)
-			VALUES ($1, $2)
-		`
-		for _, categoryID := range categoryIDs {
-			if categoryID <= 0 {
-				return domainpost.Post{}, fmt.Errorf("invalid category id")
-			}
-			if _, err = tx.ExecContext(ctx, catQuery, post.ID, categoryID); err != nil {
-				return domainpost.Post{}, fmt.Errorf("insert post category: %w", err)
-			}
-		}
 	}
 
 	if len(allowedUserIDs) > 0 {
@@ -201,34 +188,6 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("list posts by author: %w", err)
-	}
-	return posts, nil
-}
-
-// ListByCategory returns posts for a category with pagination.
-func (r *Repository) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
-	query := baseSelect() + "\n" + baseFrom() + "\n" +
-		"JOIN post_categories pc ON pc.post_id = p.id\n" +
-		baseJoins(2) + "\n" +
-		"WHERE p.group_id IS NULL AND pc.category_id = $1 AND " + visibilityWhereForFeed(2) + "\n" +
-		"ORDER BY p.created_at DESC\n" +
-		"LIMIT $3 OFFSET $4"
-	rows, err := r.db.QueryContext(ctx, query, categoryID, viewerID, limit, offset)
-	if err != nil {
-		return nil, fmt.Errorf("list posts by category: %w", err)
-	}
-	defer rows.Close()
-
-	var posts []domainpost.Post
-	for rows.Next() {
-		p, err := scanPost(rows)
-		if err != nil {
-			return nil, fmt.Errorf("scan post: %w", err)
-		}
-		posts = append(posts, p)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list posts by category: %w", err)
 	}
 	return posts, nil
 }

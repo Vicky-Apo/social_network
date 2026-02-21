@@ -1,0 +1,14 @@
+Modules in DOCS/modules:
+
+auth.md
+chat.md
+comments-reactions.md
+events.md
+follow.md
+groups.md
+notifications.md
+posts.md
+profile.md
+uploads.md
+users.md
+

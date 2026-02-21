@@ -161,7 +161,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	accessService := accessusecase.NewService(userRepository, followRepository, postRepository, groupRepository, log)
 	postService := postusecase.NewService(postRepository, userRepository, accessService, log)
 	commentService := commentusecase.NewService(commentRepository, postRepository, accessService, notificationService)
-	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, notificationService)
+	reactionService := reactionusecase.NewService(reactionRepository, postRepository, commentRepository, accessService, notificationService)
 	profileService := profileusecase.NewService(userRepository, accessService)
 	followService := followusecase.NewService(userRepository, followRepository, notificationService)
 	userService := userusecase.NewService(userRepository)
@@ -302,7 +302,6 @@ func cleanupTables(t *testing.T, db *sql.DB) {
 		"group_invitations",
 		"group_members",
 		"groups",
-		"post_categories",
 		"post_allowed_users",
 		"comment_reactions",
 		"comments",

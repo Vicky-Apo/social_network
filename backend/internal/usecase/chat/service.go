@@ -199,9 +199,9 @@ func (s *Service) GetConversationMessages(ctx context.Context, userID, conversat
 	return dtos, nil
 }
 
-// ListConversations returns all conversations for a user.
-func (s *Service) ListConversations(ctx context.Context, userID int64) ([]ConversationDTO, error) {
-	conversations, err := s.chatRepo.ListUserConversations(ctx, userID)
+// ListConversations returns conversations for a user with pagination.
+func (s *Service) ListConversations(ctx context.Context, userID int64, limit, offset int) ([]ConversationDTO, error) {
+	conversations, err := s.chatRepo.ListUserConversations(ctx, userID, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list conversations: %w", err)
 	}

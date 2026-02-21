@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	domaingroup "social-network/backend/internal/domain/group"
 	domainpost "social-network/backend/internal/domain/post"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
@@ -35,23 +36,6 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	viewerID, _ := middleware.GetUserID(r.Context())
-
-	if rawCategory := r.URL.Query().Get("category_id"); rawCategory != "" {
-		categoryID, err := strconv.ParseInt(rawCategory, 10, 64)
-		if err != nil || categoryID <= 0 {
-			logBadRequest(h.log, "posts.list", logger.F("category_id", rawCategory))
-			utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidCategoryID)
-			return
-		}
-		posts, err := h.service.ListByCategory(r.Context(), categoryID, viewerID, limit, offset)
-		if err != nil {
-			logServerError(h.log, "posts.list", err, logger.F("category_id", categoryID))
-			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
-			return
-		}
-		utils.RespondWithSuccess(w, http.StatusOK, posts)
-		return
-	}
 
 	if rawAuthor := r.URL.Query().Get("author_id"); rawAuthor != "" {
 		authorID, err := strconv.ParseInt(rawAuthor, 10, 64)
@@ -105,6 +89,11 @@ func (h *PostHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
 			return
 		}
+		if errors.Is(err, domaingroup.ErrGroupNotFound) {
+			logNotFound(h.log, "posts.list_by_group", logger.F("group_id", groupID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgGroupNotFound)
+			return
+		}
 		logServerError(h.log, "posts.list_by_group", err, logger.F("group_id", groupID))
 		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		return
@@ -143,6 +132,11 @@ func (h *PostHandler) CreateInGroup(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, usecasepost.ErrForbidden) {
 			logForbidden(h.log, "posts.create_in_group", logger.F("group_id", groupID), logger.F("author_id", authorID))
 			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		if errors.Is(err, domaingroup.ErrGroupNotFound) {
+			logNotFound(h.log, "posts.create_in_group", logger.F("group_id", groupID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgGroupNotFound)
 			return
 		}
 		logBadRequest(h.log, "posts.create_in_group", logger.F("author_id", authorID), logger.F("error", err.Error()))

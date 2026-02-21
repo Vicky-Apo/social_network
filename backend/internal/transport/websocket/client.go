@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -37,6 +38,10 @@ type Client struct {
 	chatService ChatService
 	limiter     MessageRateLimiter
 	log         logger.Logger
+
+	typingMu     sync.Mutex
+	typingTimers map[int64]*time.Timer // conversation_id -> timer
+	closed       bool
 }
 
 // NewClient creates a new Client instance.
@@ -49,6 +54,7 @@ func NewClient(hub *Hub, conn *websocket.Conn, userID int64, chatService ChatSer
 		chatService: chatService,
 		limiter:     limiter,
 		log:         log.WithFields(logger.F("user_id", userID)),
+		typingTimers: make(map[int64]*time.Timer),
 	}
 }
 
@@ -57,6 +63,7 @@ func (c *Client) readPump() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	defer func() {
+		c.clearTypingStates()
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
@@ -237,6 +244,85 @@ func (c *Client) handleTypingIndicator(ctx context.Context, payload json.RawMess
 		logger.F("is_typing", typingPayload.IsTyping),
 		logger.F("recipients", len(recipientIDs)),
 	)
+
+	c.trackTypingTimeout(typingPayload.ConversationID, typingPayload.IsTyping)
+}
+
+func (c *Client) trackTypingTimeout(conversationID int64, isTyping bool) {
+	c.typingMu.Lock()
+	defer c.typingMu.Unlock()
+
+	if c.closed {
+		return
+	}
+
+	if !isTyping {
+		if t, ok := c.typingTimers[conversationID]; ok {
+			t.Stop()
+			delete(c.typingTimers, conversationID)
+		}
+		return
+	}
+
+	if t, ok := c.typingTimers[conversationID]; ok {
+		t.Stop()
+	}
+
+	c.typingTimers[conversationID] = time.AfterFunc(5*time.Second, func() {
+		c.typingMu.Lock()
+		if c.closed {
+			c.typingMu.Unlock()
+			return
+		}
+		delete(c.typingTimers, conversationID)
+		c.typingMu.Unlock()
+
+		recipientIDs, err := c.chatService.GetConversationRecipients(context.Background(), c.userID, conversationID)
+		if err != nil {
+			return
+		}
+		typingData, err := NewWSMessage(MessageTypeTyping, TypingIndicatorPayload{
+			ConversationID: conversationID,
+			UserID:         c.userID,
+			IsTyping:       false,
+		})
+		if err != nil {
+			return
+		}
+		c.hub.SendToUsers(recipientIDs, typingData)
+	})
+}
+
+func (c *Client) clearTypingStates() {
+	c.typingMu.Lock()
+	if c.closed {
+		c.typingMu.Unlock()
+		return
+	}
+	c.closed = true
+	conversations := make([]int64, 0, len(c.typingTimers))
+	for convID, t := range c.typingTimers {
+		t.Stop()
+		conversations = append(conversations, convID)
+	}
+	c.typingTimers = make(map[int64]*time.Timer)
+	c.typingMu.Unlock()
+
+	for _, convID := range conversations {
+		recipientIDs, err := c.chatService.GetConversationRecipients(context.Background(), c.userID, convID)
+		if err != nil {
+			continue
+		}
+		typingData, err := NewWSMessage(MessageTypeTyping, TypingIndicatorPayload{
+			ConversationID: convID,
+			UserID:         c.userID,
+			IsTyping:       false,
+		})
+		if err != nil {
+			continue
+		}
+		c.hub.SendToUsers(recipientIDs, typingData)
+	}
 }
 
 // handleMarkRead processes a mark-as-read request.

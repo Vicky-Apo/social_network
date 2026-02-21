@@ -13,13 +13,24 @@ All user endpoints require a valid session cookie. Use `credentials: "include"` 
 
 ## Endpoints
 
-### List users (optional search)
+### List users (optional search + pagination)
 
 `GET /users`
 
 Search:
 
 `GET /users?q=jo`
+
+Pagination:
+
+`GET /users?limit=20&offset=0`
+
+`GET /users?q=jo&limit=20&offset=0`
+
+Notes:
+- All users are returned, including private users.
+- Results are always limited to lightweight fields (id/name/avatar/nickname).
+- The current user is not included in the results.
 
 Response (200):
 
@@ -39,6 +50,11 @@ Response (200):
 ```
 
 Searches `first_name`, `last_name`, and `nickname` (case-insensitive).
+
+Error responses:
+- `400 Bad Request` - Invalid pagination parameters
+- `401 Unauthorized` - Not logged in or invalid session
+- `500 Internal Server Error` - Failed to list users
 
 Response (200):
 
@@ -62,18 +78,21 @@ Response (200):
 ```ts
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-export async function listUsers() {
-  const res = await fetch(`${API_BASE}/users`, {
+export async function listUsers(limit = 20, offset = 0) {
+  const res = await fetch(`${API_BASE}/users?limit=${limit}&offset=${offset}`, {
     credentials: "include",
   });
   if (!res.ok) throw new Error("List users failed");
   return res.json();
 }
 
-export async function searchUsers(query: string) {
-  const res = await fetch(`${API_BASE}/users?q=${encodeURIComponent(query)}`, {
-    credentials: "include",
-  });
+export async function searchUsers(query: string, limit = 20, offset = 0) {
+  const res = await fetch(
+    `${API_BASE}/users?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,
+    {
+      credentials: "include",
+    }
+  );
   if (!res.ok) throw new Error("Search users failed");
   return res.json();
 }

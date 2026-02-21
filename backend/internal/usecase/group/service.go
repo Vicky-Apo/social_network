@@ -229,6 +229,9 @@ func (s *Service) UpdateInvitation(ctx context.Context, invitationID, actorID in
 
 // RequestJoin creates a join request for a group.
 func (s *Service) RequestJoin(ctx context.Context, groupID, userID int64) (GroupJoinRequestDTO, error) {
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return GroupJoinRequestDTO{}, err
+	}
 	isMember, err := s.groupRepo.IsMember(ctx, groupID, userID)
 	if err != nil {
 		return GroupJoinRequestDTO{}, fmt.Errorf("check member: %w", err)

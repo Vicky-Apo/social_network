@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
+	domaincomment "social-network/backend/internal/domain/comment"
+	domainpost "social-network/backend/internal/domain/post"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
 	usecasereaction "social-network/backend/internal/usecase/reaction"
@@ -53,8 +56,17 @@ func (h *ReactionHandler) AddPostReaction(w http.ResponseWriter, r *http.Request
 
 	status, err := h.service.AddPostReaction(r.Context(), postID, req)
 	if err != nil {
-		logBadRequest(h.log, "reactions.post.toggle", logger.F("post_id", postID), logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		switch {
+		case errors.Is(err, usecasereaction.ErrForbidden):
+			logForbidden(h.log, "reactions.post.toggle", logger.F("post_id", postID), logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+		case errors.Is(err, domainpost.ErrNotFound):
+			logNotFound(h.log, "reactions.post.toggle", logger.F("post_id", postID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
+		default:
+			logBadRequest(h.log, "reactions.post.toggle", logger.F("post_id", postID), logger.F("error", err.Error()))
+			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 
@@ -72,10 +84,26 @@ func (h *ReactionHandler) GetPostReactions(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	reactions, err := h.service.GetPostReactions(r.Context(), postID)
+	viewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "reactions.post.list")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	reactions, err := h.service.GetPostReactionsForViewer(r.Context(), viewerID, postID)
 	if err != nil {
-		logServerError(h.log, "reactions.post.list", err, logger.F("post_id", postID))
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		switch {
+		case errors.Is(err, usecasereaction.ErrForbidden):
+			logForbidden(h.log, "reactions.post.list", logger.F("post_id", postID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+		case errors.Is(err, domainpost.ErrNotFound):
+			logNotFound(h.log, "reactions.post.list", logger.F("post_id", postID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
+		default:
+			logServerError(h.log, "reactions.post.list", err, logger.F("post_id", postID))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		}
 		return
 	}
 
@@ -100,10 +128,27 @@ func (h *ReactionHandler) AddCommentReaction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "reactions.comment.toggle")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+	req.UserID = userID
+
 	status, err := h.service.AddCommentReaction(r.Context(), commentID, req)
 	if err != nil {
-		logBadRequest(h.log, "reactions.comment.toggle", logger.F("comment_id", commentID), logger.F("error", err.Error()))
-		utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		switch {
+		case errors.Is(err, usecasereaction.ErrForbidden):
+			logForbidden(h.log, "reactions.comment.toggle", logger.F("comment_id", commentID), logger.F("user_id", userID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+		case errors.Is(err, domaincomment.ErrNotFound):
+			logNotFound(h.log, "reactions.comment.toggle", logger.F("comment_id", commentID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+		default:
+			logBadRequest(h.log, "reactions.comment.toggle", logger.F("comment_id", commentID), logger.F("error", err.Error()))
+			utils.RespondWithError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 
@@ -121,10 +166,26 @@ func (h *ReactionHandler) GetCommentReactions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	reactions, err := h.service.GetCommentReactions(r.Context(), commentID)
+	viewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "reactions.comment.list")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	reactions, err := h.service.GetCommentReactionsForViewer(r.Context(), viewerID, commentID)
 	if err != nil {
-		logServerError(h.log, "reactions.comment.list", err, logger.F("comment_id", commentID))
-		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		switch {
+		case errors.Is(err, usecasereaction.ErrForbidden):
+			logForbidden(h.log, "reactions.comment.list", logger.F("comment_id", commentID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+		case errors.Is(err, domaincomment.ErrNotFound):
+			logNotFound(h.log, "reactions.comment.list", logger.F("comment_id", commentID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+		default:
+			logServerError(h.log, "reactions.comment.list", err, logger.F("comment_id", commentID))
+			utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		}
 		return
 	}
 
