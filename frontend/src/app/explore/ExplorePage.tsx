@@ -136,7 +136,7 @@ export default function ExplorePage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <BrandMark label={landingData.productName} size="sm" />
+            <BrandMark label={landingData.productName} size="sm" logoSrc="/vybez-logo-v2.png" />
             <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
           </div>
 
@@ -147,7 +147,7 @@ export default function ExplorePage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search explore feed..."
-              className="h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
+              className="h-11 w-full rounded-sm border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
             />
           </div>
 
@@ -165,7 +165,7 @@ export default function ExplorePage() {
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-        <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Explore</h1>
@@ -183,15 +183,15 @@ export default function ExplorePage() {
 
         <div className="mt-5">
           {isLoading ? (
-            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+            <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
               Loading explore feed...
             </article>
           ) : error ? (
-            <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+            <article className="rounded-sm border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
               {error}
             </article>
           ) : filtered.length === 0 ? (
-            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+            <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
               No posts to show yet.
             </article>
           ) : (
@@ -199,7 +199,7 @@ export default function ExplorePage() {
               {filtered.map((post) => (
                 <article
                   key={post.id}
-                  className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <Link href={`/posts/${post.id}`} className="block">
                     <div className="p-4">
@@ -225,7 +225,7 @@ export default function ExplorePage() {
                       </p>
 
                       {post.media_path ? (
-                        <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200">
+                        <div className="mt-3 overflow-hidden rounded-sm border border-neutral-200">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={post.media_path}

@@ -52,14 +52,14 @@ export function Workflow() {
           return (
             <article
               key={step.title}
-              className="group rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+              className="group rounded-sm border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-neutral-900 text-white">
+              <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-sm bg-neutral-900 text-white">
                 <Icon className="h-5 w-5" />
               </div>
               <h3 className="text-xl font-semibold tracking-tight text-neutral-900">{step.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-neutral-600">{step.description}</p>
-              <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-200/80">
+              <div className="mt-5 overflow-hidden rounded-sm border border-neutral-200/80">
                 <Image
                   src={createThumb(step)}
                   alt={`${step.title} illustration`}

@@ -237,7 +237,7 @@ export default function PostPage({ postId }: { postId: number }) {
             Back
           </button>
           <Link href="/explore" className="ml-auto inline-flex items-center gap-2">
-            <BrandMark label={landingData.productName} size="sm" />
+            <BrandMark label={landingData.productName} size="sm" logoSrc="/vybez-logo-v2.png" />
             <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
           </Link>
         </div>
@@ -245,16 +245,16 @@ export default function PostPage({ postId }: { postId: number }) {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
         {isLoading ? (
-          <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+          <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
             Loading post...
           </article>
         ) : error ? (
-          <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+          <article className="rounded-sm border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
             {error}
           </article>
         ) : post ? (
           <div className="space-y-5">
-            <article className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <article className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
               <header className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
@@ -275,7 +275,7 @@ export default function PostPage({ postId }: { postId: number }) {
               <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
 
               {post.mediaUrl ? (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200">
+                <div className="mt-4 overflow-hidden rounded-sm border border-neutral-200">
                   <img src={post.mediaUrl} alt="Post media" className="h-72 w-full object-cover" />
                 </div>
               ) : null}
@@ -286,7 +286,7 @@ export default function PostPage({ postId }: { postId: number }) {
                   onClick={() => void reactToPost("like")}
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                     postReaction === "like"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-brand-primary/15 text-brand-primary"
                       : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                   }`}
                 >
@@ -312,7 +312,7 @@ export default function PostPage({ postId }: { postId: number }) {
               </footer>
             </article>
 
-            <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <section className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
               <h2 className="text-sm font-semibold text-neutral-900">Comments</h2>
 
               <div className="mt-4 flex gap-2">
@@ -320,13 +320,13 @@ export default function PostPage({ postId }: { postId: number }) {
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
                   placeholder="Write a comment..."
-                  className="h-10 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm outline-none transition focus:border-neutral-400"
+                  className="h-10 flex-1 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-sm outline-none transition focus:border-neutral-400"
                 />
                 <button
                   type="button"
                   onClick={submitComment}
                   disabled={isCommenting}
-                  className="brand-gradient inline-flex items-center gap-2 rounded-xl px-4 text-sm font-semibold text-white disabled:opacity-70"
+                  className="brand-gradient inline-flex items-center gap-2 rounded-sm px-4 text-sm font-semibold text-white disabled:opacity-70"
                 >
                   <Send className="h-4 w-4" />
                   {isCommenting ? "Sending" : "Post"}
@@ -339,7 +339,7 @@ export default function PostPage({ postId }: { postId: number }) {
                   <p className="text-sm text-neutral-600">No comments yet.</p>
                 ) : (
                   comments.map((comment) => (
-                    <article key={comment.id} className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+                    <article key={comment.id} className="rounded-sm border border-neutral-200 bg-neutral-50 p-3">
                       <p className="text-sm text-neutral-700">{comment.content}</p>
                       <p className="mt-2 text-xs text-neutral-500">{shortDate(comment.createdAt)}</p>
                     </article>

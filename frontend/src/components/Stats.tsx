@@ -52,9 +52,9 @@ export function Stats() {
           return (
             <article
               key={metric.label}
-              className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
+              className="rounded-sm border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-neutral-100 text-neutral-800">
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-sm bg-neutral-100 text-neutral-800">
                 <Icon className="h-5 w-5" />
               </div>
               <p className="text-4xl font-semibold tracking-tight text-neutral-900">

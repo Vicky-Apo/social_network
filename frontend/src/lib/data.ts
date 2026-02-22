@@ -30,21 +30,51 @@ export type ArticleItem = {
   href: string;
 };
 
+/** Short feature item for landing "what you can do" strip */
+export type LandingFeature = {
+  label: string;
+  description: string;
+  icon: "feed" | "profile" | "groups" | "chat" | "notifications";
+};
+
 export const landingData = {
   productName: "Vybez",
   taglineSmall: "EST. 2026",
-  heroHeadline: "The heartbeat of community ideas",
+  heroHeadline: "Connect. Share. Stay close.",
   heroSubtext:
-    "Build a place where people connect, share stories, and keep conversations meaningful.",
-  ctaPrimary: "Join Vybez",
-  ctaSecondary: "Explore topics",
+    "Your feed, your people, your groups. Post, chat, and keep the conversation going—all in one place.",
+  /** Hero: Your Circle + value prop */
+  heroSlogan: {
+    line1: "Your Circle",
+    line2: "This isn’t just another social app.",
+    line3: "It’s your digital house, where you can share, chat, connect, and actually feel seen.",
+  },
+  ctaPrimary: "Create account",
+  ctaSecondary: "See what’s inside",
   ctaUrl: "/register",
-  navItems: [
-    { label: "Workflow", href: "#workflow" },
-    { label: "Statistics", href: "#statistics" },
-    { label: "Testimonials", href: "#testimonials" },
-    { label: "Articles", href: "#articles" },
-  ] satisfies NavItem[],
+  /** Empty = no middle nav (social network: just logo + Login + Register) */
+  navItems: [] satisfies NavItem[],
+  /** Strip shown under hero on landing (social network features) */
+  landingFeatures: [
+    { label: "Feed", description: "Posts from people you follow", icon: "feed" as const },
+    { label: "Profile", description: "Your page, your way", icon: "profile" as const },
+    { label: "Groups", description: "Communities and events", icon: "groups" as const },
+    { label: "Chat", description: "DMs and group chats", icon: "chat" as const },
+    { label: "Notifications", description: "Never miss a beat", icon: "notifications" as const },
+  ] satisfies LandingFeature[],
+  ctaBand: {
+    title: "Join Vybez today",
+    description: "Sign up in seconds. Start sharing, following, and chatting with people who matter.",
+    buttonLabel: "Create account",
+    href: "/register",
+  },
+  footer: {
+    description: "A place to connect, share, and stay close. Your social network, your way.",
+    productLinks: ["Feed", "Groups", "Chat", "Explore"],
+    legalLinks: ["Privacy", "Terms"],
+    supportLinks: ["Help", "Contact"],
+  },
+  // Legacy keys kept for any remaining references (can remove when unused)
   workflow: {
     label: "Our workflow",
     title: "Build stronger discussions with a clear collaboration flow",
@@ -109,13 +139,6 @@ export const landingData = {
         icon: "globe",
       },
     ] satisfies StatMetric[],
-  },
-  ctaBand: {
-    title: "Ready to grow your Vybez community?",
-    description:
-      "Launch structured discussions, keep members engaged, and scale your community experience with confidence.",
-    buttonLabel: "Join Vybez",
-    href: "/register",
   },
   testimonials: {
     title: "What community teams say",
@@ -194,12 +217,5 @@ export const landingData = {
         href: "#",
       },
     ] satisfies ArticleItem[],
-  },
-  footer: {
-    description:
-      "A modern platform for thoughtful forums, member-led conversations, and healthy community growth.",
-    productLinks: ["Features", "Workflow", "Integrations", "Pricing"],
-    companyLinks: ["About", "Careers", "Contact", "Press"],
-    resourceLinks: ["Documentation", "Guides", "Help Center", "Status"],
   },
 };

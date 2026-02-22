@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { landingData } from "@/lib/data";
 import { apiJson } from "@/lib/api";
 
@@ -30,6 +32,12 @@ const initialFormData: FormState = {
   nickname: "",
   about: "",
 };
+
+const inputClass =
+  "h-12 w-full rounded-sm border border-white/30 bg-white/5 px-4 text-sm text-white placeholder:text-white/50 transition focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2b2929]";
+
+const textareaClass =
+  "w-full resize-none rounded-sm border border-white/30 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/50 transition focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2b2929]";
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState<FormState>(initialFormData);
@@ -59,12 +67,8 @@ export default function RegisterPage() {
   const validateForm = (data: FormState) => {
     const nextErrors: FormErrors = {};
 
-    if (!data.firstName.trim()) {
-      nextErrors.firstName = "First name is required.";
-    }
-    if (!data.lastName.trim()) {
-      nextErrors.lastName = "Last name is required.";
-    }
+    if (!data.firstName.trim()) nextErrors.firstName = "First name is required.";
+    if (!data.lastName.trim()) nextErrors.lastName = "Last name is required.";
     if (!data.email.trim()) {
       nextErrors.email = "Email is required.";
     } else if (!/^\S+@\S+\.\S+$/.test(data.email)) {
@@ -80,9 +84,7 @@ export default function RegisterPage() {
     } else if (data.password !== data.confirmPassword) {
       nextErrors.confirmPassword = "Passwords do not match.";
     }
-    if (!data.dob) {
-      nextErrors.dob = "Date of birth is required.";
-    }
+    if (!data.dob) nextErrors.dob = "Date of birth is required.";
 
     return nextErrors;
   };
@@ -111,18 +113,14 @@ export default function RegisterPage() {
       first_name: formData.firstName.trim(),
       last_name: formData.lastName.trim(),
       date_of_birth: dateOfBirth,
-      ...(formData.nickname.trim()
-        ? { nickname: formData.nickname.trim() }
-        : {}),
+      ...(formData.nickname.trim() ? { nickname: formData.nickname.trim() } : {}),
       ...(formData.about.trim() ? { about: formData.about.trim() } : {}),
     };
 
     try {
       const response = await apiJson(apiBaseUrl, "/auth/register", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -135,35 +133,48 @@ export default function RegisterPage() {
 
       setFormData(initialFormData);
       setIsSuccess(true);
-      setTimeout(() => {
-        router.push("/login");
-      }, 700);
+      setTimeout(() => router.push("/login"), 700);
     } catch {
-      setErrors({
-        submit: "Network error. Please try again.",
-      });
+      setErrors({ submit: "Network error. Please try again." });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-neutral-50 text-neutral-900">
-      <div className="pointer-events-none absolute -left-24 top-8 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 top-16 h-80 w-80 rounded-full bg-emerald-200/35 blur-3xl" />
+    <div className="min-h-screen bg-[#2b2929] text-neutral-900">
+      <Navbar />
 
-      <main className="mx-auto w-full max-w-3xl px-4 py-20 sm:px-6">
-        <section className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_35px_80px_-50px_rgba(2,6,23,0.45)] sm:p-8">
-          <p className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600">
-            <Sparkles className="h-3.5 w-3.5" />
-            Create account
-          </p>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-neutral-900">
-            Join {landingData.productName}
-          </h1>
-          <p className="mt-2 text-sm text-neutral-600">
-            Set up your profile and start participating in high-quality discussions.
-          </p>
+      <main className="relative mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl flex-col items-center justify-center overflow-hidden px-4 py-24 sm:px-6 sm:py-28">
+        <Image
+          src="/register-bg.png"
+          alt=""
+          fill
+          className="object-cover object-center opacity-90"
+          sizes="100vw"
+        />
+        <div className="absolute inset-0 bg-[#2b2929]/70" />
+        <section className="relative z-10 w-full max-w-md rounded-sm border border-white/10 bg-[#2b2929]/40 p-8 backdrop-blur-sm sm:p-10">
+          <header className="text-center">
+            <Link
+              href="/"
+              className="mx-auto flex w-full justify-center rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929]"
+            >
+              <Image
+                src="/vybez-logo-v2.png"
+                alt={landingData.productName}
+                width={200}
+                height={80}
+                className="h-14 w-auto sm:h-16"
+              />
+            </Link>
+            <h1 className="mt-8 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+              Join {landingData.productName}
+            </h1>
+            <p className="mt-2 text-sm text-white/70">
+              Set up your profile and start connecting.
+            </p>
+          </header>
 
           <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -233,12 +244,12 @@ export default function RegisterPage() {
                 label="Nickname (optional)"
                 value={formData.nickname}
                 onChange={handleInputChange}
-                placeholder="Preferred display name"
+                placeholder="Display name"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="about" className="text-sm font-semibold text-neutral-700">
+              <label htmlFor="about" className="text-sm font-medium text-white/90">
                 About (optional)
               </label>
               <textarea
@@ -247,39 +258,42 @@ export default function RegisterPage() {
                 onChange={handleInputChange}
                 rows={3}
                 placeholder="Tell the community about your interests..."
-                className="w-full resize-none rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/30"
+                className={textareaClass}
               />
             </div>
 
             <button
               type="submit"
-              className="brand-gradient group inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
               disabled={isSubmitting}
+              className="btn-3d-outer w-full disabled:pointer-events-none disabled:opacity-60"
             >
-              <span>{isSubmitting ? "Creating account..." : "Create account"}</span>
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <span className="btn-3d-inner flex h-12 w-full min-w-0 items-center justify-center bg-white px-6 font-semibold text-neutral-900">
+                {isSubmitting ? "Creating account…" : "Create account"}
+              </span>
             </button>
 
             {errors.submit ? (
-              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <p className="rounded-sm border border-rose-500/50 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
                 {errors.submit}
               </p>
             ) : null}
             {isSuccess ? (
-              <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                Account created successfully. Redirecting to login...
+              <p className="rounded-sm border border-white/30 bg-white/10 px-4 py-3 text-sm text-white/95">
+                Account created. Redirecting to login…
               </p>
             ) : null}
           </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-600">
+          <p className="mt-6 text-center text-sm text-white/70">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-neutral-900 hover:underline">
+            <Link href="/login" className="font-semibold text-white underline-offset-2 hover:underline">
               Sign in
             </Link>
           </p>
         </section>
       </main>
+
+      <Footer />
     </div>
   );
 }
@@ -299,13 +313,13 @@ function Field({
   type?: string;
   placeholder?: string;
   value: string;
-  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   error?: string;
   autoComplete?: string;
 }) {
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="text-sm font-semibold text-neutral-700">
+      <label htmlFor={id} className="text-sm font-medium text-white/90">
         {label}
       </label>
       <input
@@ -315,9 +329,9 @@ function Field({
         onChange={onChange}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className="h-12 w-full rounded-2xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/30"
+        className={inputClass}
       />
-      {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+      {error ? <p className="text-xs text-rose-400">{error}</p> : null}
     </div>
   );
 }

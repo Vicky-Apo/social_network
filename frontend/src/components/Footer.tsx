@@ -1,48 +1,46 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 import { landingData } from "@/lib/data";
-import { BrandMark } from "@/components/BrandMark";
 
 export function Footer() {
+  const productName = landingData.productName;
+  const { productLinks, legalLinks, supportLinks } = landingData.footer;
+  const allLinks = [...productLinks, ...legalLinks, ...supportLinks];
+
   return (
-    <footer className="border-t border-neutral-200/90 bg-white">
-      <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:px-6">
-        <div className="grid gap-10 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
-          <div>
-            <div className="inline-flex items-center gap-2">
-              <BrandMark label={landingData.productName} />
-              <span className="text-sm font-semibold">{landingData.productName}</span>
-            </div>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-neutral-600">
-              {landingData.footer.description}
-            </p>
-          </div>
+    <footer className="relative border-t border-white/10 bg-black/30 overflow-hidden">
+      {/* Gradient köşe */}
+      <div className="pointer-events-none absolute -bottom-20 -right-20 h-64 w-64 opacity-40">
+        <Image
+          src="/gradient-2.png"
+          alt=""
+          fill
+          className="object-cover"
+        />
+      </div>
 
-          <FooterColumn title="Product" links={landingData.footer.productLinks} />
-          <FooterColumn title="Company" links={landingData.footer.companyLinks} />
-          <FooterColumn title="Resources" links={landingData.footer.resourceLinks} />
-        </div>
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center gap-5 px-4 py-8 sm:px-6 md:flex-row md:justify-between md:gap-8">
+        <Link
+          href="/"
+          className="text-lg font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929]"
+        >
+          {productName}
+        </Link>
 
-        <div className="mt-10 border-t border-neutral-200 pt-6 text-sm text-neutral-500">
-          © {new Date().getFullYear()} {landingData.productName}. All rights reserved.
-        </div>
+        <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-white/70">
+          {allLinks.map((label) => (
+            <Link key={label} href="#" className="transition hover:text-white">
+              {label}
+            </Link>
+          ))}
+        </nav>
+
+        <p className="text-xs text-white/50">
+          © {new Date().getFullYear()} {productName}
+        </p>
       </div>
     </footer>
-  );
-}
-
-function FooterColumn({ title, links }: { title: string; links: string[] }) {
-  return (
-    <div>
-      <h3 className="text-sm font-semibold text-neutral-900">{title}</h3>
-      <ul className="mt-4 space-y-2.5">
-        {links.map((link) => (
-          <li key={link}>
-            <Link href="#" className="text-sm text-neutral-600 transition hover:text-neutral-900">
-              {link}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

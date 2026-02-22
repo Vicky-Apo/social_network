@@ -857,7 +857,7 @@ export default function DashboardPage() {
       <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
           <Link href="/" className="inline-flex items-center gap-2">
-            <BrandMark label={landingData.productName} size="sm" />
+            <BrandMark label={landingData.productName} size="sm" logoSrc="/vybez-logo-v2.png" />
             <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
           </Link>
 
@@ -868,7 +868,7 @@ export default function DashboardPage() {
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search posts, people, topics..."
-              className="h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
+              className="h-11 w-full rounded-sm border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
             />
           </div>
 
@@ -903,7 +903,7 @@ export default function DashboardPage() {
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
                 {user?.initials ?? "U"}
@@ -920,7 +920,7 @@ export default function DashboardPage() {
                   <Link
                     key={item.label}
                     href={item.href}
-                    className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+                    className="flex items-center gap-2 rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
@@ -944,7 +944,7 @@ export default function DashboardPage() {
                     .map((person) => (
                       <div
                         key={person.id}
-                        className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
+                        className="rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2"
                       >
                         <p className="text-xs font-semibold text-neutral-800">{person.name}</p>
                         <p className="text-[11px] text-neutral-500">@{person.handle}</p>
@@ -957,7 +957,7 @@ export default function DashboardPage() {
         </aside>
 
         <section className="space-y-5">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Dashboard</h1>
@@ -987,13 +987,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
             <textarea
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
               rows={4}
               placeholder="Share an update with Vybez..."
-              className="w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+              className="w-full resize-none rounded-sm border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <button
@@ -1016,13 +1016,13 @@ export default function DashboardPage() {
             {composerError ? <p className="mt-3 text-xs text-rose-600">{composerError}</p> : null}
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm lg:hidden">
+          <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm lg:hidden">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
                   chatConnected
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-brand-primary/15 text-brand-primary"
                     : "bg-rose-100 text-rose-700"
                 }`}
               >
@@ -1036,19 +1036,19 @@ export default function DashboardPage() {
                 value={chatRecipientID}
                 onChange={(event) => setChatRecipientID(event.target.value)}
                 placeholder="Recipient user ID"
-                className="h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                className="h-9 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
               />
               <div className="flex gap-2">
                 <input
                   value={chatDraft}
                   onChange={(event) => setChatDraft(event.target.value)}
                   placeholder="Write a direct message..."
-                  className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                  className="h-9 flex-1 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
                 />
                 <button
                   type="button"
                   onClick={sendChatMessage}
-                  className="brand-gradient rounded-xl px-3 text-xs font-semibold text-white"
+                  className="brand-gradient rounded-sm px-3 text-xs font-semibold text-white"
                 >
                   Send
                 </button>
@@ -1057,7 +1057,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
               <span>
                 {isPaging
                   ? "Loading page…"
@@ -1083,22 +1083,22 @@ export default function DashboardPage() {
               </div>
             </div>
             {isLoading && posts.length === 0 ? (
-              <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+              <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
                 Loading your feed...
               </article>
             ) : feedError ? (
-              <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+              <article className="rounded-sm border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
                 {feedError}
               </article>
             ) : posts.length === 0 ? (
-              <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+              <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
                 No posts yet. Be the first to share an update.
               </article>
             ) : (
               posts.map((post) => (
                 <article
                   key={post.id}
-                  className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                  className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm"
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
@@ -1126,7 +1126,7 @@ export default function DashboardPage() {
                   <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
 
                   {post.mediaUrl ? (
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200">
+                    <div className="mt-4 overflow-hidden rounded-sm border border-neutral-200">
                       <img src={post.mediaUrl} alt="Post media" className="h-72 w-full object-cover" />
                     </div>
                   ) : null}
@@ -1137,7 +1137,7 @@ export default function DashboardPage() {
                       onClick={() => handlePostReaction(post.id, "like")}
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                         postReactionMap[post.id] === "like"
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "bg-brand-primary/15 text-brand-primary"
                           : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                       }`}
                     >
@@ -1167,10 +1167,10 @@ export default function DashboardPage() {
                   </footer>
 
                   {commentsOpenByPost[post.id] ? (
-                    <section className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+                    <section className="mt-4 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
                       <div className="space-y-2">
                         {(commentsByPost[post.id] ?? []).map((comment) => (
-                          <article key={comment.id} className="rounded-xl bg-white p-3">
+                          <article key={comment.id} className="rounded-sm bg-white p-3">
                             <p className="text-sm text-neutral-700">{comment.content}</p>
                             <div className="mt-2 flex items-center gap-2 text-xs">
                               <button
@@ -1180,7 +1180,7 @@ export default function DashboardPage() {
                                 }
                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                   commentReactionMap[comment.id] === "like"
-                                    ? "bg-emerald-100 text-emerald-800"
+                                    ? "bg-brand-primary/15 text-brand-primary"
                                     : "bg-neutral-100 text-neutral-600"
                                 }`}
                               >
@@ -1223,12 +1223,12 @@ export default function DashboardPage() {
                             }))
                           }
                           placeholder="Write a comment..."
-                          className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                          className="h-9 flex-1 rounded-sm border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
                         />
                         <button
                           type="button"
                           onClick={() => handleCreateComment(post.id)}
-                          className="rounded-xl bg-neutral-900 px-3 text-xs font-semibold text-white"
+                          className="rounded-sm bg-neutral-900 px-3 text-xs font-semibold text-white"
                         >
                           Comment
                         </button>
@@ -1242,7 +1242,7 @@ export default function DashboardPage() {
         </section>
 
         <aside className="hidden space-y-5 md:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-neutral-900">People</h2>
             <div className="mt-3 space-y-2">
               {peopleLoading ? (
@@ -1254,7 +1254,7 @@ export default function DashboardPage() {
                   .filter((person) => person.id !== user?.id)
                   .slice(0, 8)
                   .map((person) => (
-                    <div key={`right-user-${person.id}`} className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
+                    <div key={`right-user-${person.id}`} className="rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2">
                       <p className="text-xs font-semibold text-neutral-800">{person.name}</p>
                       <p className="text-[11px] text-neutral-500">@{person.handle}</p>
                     </div>
@@ -1263,7 +1263,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900">Notifications</h2>
               <button
@@ -1285,10 +1285,10 @@ export default function DashboardPage() {
                     type="button"
                     key={item.id}
                     onClick={() => markNotificationRead(item.id)}
-                    className={`w-full rounded-2xl border px-3 py-2 text-left text-xs transition ${
+                    className={`w-full rounded-sm border px-3 py-2 text-left text-xs transition ${
                       item.isRead
                         ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                        : "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
                     }`}
                   >
                     <p className="font-semibold">{item.title}</p>
@@ -1299,13 +1299,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
                   chatConnected
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-brand-primary/15 text-brand-primary"
                     : "bg-rose-100 text-rose-700"
                 }`}
               >
@@ -1319,25 +1319,25 @@ export default function DashboardPage() {
                 value={chatRecipientID}
                 onChange={(event) => setChatRecipientID(event.target.value)}
                 placeholder="Recipient user ID"
-                className="h-9 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                className="h-9 w-full rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
               />
               <div className="flex gap-2">
                 <input
                   value={chatDraft}
                   onChange={(event) => setChatDraft(event.target.value)}
                   placeholder="Write a direct message..."
-                  className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                  className="h-9 flex-1 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
                 />
                 <button
                   type="button"
                   onClick={sendChatMessage}
-                  className="brand-gradient rounded-xl px-3 text-xs font-semibold text-white"
+                  className="brand-gradient rounded-sm px-3 text-xs font-semibold text-white"
                 >
                   Send
                 </button>
               </div>
               {chatError ? <p className="text-xs text-rose-600">{chatError}</p> : null}
-              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-2">
+              <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-2">
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
                   Recent chat messages
                 </p>
@@ -1365,11 +1365,11 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
             <h2 className="text-sm font-semibold text-neutral-900">Trending topics</h2>
             <div className="mt-4 space-y-3">
               {trends.map((item) => (
-                <article key={item.title} className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+                <article key={item.title} className="rounded-sm border border-neutral-200 bg-neutral-50 p-3">
                   <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
                   <p className="mt-1 text-xs text-neutral-600">{item.posts}</p>
                 </article>
@@ -1380,7 +1380,7 @@ export default function DashboardPage() {
       </main>
 
       {notificationsOpen ? (
-        <div className="fixed right-4 top-16 z-50 w-[320px] rounded-2xl border border-neutral-200 bg-white p-3 shadow-xl lg:hidden">
+        <div className="fixed right-4 top-16 z-50 w-[320px] rounded-sm border border-neutral-200 bg-white p-3 shadow-xl lg:hidden">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-sm font-semibold text-neutral-900">Notifications</p>
             <button
@@ -1397,10 +1397,10 @@ export default function DashboardPage() {
                 type="button"
                 key={item.id}
                 onClick={() => markNotificationRead(item.id)}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-xs ${
+                className={`w-full rounded-sm border px-3 py-2 text-left text-xs ${
                   item.isRead
                     ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                    : "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
                 }`}
               >
                 <p className="font-semibold">{item.title}</p>

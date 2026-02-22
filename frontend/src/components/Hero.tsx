@@ -1,81 +1,60 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import { Section } from "@/components/Section";
-import { MotionFloat } from "@/components/Motion";
+import { Button3D } from "@/components/Button3D";
 import { landingData } from "@/lib/data";
 
 export function Hero() {
-  const scrollToWorkflow = () => {
-    const section = document.querySelector("#workflow");
+  const scrollToFeatures = () => {
+    const section = document.querySelector("#features");
     if (!(section instanceof HTMLElement)) return;
-
     const offset = 88;
     const nextTop = section.getBoundingClientRect().top + window.scrollY - offset;
-    window.scrollTo({
-      top: Math.max(0, nextTop),
-      behavior: "smooth",
-    });
-    const cleanUrl = `${window.location.pathname}${window.location.search}`;
-    window.history.replaceState(null, "", cleanUrl);
+    window.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
   };
+
+  const { heroSlogan } = landingData;
 
   return (
     <Section id="top" className="relative overflow-hidden pt-28 md:pt-36">
-      <div className="pointer-events-none absolute -left-28 top-20 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl" />
-      <div className="pointer-events-none absolute -right-28 top-6 h-72 w-72 rounded-full bg-cyan-200/35 blur-3xl" />
-
-      <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="relative z-10">
-          <p className="mb-4 inline-flex rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600">
-            {landingData.taglineSmall}
+      <div className="relative z-10 mx-auto grid max-w-5xl gap-10 md:grid-cols-2 md:items-center md:gap-12">
+        {/* Sol: slogan + See what's inside */}
+        <div className="text-left">
+          <p className="text-2xl font-semibold tracking-tight text-white sm:text-3xl md:text-4xl">
+            {heroSlogan.line2}
           </p>
-
-          <h1 className="max-w-2xl text-balance text-4xl font-semibold tracking-tight text-neutral-900 sm:text-5xl lg:text-6xl">
-            {landingData.heroHeadline}
-          </h1>
-
-          <p className="mt-6 max-w-xl text-base leading-relaxed text-neutral-600 sm:text-lg">
-            {landingData.heroSubtext}
+          <p className="mt-3 max-w-lg text-base text-white/80 sm:text-lg md:text-xl leading-relaxed">
+            {heroSlogan.line3}
           </p>
-
-          <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Link
-              href={landingData.ctaUrl}
-              className="brand-gradient group inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
-            >
-              <span>{landingData.ctaPrimary}</span>
-              <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-            </Link>
-            <button
-              type="button"
-              onClick={scrollToWorkflow}
-              className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-6 py-3 text-sm font-semibold text-neutral-800 transition hover:-translate-y-0.5 hover:border-neutral-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
-            >
-              {landingData.ctaSecondary}
-            </button>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <Button3D variant="secondary" onClick={scrollToFeatures}>
+              See what’s inside
+            </Button3D>
+            <Button3D variant="primary" href={landingData.ctaUrl}>
+              {landingData.ctaPrimary}
+            </Button3D>
           </div>
         </div>
 
-        <MotionFloat className="relative">
-          <div className="brand-gradient-soft rounded-[2rem] border border-white/60 p-3 shadow-[0_30px_70px_-35px_rgba(15,23,42,0.45)]">
-            <div className="rounded-[1.6rem] border border-neutral-200/80 bg-white p-5">
-              <div className="mb-5 flex items-center justify-between">
-                <span className="h-2.5 w-20 rounded-full bg-neutral-200" />
-                <span className="h-2.5 w-10 rounded-full bg-neutral-200" />
-              </div>
-              <div className="space-y-3">
-                <div className="h-24 rounded-2xl bg-gradient-to-r from-indigo-100 via-sky-100 to-cyan-100" />
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="h-20 rounded-2xl bg-neutral-100" />
-                  <div className="h-20 rounded-2xl bg-neutral-100" />
-                </div>
-                <div className="h-12 rounded-2xl bg-neutral-100" />
-              </div>
-            </div>
-          </div>
-        </MotionFloat>
+        {/* Sağ: logo (section'ın ~yarısı) */}
+        <div className="flex flex-col items-center justify-center">
+          <Link
+            href="/"
+            className="flex items-center justify-center rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929] h-[clamp(10rem,38vh,14rem)] w-full max-w-[18rem] md:h-[clamp(12rem,42vh,16rem)] md:max-w-[22rem]"
+          >
+            <Image
+              src="/vybez-logo-v2.png"
+              alt={landingData.productName}
+              width={352}
+              height={224}
+              className="h-full w-full object-contain object-center"
+              priority
+            />
+          </Link>
+        </div>
       </div>
     </Section>
   );

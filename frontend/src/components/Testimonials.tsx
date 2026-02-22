@@ -72,7 +72,7 @@ export function Testimonials() {
         {landingData.testimonials.items.map((item, index) => (
           <figure
             key={`${item.name}-${index}`}
-            className="group min-h-64 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
+            className="group min-h-64 rounded-sm border border-neutral-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
             style={{ scrollSnapAlign: "start" }}
           >
             <blockquote className="text-base leading-relaxed text-neutral-700">{item.quote}</blockquote>

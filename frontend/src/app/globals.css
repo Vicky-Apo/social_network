@@ -1,11 +1,26 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-primary: #00584b;
+  --color-brand-accent: #d8e267;
+  --color-brand-contrast: #f6d8f7;
+  --color-brand-light: #ffffff;
+
+  /* Typography: headings use Space Grotesk, body/UI use Plus Jakarta Sans */
+  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
   color-scheme: light;
-  --brand-mint: #d1f2eb;
-  --brand-emerald: #50c878;
-  --brand-royal: #0b6e4f;
-  --brand-evergreen: #013220;
+
+  --brand-primary: #00584b;
+
+  --brand-accent: #d8e267;
+
+  --brand-contrast: #f6d8f7;
+
+  --brand-light: #ffffff;
 }
 
 html {
@@ -16,10 +31,38 @@ body {
   min-height: 100vh;
   max-width: 100vw;
   overflow-x: hidden;
-  background:
-    radial-gradient(1200px 600px at 0% 0%, rgb(209 242 235 / 0.7), transparent 60%),
-    radial-gradient(1200px 600px at 100% 20%, rgb(80 200 120 / 0.24), transparent 55%),
-    linear-gradient(160deg, #f7fffc 0%, #edf9f4 45%, #e9f6ef 100%);
+  position: relative;
+  background-color: #2b2929;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+}
+
+/* Headings: Space Grotesk, weight 600 (700 for hero/main titles), slight negative letter-spacing for large */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 600;
+}
+h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+h2 {
+  letter-spacing: -0.02em;
+}
+h3 {
+  letter-spacing: -0.015em;
+}
+
+/* Buttons: Plus Jakarta Sans, weight 500, slightly increased letter-spacing */
+button,
+[type="button"],
+[type="submit"],
+[role="button"],
+.btn-3d-inner,
+.btn-3d-outer {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 * {
@@ -42,19 +85,49 @@ a {
 }
 
 .brand-gradient {
-  background-image: linear-gradient(135deg, var(--brand-emerald), var(--brand-royal));
-  color: #fff;
+  background-color: var(--brand-primary);
+  background-image: linear-gradient(135deg, #00584b 0%, #006b5c 100%);
+  color: var(--brand-light);
 }
 
 .brand-gradient-soft {
-  background-image: linear-gradient(140deg, rgb(80 200 120 / 0.22), rgb(11 110 79 / 0.15));
+  background-image: linear-gradient(140deg, rgb(0 88 75 / 0.08), rgb(216 226 103 / 0.12));
 }
 
 .brand-border {
-  border-color: rgb(11 110 79 / 0.24);
+  border-color: rgb(0 88 75 / 0.2);
 }
 
+/* 3D press-down button (inner span) */
+.btn-3d-inner {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  bottom: 0.25rem;
+  border-radius: 0.2rem;
+  border: 2px solid #fff;
+  box-shadow: 0 0.25rem 0 0.06rem #fff;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.btn-3d-outer:hover .btn-3d-inner,
+.btn-3d-outer:focus-within .btn-3d-inner {
+  transform: translate(0, 0.25rem);
+  box-shadow: 0 0 0 0 #fff;
+}
+.btn-3d-outer:not(:hover):not(:focus-within) .btn-3d-inner {
+  transition-duration: 0.5s;
+}
 @media (prefers-reduced-motion: reduce) {
+  .btn-3d-inner {
+    transition: none;
+  }
+  .btn-3d-outer:hover .btn-3d-inner,
+  .btn-3d-outer:focus-within .btn-3d-inner {
+    transform: none;
+    box-shadow: 0 0.25rem 0 0.06rem #fff;
+  }
+
   html {
     scroll-behavior: auto;
   }

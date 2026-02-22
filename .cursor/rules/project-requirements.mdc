@@ -1,0 +1,15 @@
+---
+description: Social network project scope and feature requirements (frontend/UI/UX)
+globs: frontend/**/*
+alwaysApply: true
+---
+
+# Project Requirements Reference
+
+When working on the **frontend** or **UI/UX** of this social network:
+
+1. **Read** `PROJECT_REQUIREMENTS.md` (project root) for the full feature list and scope.
+2. **Frontend stack:** Next.js in `frontend/`. Use Tailwind, App Router, `credentials: "include"` for API calls. See `frontend/AGENTS.md` for backend contract and conventions.
+3. **Features to implement:** Auth (register/login/logout), Followers (requests, public/private), Profile (public/private toggle), Posts (with privacy + images/GIFs), Groups (create, join, events, group chat), Notifications (on every page, distinct from chat), Chat (private DMs + group chat, WebSockets, emojis).
+4. Prioritize **responsiveness** and **performance**. Keep UI clear and consistent.
+5. **Border radius:** Use `rounded-sm` (2px) for cards, sections, inputs, and buttons—subtle, not sharp, not obviously rounded. Use `rounded-full` only for true circles (avatars, blur orbs, notification dots).

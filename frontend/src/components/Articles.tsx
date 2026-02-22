@@ -43,7 +43,7 @@ export function Articles() {
         {landingData.articles.items.map((article) => (
           <article
             key={article.title}
-            className="group overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+            className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
           >
             <Image
               src={articleThumb(article)}

@@ -1,23 +1,15 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
-import { Workflow } from "@/components/Workflow";
-import { Stats } from "@/components/Stats";
-import { CTA } from "@/components/CTA";
-import { Testimonials } from "@/components/Testimonials";
-import { Articles } from "@/components/Articles";
+import { LandingFeatures } from "@/components/LandingFeatures";
 import { Footer } from "@/components/Footer";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="min-h-screen bg-[#2b2929] text-neutral-900">
       <Navbar />
       <main>
         <Hero />
-        <Workflow />
-        <Stats />
-        <CTA />
-        <Testimonials />
-        <Articles />
+        <LandingFeatures />
       </main>
       <Footer />
     </div>
