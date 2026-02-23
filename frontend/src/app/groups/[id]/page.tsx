@@ -519,7 +519,6 @@ export default function GroupDetailsPage() {
         credentials: "include",
         body: JSON.stringify({
           reaction,
-          user_id: userID ?? 0,
         }),
       });
     } catch {
@@ -560,7 +559,6 @@ export default function GroupDetailsPage() {
         credentials: "include",
         body: JSON.stringify({
           reaction,
-          user_id: userID ?? 0,
         }),
       });
     } catch {
