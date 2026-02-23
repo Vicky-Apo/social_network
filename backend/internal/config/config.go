@@ -45,8 +45,10 @@ type SecurityHeadersConfig struct {
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Addr  string
-	Debug bool
+	Addr           string
+	Debug          bool
+	UploadDir      string
+	MaxUploadBytes int64
 }
 
 // DatabaseConfig holds database-related configuration
@@ -73,8 +75,10 @@ type AuthConfig struct {
 func Load() (*Config, error) {
 	cfg := &Config{
 		Server: ServerConfig{
-			Addr:  utils.GetString("SERVER_ADDR", ""),
-			Debug: utils.GetBool("DEBUG", false),
+			Addr:           utils.GetString("SERVER_ADDR", ""),
+			Debug:          utils.GetBool("DEBUG", false),
+			UploadDir:      utils.GetString("UPLOAD_DIR", "backend/uploads"),
+			MaxUploadBytes: int64(utils.GetInt("MAX_UPLOAD_MB", 10)) * 1024 * 1024,
 		},
 		Database: DatabaseConfig{
 			URL:            utils.GetString("DATABASE_URL", ""),
@@ -96,7 +100,7 @@ func Load() (*Config, error) {
 		},
 		CORS: CORSConfig{
 			Enabled:          utils.GetBool("CORS_ENABLED", true),
-			AllowedOrigins:   utils.GetString("CORS_ALLOWED_ORIGINS", "*"),
+			AllowedOrigins:   utils.GetString("CORS_ALLOWED_ORIGINS", "http://localhost:3000"),
 			AllowedMethods:   utils.GetString("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
 			AllowedHeaders:   utils.GetString("CORS_ALLOWED_HEADERS", "Content-Type,Authorization"),
 			AllowCredentials: utils.GetBool("CORS_ALLOW_CREDENTIALS", true),

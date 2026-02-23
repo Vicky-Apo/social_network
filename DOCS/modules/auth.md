@@ -31,6 +31,7 @@ Request body (JSON):
   "first_name": "Jane",
   "last_name": "Doe",
   "date_of_birth": "31/12/2000",
+  "avatar_path": "/uploads/avatar/jane.png",
   "nickname": "jdoe",
   "about": "Hi there"
 }
@@ -38,7 +39,7 @@ Request body (JSON):
 
 Notes:
 - `date_of_birth` format is `DD/MM/YYYY`.
-- `nickname` and `about` are optional and can be omitted or set to `null`.
+- `avatar_path`, `nickname`, and `about` are optional and can be omitted or set to `null`.
 
 Response (201):
 
@@ -51,6 +52,7 @@ Response (201):
     "first_name": "Jane",
     "last_name": "Doe",
     "date_of_birth": "31/12/2000",
+    "avatar_path": "/uploads/avatar/jane.png",
     "nickname": "jdoe",
     "about": "Hi there",
     "is_public": false,
@@ -84,19 +86,19 @@ Response (200):
       "first_name": "Jane",
       "last_name": "Doe",
       "date_of_birth": "31/12/2000",
+      "avatar_path": "/uploads/avatar/jane.png",
       "nickname": "jdoe",
       "about": "Hi there",
       "is_public": false,
       "created_at": "2025-01-24T12:34:56Z"
-    },
-    "token": "session_token_value"
+    }
   }
 }
 ```
 
 Important:
 - The cookie is the source of truth for auth.
-- The `token` field is returned, but protected endpoints do not accept Authorization headers.
+- Protected endpoints do not accept Authorization headers.
 
 ### Logout
 
@@ -130,6 +132,7 @@ Response (200):
     "first_name": "Jane",
     "last_name": "Doe",
     "date_of_birth": "31/12/2000",
+    "avatar_path": "/uploads/avatar/jane.png",
     "nickname": "jdoe",
     "about": "Hi there",
     "is_public": false,

@@ -40,7 +40,7 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 	if err := s.ensureAccess(ctx, user, viewerID); err != nil {
 		if errors.Is(err, ErrForbidden) {
 			return ProfileDTO{
-				User:           mapUserLimited(user),
+				User:           mapProfileUserLimited(user),
 				FollowersCount: nil,
 				FollowingCount: nil,
 				IsFollowing:    false,
@@ -80,7 +80,7 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 	}
 
 	return ProfileDTO{
-		User:           mapUser(user),
+		User:           mapProfileUser(user),
 		FollowersCount: &followers,
 		FollowingCount: &following,
 		IsFollowing:    isFollowing,
@@ -129,4 +129,16 @@ func (s *Service) SetVisibility(ctx context.Context, profileID, actorID int64, i
 		return err
 	}
 	return nil
+}
+
+// UpdateProfile updates nickname/about/avatar for the profile owner.
+func (s *Service) UpdateProfile(ctx context.Context, profileID, actorID int64, req UpdateProfileRequest) (UserDTO, error) {
+	if profileID != actorID {
+		return UserDTO{}, ErrForbidden
+	}
+	updated, err := s.userRepo.UpdateProfile(ctx, profileID, req.Nickname, req.About, req.AvatarPath)
+	if err != nil {
+		return UserDTO{}, err
+	}
+	return mapUser(updated), nil
 }

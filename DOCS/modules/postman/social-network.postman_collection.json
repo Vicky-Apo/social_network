@@ -2,7 +2,7 @@
   "info": {
     "name": "Social Network API",
     "_postman_id": "b6a1c54f-45fe-47f6-9c6b-7a3f5b5d9c0e",
-    "description": "Postman collection for Social Network backend (auth + follow + profile + users + posts + comments + reactions + notifications + websocket chat + health). All JSON responses use { success, data, error }.\n\n## WebSocket Chat\nThe WebSocket endpoint (`/ws`) provides real-time chat functionality:\n- Direct messages (1-on-1)\n- Group messages\n- Typing indicators\n- Multi-device support\n- Authenticated via session cookie\n\nSee the WebSocket folder for connection and message examples.",
+    "description": "Postman collection for Social Network backend (auth + follow + profile + posts + comments + reactions + groups + events + chat + uploads)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "event": [
@@ -245,36 +245,6 @@
           }
         },
         {
-          "name": "List Posts by Category",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/posts?category_id={{categoryId}}&limit={{limit}}&offset={{offset}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "posts"
-              ],
-              "query": [
-                {
-                  "key": "category_id",
-                  "value": "{{categoryId}}"
-                },
-                {
-                  "key": "limit",
-                  "value": "{{limit}}"
-                },
-                {
-                  "key": "offset",
-                  "value": "{{offset}}"
-                }
-              ]
-            }
-          }
-        },
-        {
           "name": "Get Post by ID",
           "request": {
             "method": "GET",
@@ -303,7 +273,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post.png\",\n  \"privacy\": \"public\",\n  \"category_ids\": [{{categoryId}}],\n  \"allowed_user_ids\": [{{allowedUserId}}]\n}"
+              "raw": "{\n  \"content\": \"Hello from Postman\",\n  \"media_path\": \"/uploads/post/example.png\",\n  \"privacy\": \"public\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/posts",
@@ -315,6 +285,53 @@
               ]
             }
           }
+        },
+        {
+          "name": "List Group Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts?limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "posts?limit=20&offset=0"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Group Post",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/posts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "posts"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Hello group\",\n  \"media_path\": \"/uploads/post/example.png\",\n  \"privacy\": \"public\"\n}"
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -546,7 +563,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"status\": \"accepted\"\n}"
+              "raw": "{\n  \"status\": \"{{followRequestStatus}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/follow-requests/{{requestId}}",
@@ -577,6 +594,23 @@
               ]
             }
           }
+        },
+        {
+          "name": "Remove Follower",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/followers/{{followerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "followers",
+                "{{followerId}}"
+              ]
+            }
+          }
         }
       ]
     },
@@ -596,6 +630,38 @@
               "path": [
                 "profiles",
                 "{{profileId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Profile Full",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{profileId}}/full?limit={{limit}}&offset={{offset}}&activity_limit={{activityLimit}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{profileId}}",
+                "full"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                },
+                {
+                  "key": "activity_limit",
+                  "value": "{{activityLimit}}"
+                }
               ]
             }
           }
@@ -662,6 +728,33 @@
               ]
             }
           }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/profiles/{{userId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "profiles",
+                "{{userId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nickname\": \"jdoe\",\n  \"about\": \"Building cool things\",\n  \"avatar_path\": \"/uploads/avatar/example.png\"\n}"
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -674,12 +767,22 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users",
+              "raw": "{{baseUrl}}/users?limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "users"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
               ]
             }
           }
@@ -690,7 +793,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/users?q={{searchQuery}}",
+              "raw": "{{baseUrl}}/users?q={{searchQuery}}&limit={{limit}}&offset={{offset}}",
               "host": [
                 "{{baseUrl}}"
               ],
@@ -701,10 +804,651 @@
                 {
                   "key": "q",
                   "value": "{{searchQuery}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
                 }
               ]
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "item": [
+        {
+          "name": "Create Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Go Builders\",\n  \"description\": \"Group for Go\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups?limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups?limit=20&offset=0"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Search Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups?q={{searchQuery}}&limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups?q=go&limit=20&offset=0"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Group",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Group Members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "members"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invite To Group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "invitations"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invitee_id\": 2\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List My Invitations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/group-invitations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-invitations"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Invitation",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/group-invitations/{{invitationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-invitations",
+                "{{invitationId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Request Join",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/join-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "join-requests"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Join Requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/join-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "join-requests"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Join Request",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/group-join-requests/{{requestId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "group-join-requests",
+                "{{requestId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"accepted\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Leave Group",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/members/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "members",
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "events"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Weekly Standup\",\n  \"description\": \"Team sync\",\n  \"event_time\": \"2026-02-14T18:00:00Z\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Group Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/events?limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "events?limit=20&offset=0"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Event",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Standup\",\n  \"description\": \"Updated description\",\n  \"event_time\": \"2026-02-15T18:00:00Z\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Respond To Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/responses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "responses"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"response\": \"going\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Event Responses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/responses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "events",
+                "{{eventId}}",
+                "responses"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Chat",
+      "item": [
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations?limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversations"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "{{limit}}"
+                },
+                {
+                  "key": "offset",
+                  "value": "{{offset}}"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Conversation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations/{{conversationId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversationId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations/{{conversationId}}/messages?limit={{limit}}&offset={{offset}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversationId}}",
+                "messages?limit=20&offset=0"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations/{{conversationId}}/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversations",
+                "{{conversationId}}",
+                "read"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Unread Counts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversations/unread-counts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversations",
+                "unread-counts"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Uploads",
+      "item": [
+        {
+          "name": "Upload File",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file"
+                },
+                {
+                  "key": "kind",
+                  "value": "post",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Uploaded File (Secured)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/uploads/{{uploadPath}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "uploads",
+                "{{uploadPath}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Message Reactions",
+      "item": [
+        {
+          "name": "Toggle Message Reaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/messages/{{messageId}}/reactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "messages",
+                "{{messageId}}",
+                "reactions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emoji\": \"\\ud83d\\ude00\"\n}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Message Reactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/messages/{{messageId}}/reactions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "messages",
+                "{{messageId}}",
+                "reactions"
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },

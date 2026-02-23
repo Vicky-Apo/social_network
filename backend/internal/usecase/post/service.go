@@ -24,6 +24,8 @@ type AccessService interface {
 	IsFollowing(ctx context.Context, followerID, followingID int64) (bool, error)
 	CanViewPost(ctx context.Context, viewerID, postID int64) (bool, error)
 	CanViewProfile(ctx context.Context, viewerID, ownerID int64) (bool, error)
+	CanPostInGroup(ctx context.Context, userID, groupID int64) (bool, error)
+	CanViewGroup(ctx context.Context, userID, groupID int64) (bool, error)
 }
 
 // NewService builds a post service with the given repository.
@@ -71,7 +73,7 @@ func (s *Service) GetByID(ctx context.Context, id int64, viewerID int64) (PostDT
 	return mapPost(post), nil
 }
 
-// Create creates a new post with optional categories.
+// Create creates a new post.
 func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequest) (PostDTO, error) {
 	privacy := strings.TrimSpace(req.Privacy)
 	if privacy == "" {
@@ -86,7 +88,31 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 		return PostDTO{}, errors.New("content or media_path is required")
 	}
 
+	if req.GroupID != nil {
+		if *req.GroupID <= 0 {
+			return PostDTO{}, errors.New("invalid group_id")
+		}
+		if s.access == nil {
+			return PostDTO{}, errors.New("access service not configured")
+		}
+		canPost, err := s.access.CanPostInGroup(ctx, authorID, *req.GroupID)
+		if err != nil {
+			return PostDTO{}, fmt.Errorf("check group access: %w", err)
+		}
+		if !canPost {
+			return PostDTO{}, ErrForbidden
+		}
+		if len(req.AllowedUserIDs) > 0 {
+			return PostDTO{}, errors.New("allowed_user_ids are not allowed for group posts")
+		}
+		// Normalize group post visibility to public (group access is enforced separately).
+		privacy = "public"
+	}
+
 	if privacy == "private" {
+		if req.GroupID != nil {
+			return PostDTO{}, errors.New("private posts are not allowed in groups")
+		}
 		if len(req.AllowedUserIDs) == 0 {
 			return PostDTO{}, errors.New("allowed_user_ids is required for private posts")
 		}
@@ -120,12 +146,13 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 
 	post := domainpost.Post{
 		AuthorID:  authorID,
+		GroupID:   req.GroupID,
 		Content:   req.Content,
 		MediaPath: req.MediaPath,
 		Privacy:   privacy,
 	}
 
-	created, err := s.repo.Create(ctx, post, req.CategoryIDs, req.AllowedUserIDs)
+	created, err := s.repo.Create(ctx, post, req.AllowedUserIDs)
 	if err != nil {
 		s.log.Error("failed to create post", err, logger.F("author_id", authorID))
 		return PostDTO{}, fmt.Errorf("create post: %w", err)
@@ -142,6 +169,26 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 	created.AuthorAvatarPath = author.AvatarPath
 
 	return mapPost(created), nil
+}
+
+// ListByGroup returns posts for a group with pagination.
+func (s *Service) ListByGroup(ctx context.Context, groupID, viewerID int64, limit, offset int) ([]PostDTO, error) {
+	if s.access == nil {
+		return nil, errors.New("access service not configured")
+	}
+	canView, err := s.access.CanViewGroup(ctx, viewerID, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("check group access: %w", err)
+	}
+	if !canView {
+		return nil, ErrForbidden
+	}
+	posts, err := s.repo.ListByGroup(ctx, groupID, limit, offset)
+	if err != nil {
+		s.log.Error("failed to list posts by group", err, logger.F("group_id", groupID))
+		return nil, fmt.Errorf("list posts by group: %w", err)
+	}
+	return mapPosts(posts), nil
 }
 
 // ListByAuthor returns posts for a specific author with pagination.
@@ -163,7 +210,7 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 		if err != nil {
 			return nil, err
 		}
-		if !ok && !isOwner && !isFollower {
+		if !ok {
 			return nil, ErrForbidden
 		}
 	} else {
@@ -182,17 +229,6 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 		return nil, fmt.Errorf("list posts by author: %w", err)
 	}
 	s.log.Debug("posts listed by author", logger.F("author_id", authorID), logger.F("count", len(posts)))
-	return mapPosts(posts), nil
-}
-
-// ListByCategory returns posts for a category with pagination.
-func (s *Service) ListByCategory(ctx context.Context, categoryID, viewerID int64, limit, offset int) ([]PostDTO, error) {
-	posts, err := s.repo.ListByCategory(ctx, categoryID, viewerID, limit, offset)
-	if err != nil {
-		s.log.Error("failed to list posts by category", err, logger.F("category_id", categoryID))
-		return nil, fmt.Errorf("list posts by category: %w", err)
-	}
-	s.log.Debug("posts listed by category", logger.F("category_id", categoryID), logger.F("count", len(posts)))
 	return mapPosts(posts), nil
 }
 

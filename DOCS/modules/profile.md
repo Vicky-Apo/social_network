@@ -71,6 +71,11 @@ Example limited response (200):
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Invalid profile id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Profile not found
+
 ### List followers
 
 `GET /profiles/{id}/followers`
@@ -96,6 +101,15 @@ Response (200):
   ]
 }
 ```
+
+Notes:
+- Access follows the same privacy rules as the profile itself.
+
+Error responses:
+- `400 Bad Request` - Invalid profile id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found
 
 ### List following
 
@@ -123,6 +137,15 @@ Response (200):
 }
 ```
 
+Notes:
+- Access follows the same privacy rules as the profile itself.
+
+Error responses:
+- `400 Bad Request` - Invalid profile id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found
+
 ### Update visibility
 
 `PATCH /profiles/{id}/visibility`
@@ -146,6 +169,37 @@ Response (200):
   }
 }
 ```
+
+Error responses:
+- `400 Bad Request` - Invalid profile id or request body
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Only the profile owner can update visibility
+- `404 Not Found` - Profile not found
+
+### Update profile
+
+`PATCH /profiles/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "nickname": "jdoe",
+  "about": "Building cool things",
+  "avatar_path": "/uploads/avatar/20260212T120000_abcd1234ef567890.png"
+}
+```
+
+Notes:
+- Only the profile owner can update their profile.
+- Use `POST /uploads` to get an `avatar_path`.
+- Sending empty strings clears a field (sets it to null).
+
+Error responses:
+- `400 Bad Request` - Invalid profile id or request body
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - Only the profile owner can update profile
+- `404 Not Found` - Profile not found
 
 ## React fetch example
 
@@ -185,9 +239,73 @@ export async function updateVisibility(id: number, isPublic: boolean) {
   });
   if (!res.ok) throw new Error("Visibility update failed");
 }
+
+export async function updateProfile(id: number, payload: {
+  nickname?: string | null;
+  about?: string | null;
+  avatar_path?: string | null;
+}) {
+  const res = await fetch(`${API_BASE}/profiles/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Profile update failed");
+}
 ```
 
 ## Notes
 
 - Only the profile owner can update visibility.
-- User activity and posts will be added to profile responses later.
+- User activity and posts are available via the full profile endpoint (below).
+
+### Get profile with posts + activity
+
+`GET /profiles/{id}/full?limit=&offset=&activity_limit=`
+
+Query params:
+- `limit` / `offset` for the main `posts` list
+- `activity_limit` (optional) for `activity.recent_posts` (default: `5`)
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "user": {
+        "id": 2,
+        "email": "jane@example.com",
+        "first_name": "Jane",
+        "last_name": "Doe",
+        "date_of_birth": "31/12/2000",
+        "nickname": "jdoe",
+        "about": "Hi there",
+        "is_public": true,
+        "created_at": "2025-01-24T12:34:56Z",
+        "updated_at": "2025-01-24T12:34:56Z"
+      },
+      "followers_count": 10,
+      "following_count": 5,
+      "is_following": true,
+      "is_followed_by": false
+    },
+    "posts": [],
+    "activity": {
+      "recent_posts": []
+    }
+  }
+}
+```
+
+Notes:
+- If the profile is private and the viewer is not allowed, `posts` and `activity`
+  will be empty and `profile.limited` will be `true`.
+
+Error responses:
+- `400 Bad Request` - Invalid profile id or invalid pagination/activity_limit
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found
