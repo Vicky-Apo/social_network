@@ -18,6 +18,9 @@ type fakePostRepo struct {
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
+	return nil, nil
+}
 func (r *fakePostRepo) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	return domainpost.Post{ID: id, AuthorID: 1, Privacy: "public"}, nil
 }

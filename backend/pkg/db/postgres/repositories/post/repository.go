@@ -85,6 +85,33 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 	return posts, nil
 }
 
+// ListGroupsOnly returns only group posts for groups the viewer is a member of.
+func (r *Repository) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
+	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +
+		"JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $1\n" +
+		"WHERE p.group_id IS NOT NULL\n" +
+		"ORDER BY p.created_at DESC\n" +
+		"LIMIT $2 OFFSET $3"
+	rows, err := r.db.QueryContext(ctx, query, viewerID, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list group posts: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []domainpost.Post
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan post: %w", err)
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list group posts: %w", err)
+	}
+	return posts, nil
+}
+
 // GetByID returns a post by ID.
 func (r *Repository) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	const query = `

@@ -11,6 +11,7 @@ var ErrNotFound = errors.New("post not found")
 // Repository defines the data access contract for posts.
 type Repository interface {
 	List(ctx context.Context, viewerID int64, limit, offset int) ([]Post, error)
+	ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]Post, error)
 	GetByID(ctx context.Context, id int64) (Post, error)
 	Create(ctx context.Context, post Post, allowedUserIDs []int64) (Post, error)
 	ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]Post, error)

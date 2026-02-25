@@ -76,6 +76,92 @@ Error responses:
 - `401 Unauthorized` - Not logged in or invalid session
 - `404 Not Found` - Profile not found
 
+### Get full profile (profile + posts + activity)
+
+`GET /profiles/{id}/full?limit=20&offset=0&activity_limit=5`
+
+Notes:
+- Returns the same `profile` payload as `GET /profiles/{id}` plus:
+  - `posts`: paginated list of posts by the user (same shape as `GET /posts?author_id=...`)
+  - `activity.recent_posts`: most recent posts (default 5)
+- Respects profile privacy rules. If the profile is private and the viewer is not allowed, it will return the limited profile and **empty** `posts`/`activity`.
+- `limit`/`offset` control the `posts` list (default limit 20, max 100).
+- `activity_limit` controls the size of `activity.recent_posts` (default 5, max 100). Use `activity_limit=0` to omit recent posts.
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "profile": {
+      "user": {
+        "id": 2,
+        "email": "jane@example.com",
+        "first_name": "Jane",
+        "last_name": "Doe",
+        "date_of_birth": "31/12/2000",
+        "nickname": "jdoe",
+        "about": "Hi there",
+        "is_public": true,
+        "created_at": "2025-01-24T12:34:56Z",
+        "updated_at": "2025-01-24T12:34:56Z"
+      },
+      "followers_count": 10,
+      "following_count": 5,
+      "is_following": true,
+      "is_followed_by": false
+    },
+    "posts": [
+      {
+        "id": 1,
+        "author_id": 2,
+        "group_id": null,
+        "author_first_name": "Jane",
+        "author_last_name": "Doe",
+        "author_nickname": "jdoe",
+        "author_avatar_path": "/uploads/avatars/jane.png",
+        "content": "Hello world",
+        "media_path": "/uploads/post-1.png",
+        "privacy": "public",
+        "comment_count": 3,
+        "like_count": 10,
+        "dislike_count": 1,
+        "created_at": "2025-01-24T12:34:56Z",
+        "updated_at": "2025-01-24T12:34:56Z"
+      }
+    ],
+    "activity": {
+      "recent_posts": [
+        {
+          "id": 1,
+          "author_id": 2,
+          "group_id": null,
+          "author_first_name": "Jane",
+          "author_last_name": "Doe",
+          "author_nickname": "jdoe",
+          "author_avatar_path": "/uploads/avatars/jane.png",
+          "content": "Hello world",
+          "media_path": "/uploads/post-1.png",
+          "privacy": "public",
+          "comment_count": 3,
+          "like_count": 10,
+          "dislike_count": 1,
+          "created_at": "2025-01-24T12:34:56Z",
+          "updated_at": "2025-01-24T12:34:56Z"
+        }
+      ]
+    }
+  }
+}
+```
+
+Error responses:
+- `400 Bad Request` - Invalid profile id, pagination, or `activity_limit`
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view this profile
+- `404 Not Found` - Profile not found
+
 ### List followers
 
 `GET /profiles/{id}/followers`

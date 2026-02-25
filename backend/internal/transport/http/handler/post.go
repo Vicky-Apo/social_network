@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	domaingroup "social-network/backend/internal/domain/group"
 	domainpost "social-network/backend/internal/domain/post"
@@ -48,7 +49,26 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	posts, err := h.service.List(r.Context(), viewerID, limit, offset)
+	groupsOnly := false
+	if raw := r.URL.Query().Get("groups_only"); raw != "" {
+		switch strings.ToLower(raw) {
+		case "true", "1", "yes":
+			groupsOnly = true
+		case "false", "0", "no":
+			groupsOnly = false
+		default:
+			logBadRequest(h.log, "posts.list", logger.F("groups_only", raw))
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid groups_only value")
+			return
+		}
+	}
+
+	var posts []usecasepost.PostDTO
+	if groupsOnly {
+		posts, err = h.service.ListGroupsOnly(r.Context(), viewerID, limit, offset)
+	} else {
+		posts, err = h.service.List(r.Context(), viewerID, limit, offset)
+	}
 	if err != nil {
 		logServerError(h.log, "posts.list", err)
 		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)

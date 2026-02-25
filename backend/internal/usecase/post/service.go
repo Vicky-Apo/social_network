@@ -49,6 +49,17 @@ func (s *Service) List(ctx context.Context, viewerID int64, limit, offset int) (
 	return mapPosts(posts), nil
 }
 
+// ListGroupsOnly returns only group posts for groups the viewer is a member of.
+func (s *Service) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]PostDTO, error) {
+	posts, err := s.repo.ListGroupsOnly(ctx, viewerID, limit, offset)
+	if err != nil {
+		s.log.Error("failed to list group posts", err)
+		return nil, fmt.Errorf("list group posts: %w", err)
+	}
+	s.log.Debug("group posts listed", logger.F("count", len(posts)))
+	return mapPosts(posts), nil
+}
+
 // GetByID returns a single post as a DTO.
 func (s *Service) GetByID(ctx context.Context, id int64, viewerID int64) (PostDTO, error) {
 	post, err := s.repo.GetByID(ctx, id)

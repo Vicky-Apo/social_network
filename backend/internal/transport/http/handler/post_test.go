@@ -29,6 +29,9 @@ type fakePostRepo struct{}
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return []domainpost.Post{{ID: 1, AuthorID: 2}}, nil
 }
+func (r *fakePostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
+	return []domainpost.Post{{ID: 1, AuthorID: 2, GroupID: ptrInt64(1)}}, nil
+}
 func (r *fakePostRepo) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
@@ -43,6 +46,10 @@ func (r *fakePostRepo) ListByGroup(ctx context.Context, groupID int64, limit, of
 }
 func (r *fakePostRepo) IsUserAllowed(ctx context.Context, postID, userID int64) (bool, error) {
 	return false, nil
+}
+
+func ptrInt64(value int64) *int64 {
+	return &value
 }
 
 type fakePostUserRepo struct{}
