@@ -83,8 +83,8 @@ type DashboardPerson = {
 
 const quickLinks = [
   { label: "Explore", href: "/explore", icon: Compass },
-  { label: "Groups", href: "#", icon: Users },
-  { label: "Messages", href: "#", icon: MessageSquare },
+  { label: "Groups", href: "/groups", icon: Users },
+  { label: "Messages", href: "/messages", icon: MessageSquare },
 ];
 
 const trends = [
