@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { landingData } from "@/lib/data";
 
 export function Footer() {
@@ -11,15 +10,15 @@ export function Footer() {
 
   return (
     <footer className="relative border-t border-white/10 bg-black/30 overflow-hidden">
-      {/* Gradient köşe */}
-      <div className="pointer-events-none absolute -bottom-20 -right-20 h-64 w-64 opacity-40">
-        <Image
-          src="/gradient-2.png"
-          alt=""
-          fill
-          className="object-cover"
-        />
-      </div>
+      {/* CSS-only gradient corner */}
+      <div
+        className="pointer-events-none absolute -bottom-24 -right-24 h-48 w-48 rounded-full opacity-30 blur-3xl"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(168,85,247,0.4) 0%, rgba(59,130,246,0.2) 50%, transparent 70%)",
+        }}
+        aria-hidden
+      />
 
       <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col items-center gap-5 px-4 py-8 sm:px-6 md:flex-row md:justify-between md:gap-8">
         <Link

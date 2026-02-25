@@ -20,7 +20,7 @@ type FormState = {
 type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
 
 const inputClass =
-  "h-12 w-full rounded-sm border border-white/30 bg-white/5 px-4 text-sm text-white placeholder:text-white/50 transition focus:border-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2b2929]";
+  "h-12 w-full rounded-xl border border-white/25 bg-white/5 px-4 text-sm text-white placeholder:text-white/50 transition focus:border-white/50 focus:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-[#2b2929]";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState<FormState>({
@@ -127,11 +127,12 @@ export default function LoginPage() {
           sizes="100vw"
         />
         <div className="absolute inset-0 bg-[#2b2929]/70" />
-        <section className="relative z-10 w-full max-w-md rounded-sm border border-white/10 bg-[#2b2929]/40 p-8 backdrop-blur-sm sm:p-10">
+        <section className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-white/15 bg-[#2b2929]/60 p-8 shadow-2xl shadow-black/30 backdrop-blur-md ring-1 ring-white/10 sm:p-10">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" aria-hidden />
           <header className="text-center">
             <Link
               href="/"
-              className="mx-auto flex w-full justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929] rounded-sm"
+              className="mx-auto flex w-full justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929] rounded-xl"
             >
               <Image
                 src="/vybez-logo-v2.png"
@@ -141,7 +142,7 @@ export default function LoginPage() {
                 className="h-14 w-auto sm:h-16"
               />
             </Link>
-            <h1 className="mt-8 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+            <h1 className="mt-8 text-2xl font-bold tracking-tight text-white sm:text-3xl">
               Welcome back
             </h1>
             <p className="mt-2 text-sm text-white/70">
@@ -208,7 +209,7 @@ export default function LoginPage() {
             </label>
 
             {errors.submit ? (
-              <p className="rounded-sm border border-rose-500/50 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+              <p className="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
                 {errors.submit}
               </p>
             ) : null}

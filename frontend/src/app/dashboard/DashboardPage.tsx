@@ -3,6 +3,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Bell,
@@ -23,6 +24,7 @@ import { useAuth } from "../component/AuthContext";
 import { landingData } from "@/lib/data";
 import { apiJson, asArray, asNumber, asString, isRecord } from "@/lib/api";
 import { BrandMark } from "@/components/BrandMark";
+import { Footer } from "@/components/Footer";
 
 type ReactionKind = "like" | "dislike";
 type ReactionMap = Record<number, ReactionKind | null>;
@@ -853,22 +855,21 @@ export default function DashboardPage() {
   const userTag = user ? user.handle : "community-member";
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
+    <div className="relative z-[1] min-h-screen bg-[#2b2929] text-white">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/30 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="inline-flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50" aria-label={landingData.productName}>
             <BrandMark label={landingData.productName} size="sm" logoSrc="/vybez-logo-v2.png" />
-            <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
           </Link>
 
           <div className="relative ml-2 hidden flex-1 sm:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
             <input
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search posts, people, topics..."
-              className="h-11 w-full rounded-sm border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
+              className="h-11 w-full rounded-sm border border-white/30 bg-white/5 pl-9 pr-4 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-white/60 focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2b2929]"
             />
           </div>
 
@@ -882,10 +883,10 @@ export default function DashboardPage() {
                 void refreshNotifications();
               }
             }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
+            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[10px] font-semibold text-[#2b2929]">
               {notificationCount}
             </span>
           </button>
@@ -893,7 +894,7 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10"
           >
             <LogOut className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Log out</span>
@@ -901,70 +902,25 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
-        <aside className="hidden lg:block">
-          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {user?.initials ?? "U"}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
-                <p className="text-xs text-neutral-500">@{userTag}</p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                People
-              </p>
-              <div className="space-y-2">
-                {peopleLoading ? (
-                  <p className="text-xs text-neutral-500">Searching users...</p>
-                ) : people.filter((person) => person.id !== user?.id).length === 0 ? (
-                  <p className="text-xs text-neutral-500">No users found.</p>
-                ) : (
-                  people
-                    .filter((person) => person.id !== user?.id)
-                    .slice(0, 5)
-                    .map((person) => (
-                      <div
-                        key={person.id}
-                        className="rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2"
-                      >
-                        <p className="text-xs font-semibold text-neutral-800">{person.name}</p>
-                        <p className="text-[11px] text-neutral-500">@{person.handle}</p>
-                      </div>
-                    ))
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        <section className="space-y-5">
-          <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+      <main className="relative min-h-[80vh]">
+        <Image
+          src="/dashboard-bg.png"
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0 bg-[#2b2929]/70" aria-hidden />
+        <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-8">
+        <section className="min-w-0 space-y-5">
+          <div className="rounded-sm border border-white/10 bg-[#2b2929]/40 p-4 shadow-sm backdrop-blur-sm sm:p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Dashboard</h1>
-                <p className="text-sm text-neutral-600">Create updates and follow your community feed.</p>
+                <h1 className="text-xl font-semibold tracking-tight text-white">Dashboard</h1>
+                <p className="text-sm text-white/70">Create updates and follow your community feed.</p>
               </div>
               <div className="flex items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+                <label className="inline-flex items-center gap-2 text-xs text-white/70">
                   Groups only
                   <input
                     type="checkbox"
@@ -973,13 +929,13 @@ export default function DashboardPage() {
                       setGroupsOnly(event.target.checked);
                       setPageIndex(0);
                     }}
-                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    className="h-4 w-4 rounded border-white/30 bg-white/5 text-white focus:ring-white/50"
                   />
                 </label>
                 <button
                   type="button"
                   onClick={refreshFeed}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+                  className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/90 transition hover:bg-white/10"
                 >
                   Refresh feed
                 </button>
@@ -987,18 +943,18 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="rounded-sm border border-white/10 bg-[#2b2929]/40 p-4 shadow-sm backdrop-blur-sm sm:p-5">
             <textarea
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
               rows={4}
               placeholder="Share an update with Vybez..."
-              className="w-full resize-none rounded-sm border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+              className="w-full resize-none rounded-sm border border-white/30 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-white/60 focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2b2929]"
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add media
@@ -1013,132 +969,110 @@ export default function DashboardPage() {
                 {isPosting ? "Posting..." : "Publish"}
               </button>
             </div>
-            {composerError ? <p className="mt-3 text-xs text-rose-600">{composerError}</p> : null}
+            {composerError ? <p className="mt-3 text-xs text-rose-400">{composerError}</p> : null}
           </div>
 
-          <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm lg:hidden">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                  chatConnected
-                    ? "bg-brand-primary/15 text-brand-primary"
-                    : "bg-rose-100 text-rose-700"
-                }`}
-              >
-                {chatConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {chatConnected ? "Connected" : "Offline"}
-              </span>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1919]/90 shadow-lg backdrop-blur-md lg:hidden">
+            <div className={`flex items-center gap-2 border-b border-white/10 px-4 py-3 ${chatConnected ? "bg-emerald-500/10" : "bg-white/5"}`}>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10">
+                <MessageSquare className="h-4 w-4 text-white/80" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-white">Messages</p>
+                <p className="flex items-center gap-1.5 text-[11px] text-white/60">
+                  <span className={`relative flex h-1.5 w-1.5 rounded-full ${chatConnected ? "bg-emerald-400" : "bg-rose-400"}`} />
+                  {chatConnected ? "Live" : "Offline"}
+                </p>
+              </div>
             </div>
-            <div className="mt-3 flex flex-col gap-2">
-              <input
-                type="number"
-                value={chatRecipientID}
-                onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient user ID"
-                className="h-9 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-              />
+            <div className="space-y-2 p-3">
+              <div className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1">
+                <span className="text-[10px] font-medium text-white/50">To</span>
+                <input
+                  type="number"
+                  value={chatRecipientID}
+                  onChange={(event) => setChatRecipientID(event.target.value)}
+                  placeholder="User ID"
+                  className="w-20 rounded bg-transparent px-1.5 py-0.5 text-xs text-white placeholder:text-white/40 outline-none"
+                />
+              </div>
               <div className="flex gap-2">
                 <input
                   value={chatDraft}
                   onChange={(event) => setChatDraft(event.target.value)}
-                  placeholder="Write a direct message..."
-                  className="h-9 flex-1 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                  placeholder="Type a message…"
+                  className="min-w-0 flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/40"
                 />
                 <button
                   type="button"
                   onClick={sendChatMessage}
-                  className="brand-gradient rounded-sm px-3 text-xs font-semibold text-white"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white transition hover:bg-white/25 active:scale-95"
+                  aria-label="Send message"
                 >
-                  Send
+                  <Send className="h-4 w-4" />
                 </button>
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
-              <span>
-                {isPaging
-                  ? "Loading page…"
-                  : `Showing newest ${pageSize} · Page ${pageIndex + 1}`}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
-                  disabled={(isLoading && posts.length === 0) || isPaging || pageIndex === 0}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPageIndex((prev) => prev + 1)}
-                  disabled={(isLoading && posts.length === 0) || isPaging || !hasNextPage}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
             {isLoading && posts.length === 0 ? (
-              <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+              <article className="rounded-xl border border-white/10 bg-[#2b2929]/50 p-6 text-sm text-white/70 shadow-md backdrop-blur-sm ring-1 ring-white/5">
                 Loading your feed...
               </article>
             ) : feedError ? (
-              <article className="rounded-sm border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+              <article className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400 backdrop-blur-sm">
                 {feedError}
               </article>
             ) : posts.length === 0 ? (
-              <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+              <article className="rounded-xl border border-white/10 bg-[#2b2929]/50 p-6 text-sm text-white/70 shadow-md backdrop-blur-sm ring-1 ring-white/5">
                 No posts yet. Be the first to share an update.
               </article>
             ) : (
               posts.map((post) => (
                 <article
                   key={post.id}
-                  className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm"
+                  className="rounded-xl border border-white/10 bg-[#2b2929]/50 p-5 shadow-md backdrop-blur-sm ring-1 ring-white/5"
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xs font-semibold text-white">
                         {post.authorInitials}
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">{post.authorName}</p>
-                        <p className="text-xs text-neutral-500">{shortDate(post.createdAt)}</p>
+                        <p className="text-sm font-semibold text-white">{post.authorName}</p>
+                        <p className="text-xs text-white/50">{shortDate(post.createdAt)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/posts/${post.id}`}
-                        className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+                        className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/90 transition hover:bg-white/10"
                       >
                         Open
                       </Link>
-                      <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
+                      <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-white/60">
                         {post.privacyLabel}
                       </span>
                     </div>
                   </header>
 
-                  <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                  <p className="mt-4 text-sm leading-relaxed text-white/90">{post.content}</p>
 
                   {post.mediaUrl ? (
-                    <div className="mt-4 overflow-hidden rounded-sm border border-neutral-200">
+                    <div className="mt-4 overflow-hidden rounded-sm border border-white/10">
                       <img src={post.mediaUrl} alt="Post media" className="h-72 w-full object-cover" />
                     </div>
                   ) : null}
 
-                  <footer className="mt-4 flex items-center gap-4 text-xs text-neutral-500">
+                  <footer className="mt-4 flex items-center gap-4 text-xs text-white/70">
                     <button
                       type="button"
                       onClick={() => handlePostReaction(post.id, "like")}
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                         postReactionMap[post.id] === "like"
-                          ? "bg-brand-primary/15 text-brand-primary"
-                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                          ? "bg-brand-primary/20 text-brand-primary"
+                          : "bg-white/10 text-white/70 hover:bg-white/15"
                       }`}
                     >
                       <ThumbsUp className="h-3.5 w-3.5" />
@@ -1149,8 +1083,8 @@ export default function DashboardPage() {
                       onClick={() => handlePostReaction(post.id, "dislike")}
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                         postReactionMap[post.id] === "dislike"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                          ? "bg-rose-500/20 text-rose-400"
+                          : "bg-white/10 text-white/70 hover:bg-white/15"
                       }`}
                     >
                       <ThumbsDown className="h-3.5 w-3.5" />
@@ -1159,7 +1093,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => toggleComments(post.id)}
-                      className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                      className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-white/70 transition hover:bg-white/15"
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
                       {post.counts.comments}
@@ -1167,11 +1101,11 @@ export default function DashboardPage() {
                   </footer>
 
                   {commentsOpenByPost[post.id] ? (
-                    <section className="mt-4 rounded-sm border border-neutral-200 bg-neutral-50 p-3">
+                    <section className="mt-4 rounded-sm border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
                       <div className="space-y-2">
                         {(commentsByPost[post.id] ?? []).map((comment) => (
-                          <article key={comment.id} className="rounded-sm bg-white p-3">
-                            <p className="text-sm text-neutral-700">{comment.content}</p>
+                          <article key={comment.id} className="rounded-sm bg-[#2b2929]/60 border border-white/10 p-3">
+                            <p className="text-sm text-white/90">{comment.content}</p>
                             <div className="mt-2 flex items-center gap-2 text-xs">
                               <button
                                 type="button"
@@ -1180,8 +1114,8 @@ export default function DashboardPage() {
                                 }
                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                   commentReactionMap[comment.id] === "like"
-                                    ? "bg-brand-primary/15 text-brand-primary"
-                                    : "bg-neutral-100 text-neutral-600"
+                                    ? "bg-brand-primary/20 text-brand-primary"
+                                    : "bg-white/10 text-white/70"
                                 }`}
                               >
                                 <ThumbsUp className="h-3 w-3" />
@@ -1194,8 +1128,8 @@ export default function DashboardPage() {
                                 }
                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                   commentReactionMap[comment.id] === "dislike"
-                                    ? "bg-rose-100 text-rose-800"
-                                    : "bg-neutral-100 text-neutral-600"
+                                    ? "bg-rose-500/20 text-rose-400"
+                                    : "bg-white/10 text-white/70"
                                 }`}
                               >
                                 <ThumbsDown className="h-3 w-3" />
@@ -1206,10 +1140,10 @@ export default function DashboardPage() {
                         ))}
 
                         {commentsLoadingByPost[post.id] ? (
-                          <p className="text-xs text-neutral-500">Loading comments...</p>
+                          <p className="text-xs text-white/50">Loading comments...</p>
                         ) : null}
                         {commentErrorByPost[post.id] ? (
-                          <p className="text-xs text-rose-600">{commentErrorByPost[post.id]}</p>
+                          <p className="text-xs text-rose-400">{commentErrorByPost[post.id]}</p>
                         ) : null}
                       </div>
 
@@ -1223,12 +1157,12 @@ export default function DashboardPage() {
                             }))
                           }
                           placeholder="Write a comment..."
-                          className="h-9 flex-1 rounded-sm border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                          className="h-9 flex-1 rounded-sm border border-white/30 bg-white/5 px-3 text-xs text-white placeholder:text-white/50 outline-none focus:border-white/60"
                         />
                         <button
                           type="button"
                           onClick={() => handleCreateComment(post.id)}
-                          className="rounded-sm bg-neutral-900 px-3 text-xs font-semibold text-white"
+                          className="rounded-sm bg-white/20 px-3 text-xs font-semibold text-white border border-white/20 hover:bg-white/30"
                         >
                           Comment
                         </button>
@@ -1238,175 +1172,225 @@ export default function DashboardPage() {
                 </article>
               ))
             )}
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-white/10 bg-[#2b2929]/40 px-4 py-2 text-xs text-white/70 backdrop-blur-sm">
+              <span>
+                {isPaging
+                  ? "Loading page…"
+                  : `Showing newest ${pageSize} · Page ${pageIndex + 1}`}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={(isLoading && posts.length === 0) || isPaging || pageIndex === 0}
+                  className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/90 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPageIndex((prev) => prev + 1)}
+                  disabled={(isLoading && posts.length === 0) || isPaging || !hasNextPage}
+                  className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-white/90 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
         </section>
 
-        <aside className="hidden space-y-5 md:block">
-          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">People</h2>
-            <div className="mt-3 space-y-2">
+        <aside className="hidden lg:block lg:space-y-6">
+          <div className="overflow-hidden rounded-xl border-l-4 border-white/20 bg-gradient-to-br from-white/10 to-transparent shadow-lg">
+            <div className="flex items-center gap-4 p-4">
+              <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-base font-bold text-white shadow-inner">
+                {user?.initials ?? "U"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold text-white">{displayName}</p>
+                <p className="truncate text-xs text-white/50">@{userTag}</p>
+              </div>
+            </div>
+            <nav className="flex flex-col gap-1.5 border-t border-white/10 p-3">
+              {quickLinks.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white/90 transition hover:bg-white/20 hover:text-white"
+                  >
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-inner">
+            <div className="border-b border-white/10 bg-white/10 px-4 py-3">
+              <h2 className="text-sm font-semibold text-white">People</h2>
+            </div>
+            <div className="max-h-56 space-y-1 overflow-y-auto p-2">
               {peopleLoading ? (
-                <p className="text-xs text-neutral-500">Loading users...</p>
+                <p className="p-3 text-xs text-white/50">Loading users...</p>
               ) : people.filter((person) => person.id !== user?.id).length === 0 ? (
-                <p className="text-xs text-neutral-500">No other users found yet.</p>
+                <p className="p-3 text-xs text-white/50">No other users found yet.</p>
               ) : (
                 people
                   .filter((person) => person.id !== user?.id)
                   .slice(0, 8)
                   .map((person) => (
-                    <div key={`right-user-${person.id}`} className="rounded-sm border border-neutral-200 bg-neutral-50 px-3 py-2">
-                      <p className="text-xs font-semibold text-neutral-800">{person.name}</p>
-                      <p className="text-[11px] text-neutral-500">@{person.handle}</p>
+                    <div key={`right-user-${person.id}`} className="rounded-lg bg-[#2b2929]/60 px-3 py-2">
+                      <p className="text-xs font-semibold text-white/90">{person.name}</p>
+                      <p className="text-[11px] text-white/50">@{person.handle}</p>
                     </div>
                   ))
               )}
             </div>
           </div>
 
-          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">Notifications</h2>
-              <button
-                type="button"
-                onClick={markAllNotificationsRead}
-                className="text-xs font-semibold text-neutral-600 hover:text-neutral-900"
-              >
-                Mark all read
-              </button>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1919]/90 shadow-lg backdrop-blur-md">
+            <div className={`flex items-center gap-2 border-b border-white/10 px-4 py-3 ${chatConnected ? "bg-emerald-500/10" : "bg-white/5"}`}>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10">
+                <MessageSquare className="h-4 w-4 text-white/80" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-white">Messages</p>
+                <p className="flex items-center gap-1.5 text-[11px] text-white/60">
+                  <span className={`relative flex h-1.5 w-1.5 rounded-full ${chatConnected ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" : "bg-rose-400"}`} />
+                  {chatConnected ? "Live" : "Reconnecting…"}
+                </p>
+              </div>
             </div>
-            <div className="mt-3 space-y-2">
-              {notificationsLoading ? (
-                <p className="text-xs text-neutral-500">Loading notifications...</p>
-              ) : notifications.length === 0 ? (
-                <p className="text-xs text-neutral-500">No notifications yet.</p>
-              ) : (
-                notifications.slice(0, 5).map((item) => (
+
+            <div className="flex flex-col">
+              <div className="min-h-[120px] max-h-44 overflow-y-auto border-b border-white/10 bg-black/20 p-3">
+                {chatMessages.length === 0 ? (
+                  <div className="flex h-24 flex-col items-center justify-center gap-1.5 text-center">
+                    <MessageSquare className="h-8 w-8 text-white/30" />
+                    <p className="text-xs font-medium text-white/50">No messages yet</p>
+                    <p className="text-[11px] text-white/40">Pick a user and say hi</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {chatMessages.slice(0, 8).map((msg) => (
+                      <div key={`${msg.id}-${msg.createdAt}`} className="rounded-lg bg-white/10 px-3 py-2">
+                        <p className="text-[10px] font-medium text-white/60">User {msg.senderId}</p>
+                        <p className="mt-0.5 text-xs text-white/90">{msg.content || "(media)"}</p>
+                        <p className="mt-1 text-[10px] text-white/40">{shortDate(msg.createdAt)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2 p-3">
+                <div className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1">
+                  <span className="text-[10px] font-medium text-white/50">To</span>
+                  <input
+                    type="number"
+                    value={chatRecipientID}
+                    onChange={(event) => setChatRecipientID(event.target.value)}
+                    placeholder="User ID"
+                    className="w-16 rounded bg-transparent px-1.5 py-0.5 text-xs text-white placeholder:text-white/40 outline-none"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={chatDraft}
+                    onChange={(event) => setChatDraft(event.target.value)}
+                    placeholder="Type a message…"
+                    className="min-w-0 flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs text-white placeholder:text-white/40 outline-none focus:border-white/40"
+                  />
                   <button
                     type="button"
-                    key={item.id}
-                    onClick={() => markNotificationRead(item.id)}
-                    className={`w-full rounded-sm border px-3 py-2 text-left text-xs transition ${
-                      item.isRead
-                        ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                        : "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
-                    }`}
+                    onClick={sendChatMessage}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15 text-white transition hover:bg-white/25 active:scale-95"
+                    aria-label="Send message"
                   >
-                    <p className="font-semibold">{item.title}</p>
-                    <p className="mt-0.5 text-[11px]">{item.subtitle}</p>
+                    <Send className="h-4 w-4" />
                   </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                  chatConnected
-                    ? "bg-brand-primary/15 text-brand-primary"
-                    : "bg-rose-100 text-rose-700"
-                }`}
-              >
-                {chatConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {chatConnected ? "Connected" : "Offline"}
-              </span>
-            </div>
-            <div className="mt-3 space-y-2">
-              <input
-                type="number"
-                value={chatRecipientID}
-                onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient user ID"
-                className="h-9 w-full rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-              />
-              <div className="flex gap-2">
-                <input
-                  value={chatDraft}
-                  onChange={(event) => setChatDraft(event.target.value)}
-                  placeholder="Write a direct message..."
-                  className="h-9 flex-1 rounded-sm border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-                />
-                <button
-                  type="button"
-                  onClick={sendChatMessage}
-                  className="brand-gradient rounded-sm px-3 text-xs font-semibold text-white"
-                >
-                  Send
-                </button>
-              </div>
-              {chatError ? <p className="text-xs text-rose-600">{chatError}</p> : null}
-              <div className="rounded-sm border border-neutral-200 bg-neutral-50 p-2">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                  Recent chat messages
-                </p>
-                <div className="max-h-36 space-y-1 overflow-y-auto">
-                  {chatMessages.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No chat messages yet.</p>
-                  ) : (
-                    chatMessages.slice(0, 8).map((msg) => (
-                      <div key={`${msg.id}-${msg.createdAt}`} className="rounded-lg bg-white px-2 py-1">
-                        <p className="text-[10px] font-semibold text-neutral-700">
-                          User {msg.senderId} · Conv {msg.conversationId}
-                        </p>
-                        <p className="text-xs text-neutral-600">{msg.content || "(media)"}</p>
-                        <p className="text-[10px] text-neutral-400">{shortDate(msg.createdAt)}</p>
-                      </div>
-                    ))
-                  )}
                 </div>
+                {chatError ? <p className="text-[11px] text-rose-400">{chatError}</p> : null}
+                {Object.keys(chatUnreadMap).length > 0 ? (
+                  <p className="text-[11px] text-white/50">
+                    {Object.values(chatUnreadMap).reduce((a, b) => a + b, 0)} unread
+                  </p>
+                ) : null}
               </div>
-              {Object.keys(chatUnreadMap).length > 0 ? (
-                <p className="text-[11px] text-neutral-500">
-                  Unread conversations: {Object.values(chatUnreadMap).reduce((a, b) => a + b, 0)}
-                </p>
-              ) : null}
             </div>
           </div>
 
-          <div className="rounded-sm border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Trending topics</h2>
-            <div className="mt-4 space-y-3">
-              {trends.map((item) => (
-                <article key={item.title} className="rounded-sm border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                  <p className="mt-1 text-xs text-neutral-600">{item.posts}</p>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-gradient-to-b from-[#2b2929]/60 to-[#2b2929]/40 shadow-lg">
+            <div className="border-b border-white/10 px-4 py-3">
+              <h2 className="text-sm font-semibold text-white">Trending topics</h2>
+            </div>
+            <div className="space-y-2 p-3">
+              {trends.map((item, index) => (
+                <article key={item.title} className="flex items-start gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/15 text-[11px] font-bold text-white/80">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white/90">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-white/60">{item.posts}</p>
+                  </div>
                 </article>
               ))}
             </div>
           </div>
         </aside>
+        </div>
       </main>
 
+      <Footer />
+
       {notificationsOpen ? (
-        <div className="fixed right-4 top-16 z-50 w-[320px] rounded-sm border border-neutral-200 bg-white p-3 shadow-xl lg:hidden">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-neutral-900">Notifications</p>
-            <button
-              type="button"
-              onClick={() => setNotificationsOpen(false)}
-              className="text-xs font-semibold text-neutral-500 hover:text-neutral-900"
-            >
-              Close
-            </button>
-          </div>
-          <div className="max-h-64 space-y-2 overflow-y-auto">
-            {notifications.map((item) => (
+        <div className="fixed right-4 top-16 z-50 w-[320px] rounded-xl border border-white/10 bg-[#2b2929]/95 p-3 shadow-xl backdrop-blur-md">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-white">Notifications</p>
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                key={item.id}
-                onClick={() => markNotificationRead(item.id)}
-                className={`w-full rounded-sm border px-3 py-2 text-left text-xs ${
-                  item.isRead
-                    ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                    : "border-brand-primary/25 bg-brand-primary/10 text-brand-primary"
-                }`}
+                onClick={markAllNotificationsRead}
+                className="text-xs font-semibold text-white/60 hover:text-white"
               >
-                <p className="font-semibold">{item.title}</p>
-                <p className="mt-0.5 text-[11px]">{item.subtitle}</p>
+                Mark all read
               </button>
-            ))}
+              <span className="text-white/30">·</span>
+              <button
+                type="button"
+                onClick={() => setNotificationsOpen(false)}
+                className="text-xs font-semibold text-white/60 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div className="max-h-64 space-y-2 overflow-y-auto">
+            {notificationsLoading ? (
+              <p className="py-4 text-center text-xs text-white/50">Loading...</p>
+            ) : notifications.length === 0 ? (
+              <p className="py-4 text-center text-xs text-white/50">No notifications yet.</p>
+            ) : (
+              notifications.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  onClick={() => markNotificationRead(item.id)}
+                  className={`w-full rounded-sm border px-3 py-2 text-left text-xs ${
+                    item.isRead
+                      ? "border-white/10 bg-white/5 text-white/50"
+                      : "border-brand-primary/30 bg-brand-primary/15 text-brand-primary"
+                  }`}
+                >
+                  <p className="font-semibold">{item.title}</p>
+                  <p className="mt-0.5 text-[11px]">{item.subtitle}</p>
+                </button>
+              ))
+            )}
           </div>
         </div>
       ) : null}

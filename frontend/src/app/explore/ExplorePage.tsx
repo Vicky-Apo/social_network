@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Bell, Search, ArrowLeft } from "lucide-react";
 import { landingData } from "@/lib/data";
 import { apiJson, asArray, asNumber, asString, isRecord } from "@/lib/api";
 import { BrandMark } from "@/components/BrandMark";
+import { Footer } from "@/components/Footer";
 
 type Post = {
   id: number;
@@ -65,6 +67,7 @@ export default function ExplorePage() {
   const [error, setError] = useState<string | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "media">("all");
 
   const apiBaseUrl = useMemo(
     () =>
@@ -119,135 +122,216 @@ export default function ExplorePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBaseUrl]);
 
-  const filtered = query.trim()
-    ? posts.filter((post) => {
-        const q = query.trim().toLowerCase();
-        return post.authorName.toLowerCase().includes(q) || post.content.toLowerCase().includes(q);
-      })
-    : posts;
+  const filtered = useMemo(() => {
+    let list = posts;
+    if (query.trim()) {
+      const q = query.trim().toLowerCase();
+      list = list.filter(
+        (post) =>
+          post.authorName.toLowerCase().includes(q) || post.content.toLowerCase().includes(q),
+      );
+    }
+    if (filter === "media") {
+      list = list.filter((post) => Boolean(post.media_path));
+    }
+    return list;
+  }, [posts, query, filter]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
+    <div className="relative z-[1] min-h-screen bg-[#2b2929] text-white">
+      <header className="sticky top-0 z-40 border-b border-white/10 bg-black/30 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-neutral-700">
-            <ArrowLeft className="h-4 w-4" />
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/10"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Dashboard</span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <Link href="/" className="inline-flex items-center text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50" aria-label={landingData.productName}>
             <BrandMark label={landingData.productName} size="sm" logoSrc="/vybez-logo-v2.png" />
-            <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
-          </div>
+          </Link>
 
           <div className="relative ml-2 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
             <input
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search explore feed..."
-              className="h-11 w-full rounded-sm border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
+              placeholder="Search posts..."
+              className="h-11 w-full rounded-xl border border-white/30 bg-white/5 pl-9 pr-4 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-white/60 focus:ring-2 focus:ring-white/30 focus:ring-offset-2 focus:ring-offset-[#2b2929]"
             />
           </div>
 
           <button
             type="button"
             aria-label="Notifications"
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-white/80 transition hover:bg-white/10 hover:text-white"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
+            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[10px] font-semibold text-[#2b2929]">
               {notificationCount}
             </span>
           </button>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
-        <div className="rounded-sm border border-neutral-200 bg-white p-4 shadow-sm sm:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Explore</h1>
-              <p className="text-sm text-neutral-600">Browse the latest posts from the community.</p>
+      <main className="relative min-h-[80vh]">
+        <Image
+          src="/explore-bg.png"
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0 bg-[#2b2929]/55" aria-hidden />
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+          <section className="mb-8">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">Explore</h1>
+                <p className="mt-1 text-sm text-white/70">Find posts and people from the community.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void load("refresh")}
+                disabled={isRefreshing}
+                className="rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/20 disabled:opacity-60"
+              >
+                {isRefreshing ? "Refreshing…" : "Refresh"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => void load("refresh")}
-              className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-            >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </button>
+
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search posts, authors, keywords…"
+                  className="h-12 w-full rounded-2xl border border-white/20 bg-white/10 pl-12 pr-4 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-white/40 focus:bg-white/15 focus:ring-2 focus:ring-white/20"
+                />
+              </div>
+              <div className="flex gap-2">
+                {(["all", "media"] as const).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setFilter(key)}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                      filter === key
+                        ? "bg-white text-[#2b2929]"
+                        : "border border-white/20 bg-white/5 text-white/90 hover:bg-white/10"
+                    }`}
+                  >
+                    {key === "all" ? "All posts" : "With media"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!isLoading && !error && filtered.length > 0 && (
+              <p className="mt-3 text-xs text-white/50">
+                {filtered.length} {filtered.length === 1 ? "post" : "posts"}
+                {query.trim() ? " matching your search" : ""}
+              </p>
+            )}
+          </section>
+
+          <div>
+            {isLoading ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/5 py-16 backdrop-blur-sm">
+                <div className="h-8 w-8 animate-pulse rounded-full bg-white/20" />
+                <p className="mt-4 text-sm text-white/60">Loading discover feed…</p>
+              </div>
+            ) : error ? (
+              <article className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-8 text-center backdrop-blur-sm">
+                <p className="text-sm font-medium text-rose-300">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => void load("refresh")}
+                  className="mt-4 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                >
+                  Try again
+                </button>
+              </article>
+            ) : filtered.length === 0 ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 py-16 text-center backdrop-blur-sm">
+                <p className="text-sm font-medium text-white/80">
+                  {query.trim() || filter === "media"
+                    ? "No posts match. Try a different search or filter."
+                    : "No posts yet. Be the first to share something."}
+                </p>
+                {(query.trim() || filter === "media") && (
+                  <button
+                    type="button"
+                    onClick={() => { setQuery(""); setFilter("all"); }}
+                    className="mt-4 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white hover:bg-white/20"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filtered.map((post, index) => {
+                  const hasMedia = Boolean(post.media_path);
+                  const isFeatured = index === 0 && hasMedia;
+                  return (
+                    <article
+                      key={post.id}
+                      className={`group overflow-hidden rounded-2xl border border-white/10 bg-[#2b2929]/50 shadow-lg backdrop-blur-sm transition hover:-translate-y-0.5 hover:border-white/20 hover:shadow-xl ${
+                        isFeatured ? "sm:col-span-2 sm:row-span-1" : ""
+                      }`}
+                    >
+                      <Link href={`/posts/${post.id}`} className="flex h-full flex-col">
+                        {hasMedia && (
+                          <div className={`relative overflow-hidden bg-white/5 ${isFeatured ? "aspect-video" : "aspect-[4/3]"}`}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={post.media_path!}
+                              alt=""
+                              className="h-full w-full object-cover transition group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
+                          </div>
+                        )}
+                        <div className="flex flex-1 flex-col p-4">
+                          <header className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-semibold text-white">
+                                {initials(post.authorName.split(" ")[0], post.authorName.split(" ")[1])}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-white">{post.authorName}</p>
+                                <p className="text-[11px] text-white/50">{shortDate(post.createdAt)}</p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium uppercase text-white/70">
+                              {post.privacyLabel}
+                            </span>
+                          </header>
+                          <p className={`mt-2 text-sm leading-relaxed text-white/90 ${hasMedia ? "line-clamp-2" : "line-clamp-4"}`}>
+                            {post.content}
+                          </p>
+                          <footer className="mt-auto flex items-center gap-4 pt-3 text-xs text-white/50">
+                            <span>{post.counts.likes} likes</span>
+                            <span>{post.counts.comments} comments</span>
+                          </footer>
+                        </div>
+                      </Link>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-
-        <div className="mt-5">
-          {isLoading ? (
-            <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-              Loading explore feed...
-            </article>
-          ) : error ? (
-            <article className="rounded-sm border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
-              {error}
-            </article>
-          ) : filtered.length === 0 ? (
-            <article className="rounded-sm border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-              No posts to show yet.
-            </article>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filtered.map((post) => (
-                <article
-                  key={post.id}
-                  className="group overflow-hidden rounded-sm border border-neutral-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <Link href={`/posts/${post.id}`} className="block">
-                    <div className="p-4">
-                      <header className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                            {initials(post.authorName.split(" ")[0], post.authorName.split(" ")[1])}
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold text-neutral-900">
-                              {post.authorName}
-                            </p>
-                            <p className="text-xs text-neutral-500">{shortDate(post.createdAt)}</p>
-                          </div>
-                        </div>
-                        <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
-                          {post.privacyLabel}
-                        </span>
-                      </header>
-
-                      <p className="mt-3 line-clamp-5 text-sm leading-relaxed text-neutral-700">
-                        {post.content}
-                      </p>
-
-                      {post.media_path ? (
-                        <div className="mt-3 overflow-hidden rounded-sm border border-neutral-200">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={post.media_path}
-                            alt="Post media"
-                            className="h-36 w-full object-cover"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <footer className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-4 py-3 text-xs text-neutral-600">
-                      <span>{post.counts.likes} likes</span>
-                      <span>{post.counts.comments} comments</span>
-                      <span>{post.counts.dislikes} dislikes</span>
-                    </footer>
-                  </Link>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
