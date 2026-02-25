@@ -34,10 +34,12 @@ Creates a new comment on a post.
 ```
 
 **Notes:**
-- `content` is required and cannot be empty
+- `content` can be empty if `media_path` is provided
 - `author_id` is automatically determined from your authenticated session
 - `media_path` is optional (string path to image/GIF)
 - The `post_id` is automatically extracted from the URL path
+- Comments on group posts require group membership
+- Use `POST /uploads` to get a `media_path` if you need to attach an image/GIF
 
 **Response (201):**
 
@@ -61,7 +63,9 @@ Creates a new comment on a post.
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID or request body
 - `401 Unauthorized` - Not logged in or invalid session
-- `500 Internal Server Error` - Failed to create comment (e.g., post doesn't exist)
+- `403 Forbidden` - You are not allowed to comment on this post
+- `404 Not Found` - Post doesn't exist
+- `500 Internal Server Error` - Failed to create comment
 
 ### Get Post Comments
 
@@ -112,6 +116,7 @@ Retrieves all comments for a specific post.
 - Returns an empty array `[]` if the post has no comments
 - Returns `404 Not Found` if the post doesn't exist
 - Requires authentication (session cookie)
+- Group post comments require group membership
 
 ## Reactions Endpoints
 
@@ -151,10 +156,13 @@ Adds, updates, or removes a reaction to a post.
 - If the same reaction is sent again, it is removed (`status: "removed"`).
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
 - `user_id` is automatically determined from your authenticated session
+- You must be allowed to view the post (public/followers/private rules). Group posts require membership.
 
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID, invalid reaction type, or invalid request body
 - `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view/react to this post
+- `404 Not Found` - Post doesn't exist
 
 ### Get Post Reactions
 
@@ -193,6 +201,7 @@ Retrieves all reactions for a specific post.
 - `created_at` - When the user first reacted (never changes)
 - `updated_at` - When the user last changed their reaction
 - Requires authentication (session cookie)
+- You must be allowed to view the post (public/followers/private rules). Group posts require membership.
 
 ### Toggle Comment Reaction
 
@@ -230,10 +239,13 @@ Adds or updates a reaction to a comment. If the user already has a reaction, it 
 - If the same reaction is sent again, it is removed (`status: "removed"`).
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
 - `user_id` is automatically determined from your authenticated session
+- You must be allowed to view the comment’s post. Group posts require membership.
 
 **Error Responses:**
 - `400 Bad Request` - Invalid comment ID, invalid reaction type, or invalid request body
 - `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to view/react to this comment's post
+- `404 Not Found` - Comment (or its post) doesn't exist
 
 ### Get Comment Reactions
 
@@ -272,6 +284,7 @@ Retrieves all reactions for a specific comment.
 - `created_at` - When the user first reacted (never changes)
 - `updated_at` - When the user last changed their reaction
 - Requires authentication (session cookie)
+- You must be allowed to view the comment’s post. Group posts require membership.
 
 ## React Fetch Examples
 
@@ -431,7 +444,7 @@ export async function getCommentReactions(commentId: number) {
 
 1. **Upsert Behavior**: When adding a reaction, if the user already has a reaction on that post/comment, it will be updated (not duplicated). This means each user can only have one reaction per post/comment.
 
-2. **Foreign Key Constraints**: Comments and reactions require valid post/user IDs. If you try to create a comment on a non-existent post, you'll get a 500 error.
+2. **Foreign Key Constraints**: Comments and reactions require valid post/user IDs. If you try to create a comment on a non-existent post, you'll get a 404 error.
 
 3. **Error Handling**: Always check `res.ok` or handle axios errors. The API returns standard HTTP status codes:
    - `200` - Success (GET requests)

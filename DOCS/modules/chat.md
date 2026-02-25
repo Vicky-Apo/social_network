@@ -15,6 +15,78 @@ WebSocket endpoint:
 
 The WebSocket connection authenticates using the same session cookie as all other endpoints. The browser sends the cookie automatically on the upgrade request — no extra headers or options are needed. Make sure the user is logged in before opening the connection.
 
+## REST Endpoints
+
+These endpoints expose conversations and messages over HTTP.
+
+### List conversations
+
+`GET /conversations?limit=20&offset=0`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 5,
+      "type": "direct",
+      "other_user_id": 2,
+      "last_message": {
+        "id": 42,
+        "conversation_id": 5,
+        "sender_id": 2,
+        "content": "Hey there!",
+        "media_path": null,
+        "created_at": "2025-01-24T12:34:56Z"
+      },
+      "unread_count": 3,
+      "created_at": "2025-01-24T12:00:00Z"
+    }
+  ]
+}
+```
+
+### Get conversation
+
+`GET /conversations/{id}`
+
+### List messages
+
+`GET /conversations/{id}/messages?limit=20&offset=0`
+
+### Mark conversation as read
+
+`PATCH /conversations/{id}/read`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "read"
+  }
+}
+```
+
+### Unread counts
+
+`GET /conversations/unread-counts`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "5": 3,
+    "12": 1
+  }
+}
+```
+
 ## Connecting
 
 Open a WebSocket connection to `/ws`. The server validates your session cookie during the HTTP upgrade. If the cookie is missing or invalid, the upgrade is rejected with `401`.
@@ -98,6 +170,9 @@ Sent when another member of a conversation starts or stops typing.
   }
 }
 ```
+Notes:
+- Typing is ephemeral and may be auto-cleared by the server after a short inactivity window (~5s).
+- If a client disconnects while typing, the server will send a final `is_typing: false` for that user.
 
 ### user_online / user_offline
 
@@ -172,6 +247,7 @@ Group message:
 
 Notes:
 - Direct messages require that at least one of the two users follows the other.
+- Direct messages are also allowed if the recipient has a public profile.
 - Group messages require that you are a member of the group.
 - `content` or `media_path` must be provided — both cannot be empty/null.
 - The server echoes the message back to you as a `chat_message` confirmation and forwards it to the other participants.
@@ -193,6 +269,8 @@ Notify other members of a conversation that you are typing (or have stopped).
 Notes:
 - Send `is_typing: false` when the user stops typing.
 - You must be a member of the conversation.
+- The server will auto-clear typing after a short inactivity window (~5s).
+- If a client disconnects while typing, the server sends a final `is_typing: false` for that user.
 
 ### mark_read
 
@@ -210,6 +288,7 @@ Mark a conversation as fully read. This clears the unread count for that convers
 Notes:
 - You must be a member of the conversation.
 - The read pointer advances to the latest message in the conversation at the time of the request.
+- The server does not push an `unread_counts` update after `mark_read`. The client should update local unread state or refetch `GET /conversations/unread-counts`.
 
 ## Unread message tracking
 
@@ -220,6 +299,26 @@ Each conversation tracks a per-user read position using message IDs.
 - On WebSocket connect, the server pushes your current unread counts via `unread_counts`. Use this to populate notification badges immediately on app load.
 - On each new incoming message, the server also pushes an `unread_counts` update for that conversation.
 - If a recipient is offline when a message is sent, it is persisted to the database. The `unread_counts` message on their next connection lets them know new messages are waiting.
+
+## Online Presence (Frontend-Only, No New Endpoints)
+
+This project uses WebSocket presence events only. No REST endpoint is required.
+
+### How it works
+
+- The server sends `user_online` / `user_offline` events for **your follow network** (both directions).
+- On connect, the server sends `user_online` events for all currently online contacts in your follow network.
+
+### Frontend strategy (minimal approach)
+
+1. Maintain a `Set` of online user IDs.
+2. On `user_online`, add the ID. On `user_offline`, remove it.
+3. For **followers/following lists**, online status is accurate.
+4. For **group members**, online status is only accurate for members who are in your follow network.
+   - If a member is not in your follow network, you cannot know their presence without backend changes.
+   - Show “unknown/offline” for those users if needed.
+
+This keeps backend unchanged and still provides live online/offline UX where it is supported by current events.
 
 ## React fetch example
 
@@ -280,9 +379,88 @@ export function disconnectChat() {
 }
 ```
 
+## REST endpoints (conversation history)
+
+These endpoints complement WebSockets by providing conversation lists and history.
+
+### List conversations
+
+`GET /conversations`
+
+Notes:
+- Returns direct and group conversations.
+- Group conversations include `group_id` in the response.
+
+### Get conversation
+
+`GET /conversations/{id}`
+
+### List conversation messages
+
+`GET /conversations/{id}/messages?limit=20&offset=0`
+
+### Mark conversation read
+
+`PATCH /conversations/{id}/read`
+
+### Unread counts (HTTP)
+
+`GET /conversations/unread-counts`
+
+## Message reactions (emoji)
+
+### Toggle message reaction
+
+`POST /messages/{id}/reactions`
+
+Request body (JSON):
+
+```json
+{
+  "emoji": "😀"
+}
+```
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "added"
+  }
+}
+```
+
+Notes:
+- If the same emoji is sent again, the reaction is removed (`status: "removed"`).
+- You must be a member of the conversation containing the message.
+- Emoji length is limited to 8 characters.
+
+### List message reactions
+
+`GET /messages/{id}/reactions`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "message_id": 12,
+      "user_id": 5,
+      "emoji": "😀",
+      "created_at": "2025-01-24T12:34:56Z"
+    }
+  ]
+}
+```
+
 ## Notes
 
 - The WebSocket connection requires a valid session cookie — the user must be logged in before connecting.
 - The server rate-limits WebSocket messages per user. If the limit is hit, an `error` message with code `RATE_LIMIT` is sent back.
 - Messages are persisted to the database regardless of whether the recipient is online. Offline recipients will see the messages when they next open the conversation.
-- Conversation history fetching (loading past messages) is not yet available over WebSocket or HTTP. Only new real-time messages and unread counts are currently supported.
+- Conversation history fetching (loading past messages) is available over HTTP via `/conversations/{id}/messages`.
+- Typing indicators are ephemeral UI state. The frontend should still apply a local timeout (e.g., 4–6s) in case the client does not receive a stop-typing event.

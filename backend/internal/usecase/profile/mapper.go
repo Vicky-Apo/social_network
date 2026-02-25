@@ -36,3 +36,34 @@ func mapUserLimited(u domainuser.User) LimitedUserDTO {
 		IsPublic:   u.IsPublic,
 	}
 }
+
+func mapProfileUser(u domainuser.User) ProfileUserDTO {
+	email := u.Email
+	dob := u.DateOfBirth.Format("02/01/2006")
+	created := u.CreatedAt
+	updated := u.UpdatedAt
+	return ProfileUserDTO{
+		ID:          u.ID,
+		Email:       &email,
+		FirstName:   u.FirstName,
+		LastName:    u.LastName,
+		DateOfBirth: &dob,
+		AvatarPath:  u.AvatarPath,
+		Nickname:    u.Nickname,
+		About:       u.About,
+		IsPublic:    u.IsPublic,
+		CreatedAt:   &created,
+		UpdatedAt:   &updated,
+	}
+}
+
+func mapProfileUserLimited(u domainuser.User) ProfileUserDTO {
+	return ProfileUserDTO{
+		ID:         u.ID,
+		FirstName:  u.FirstName,
+		LastName:   u.LastName,
+		Nickname:   u.Nickname,
+		AvatarPath: u.AvatarPath,
+		IsPublic:   u.IsPublic,
+	}
+}

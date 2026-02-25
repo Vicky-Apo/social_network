@@ -54,6 +54,12 @@ If the target profile is public, the response is:
 }
 ```
 
+Error responses:
+- `400 Bad Request` - Missing/invalid `target_id`, or trying to follow yourself
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - Target user not found
+- `409 Conflict` - Already following or a pending request already exists
+
 ### List pending requests
 
 `GET /follow-requests`
@@ -114,7 +120,7 @@ Request body (JSON):
 }
 ```
 
-Allowed values: `accepted`, `declined`.
+Allowed values: `accepted`, `declined`, `canceled`.
 
 Response (200):
 
@@ -126,6 +132,13 @@ Response (200):
   }
 }
 ```
+
+Error responses:
+- `400 Bad Request` - Invalid status
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to update this request
+- `404 Not Found` - Follow request not found
+- `409 Conflict` - Request is not pending
 
 ### Unfollow
 
@@ -141,6 +154,33 @@ Response (200):
   }
 }
 ```
+
+Error responses:
+- `400 Bad Request` - Invalid user id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - User not found
+- `409 Conflict` - You are not currently following this user
+
+### Remove follower
+
+`DELETE /followers/{id}`
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "removed"
+  }
+}
+```
+
+Error responses:
+- `400 Bad Request` - Invalid user id
+- `401 Unauthorized` - Not logged in or invalid session
+- `404 Not Found` - User not found
+- `409 Conflict` - The user is not your follower
 
 ## React fetch example
 
@@ -166,7 +206,7 @@ export async function listFollowRequests() {
   return res.json();
 }
 
-export async function updateFollowRequest(id: number, status: "accepted" | "declined") {
+export async function updateFollowRequest(id: number, status: "accepted" | "declined" | "canceled") {
   const res = await fetch(`${API_BASE}/follow-requests/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -182,6 +222,14 @@ export async function unfollow(userId: number) {
     credentials: "include",
   });
   if (!res.ok) throw new Error("Unfollow failed");
+}
+
+export async function removeFollower(userId: number) {
+  const res = await fetch(`${API_BASE}/followers/${userId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Remove follower failed");
 }
 ```
 

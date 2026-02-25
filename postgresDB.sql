@@ -185,25 +185,6 @@ CREATE TABLE comments (
 );
 
 /* =========================
-   CATEGORIES (NON-GROUP POSTS)
-   ========================= */
-
-CREATE TABLE categories (
-  id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE,
-  description TEXT
-);
-
-CREATE TABLE post_categories (
-  post_id BIGINT NOT NULL,
-  category_id BIGINT NOT NULL,
-  PRIMARY KEY (post_id, category_id),
-  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
-);
-
-
-/* =========================
    REACTIONS
    ========================= */
 
@@ -354,31 +335,6 @@ CHECK (content IS NOT NULL OR media_path IS NOT NULL);
 ALTER TABLE message_reactions
 ADD CONSTRAINT emoji_length_check
 CHECK (char_length(emoji) <= 8);
-
-
---LOGICAL INVARIANT (TRIGGER)
-
---ensure that only non-group posts can have categories assigned
-CREATE OR REPLACE FUNCTION prevent_group_post_categories()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM posts
-    WHERE id = NEW.post_id
-      AND group_id IS NOT NULL
-  ) THEN
-    RAISE EXCEPTION 'Categories are only allowed for non-group posts';
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-
-CREATE TRIGGER trg_prevent_group_post_categories
-BEFORE INSERT ON post_categories
-FOR EACH ROW
-EXECUTE FUNCTION prevent_group_post_categories();
 
 
 /* =========================

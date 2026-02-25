@@ -2,8 +2,9 @@ package utils
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"social-network/backend/pkg/logger"
 )
 
 type APIResponse struct {
@@ -21,7 +22,7 @@ func RespondWithError(w http.ResponseWriter, status int, message string) {
 		Error:   message,
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Printf("failed to encode error response: %v", err)
+		logger.NewDefault(false).Debug("failed to encode error response", logger.F("error", err.Error()))
 	}
 }
 
@@ -34,6 +35,6 @@ func RespondWithSuccess(w http.ResponseWriter, status int, payload any) {
 		Data:    payload,
 	}
 	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		log.Printf("failed to encode success response: %v", err)
+		logger.NewDefault(false).Debug("failed to encode success response", logger.F("error", err.Error()))
 	}
 }
