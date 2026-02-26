@@ -6,6 +6,13 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 *.log
-
+out/
+coverage/
+.vercel/
+.turbo/
+.swc/
+.eslintcache
+*.tsbuildinfo
+.pnp.*
 
 /backend/backend/
