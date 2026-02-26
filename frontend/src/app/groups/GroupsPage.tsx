@@ -1,14 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Compass, Globe, Lock, LogOut, MessageSquare,
-  RefreshCw, Search, Users,} from "lucide-react";
+import { ArrowRight, Compass, Globe, Lock, MessageSquare,
+  UserPlus, Users,} from "lucide-react";
 import { motion } from "framer-motion";
-import { useAuth } from "../component/AuthContext";
-import { landingData } from "@/lib/data";
+import TopNav from "../component/TopNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -48,6 +46,7 @@ const quickLinks = [
   { label: "Explore", href: "/dashboard", icon: Compass },
   { label: "Groups", href: "/groups", icon: Users },
   { label: "Messages", href: "/messages", icon: MessageSquare },
+  { label: "Requests", href: "/follow-requests", icon: UserPlus },
 ];
 
 const trends = [
@@ -98,8 +97,6 @@ function normalizeGroup(item: GroupApiItem): GroupItem | null {
 
 export default function GroupsPage() {
   const router = useRouter();
-  const { logout } = useAuth();
-
   const [user, setUser] = useState<User | null>(null);
   const [groups, setGroups] = useState<GroupItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -160,18 +157,6 @@ export default function GroupsPage() {
     void loadPageData();
   }, [loadPageData]);
 
-  const handleLogout = async () => {
-    try {
-      await fetch(`${apiBaseUrl}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } finally {
-      logout();
-      router.replace("/login");
-    }
-  };
-
   const filteredGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return groups;
@@ -191,50 +176,13 @@ export default function GroupsPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <Image
-              src="/vybez-logo.png"
-              alt={`${landingData.productName} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
-              priority
-            />
-            <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
-          </Link>
-
-          <div className="relative ml-2 hidden flex-1 sm:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search groups..."
-              className="h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
-            />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void loadPageData()}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Log out</span>
-          </button>
-        </div>
-      </header>
+      <TopNav
+        user={user ?? undefined}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search groups..."
+        onLogout={() => router.replace("/login")}
+      />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
@@ -259,7 +207,7 @@ export default function GroupsPage() {
                     className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition ${
                       isActive
                         ? "brand-gradient border-transparent text-white"
-                        : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-300 hover:text-neutral-900"
+                        : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-400 hover:text-neutral-900"
                     }`}
                   >
                     <Icon className="h-4 w-4" />

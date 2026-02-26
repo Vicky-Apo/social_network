@@ -94,6 +94,10 @@ func (r *fakePostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit
 func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
+func (r *fakePostRepo) Update(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
+	return domainpost.Post{}, nil
+}
+func (r *fakePostRepo) Delete(ctx context.Context, id int64) error { return nil }
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
@@ -119,6 +123,9 @@ func (r *fakeCommentRepo) GetByPostID(ctx context.Context, postID int64, limit, 
 	return nil, nil
 }
 func (r *fakeCommentRepo) Delete(ctx context.Context, id int64) error { return nil }
+func (r *fakeCommentRepo) Update(ctx context.Context, comment domaincomment.Comment) (domaincomment.Comment, error) {
+	return domaincomment.Comment{}, nil
+}
 
 // fake notifier
 

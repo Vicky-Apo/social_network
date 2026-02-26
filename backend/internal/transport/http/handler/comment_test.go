@@ -39,6 +39,9 @@ func (r *fakeCommentRepo) GetByPostID(ctx context.Context, postID int64, limit, 
 func (r *fakeCommentRepo) GetByID(ctx context.Context, id int64) (domaincomment.Comment, error) {
 	return domaincomment.Comment{}, nil
 }
+func (r *fakeCommentRepo) Update(ctx context.Context, comment domaincomment.Comment) (domaincomment.Comment, error) {
+	return comment, nil
+}
 func (r *fakeCommentRepo) Delete(ctx context.Context, id int64) error { return nil }
 
 func TestCommentGetByPostID_Success(t *testing.T) {

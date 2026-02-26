@@ -189,6 +189,85 @@ func (r *Repository) Create(ctx context.Context, post domainpost.Post, allowedUs
 	return post, nil
 }
 
+// Update updates an existing post and its allowed users.
+func (r *Repository) Update(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return domainpost.Post{}, fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	const query = `
+		UPDATE posts
+		SET content = $1,
+		    media_path = $2,
+		    visibility = $3,
+		    updated_at = NOW()
+		WHERE id = $4
+	`
+	var mediaPath any
+	if post.MediaPath != nil && strings.TrimSpace(*post.MediaPath) != "" {
+		mediaPath = *post.MediaPath
+	}
+	res, err := tx.ExecContext(ctx, query, post.Content, mediaPath, post.Privacy, post.ID)
+	if err != nil {
+		return domainpost.Post{}, fmt.Errorf("update post: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return domainpost.Post{}, fmt.Errorf("update post: %w", err)
+	}
+	if rows == 0 {
+		return domainpost.Post{}, domainpost.ErrNotFound
+	}
+
+	// Refresh allowed users
+	if _, err := tx.ExecContext(ctx, `DELETE FROM post_allowed_users WHERE post_id = $1`, post.ID); err != nil {
+		return domainpost.Post{}, fmt.Errorf("delete allowed users: %w", err)
+	}
+	if len(allowedUserIDs) > 0 {
+		const allowedQuery = `
+			INSERT INTO post_allowed_users (post_id, user_id)
+			VALUES ($1, $2)
+		`
+		for _, userID := range allowedUserIDs {
+			if userID <= 0 {
+				return domainpost.Post{}, fmt.Errorf("invalid allowed user id")
+			}
+			if _, err = tx.ExecContext(ctx, allowedQuery, post.ID, userID); err != nil {
+				return domainpost.Post{}, fmt.Errorf("insert allowed user: %w", err)
+			}
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return domainpost.Post{}, fmt.Errorf("commit post: %w", err)
+	}
+
+	updated, err := r.GetByID(ctx, post.ID)
+	if err != nil {
+		return domainpost.Post{}, err
+	}
+	return updated, nil
+}
+
+// Delete removes a post by ID.
+func (r *Repository) Delete(ctx context.Context, id int64) error {
+	const query = `DELETE FROM posts WHERE id = $1`
+	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+	if rows == 0 {
+		return domainpost.ErrNotFound
+	}
+	return nil
+}
+
 // ListByAuthor returns posts for a specific author with pagination.
 func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(2) + "\n" +

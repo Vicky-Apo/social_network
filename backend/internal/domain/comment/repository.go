@@ -13,5 +13,6 @@ type Repository interface {
 	Create(ctx context.Context, comment Comment) (Comment, error)
 	GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]Comment, error)
 	GetByID(ctx context.Context, id int64) (Comment, error)
+	Update(ctx context.Context, comment Comment) (Comment, error)
 	Delete(ctx context.Context, id int64) error
 }

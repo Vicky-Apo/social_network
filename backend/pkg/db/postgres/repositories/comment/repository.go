@@ -128,6 +128,48 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domaincomment.Comme
 	return c, nil
 }
 
+// Update updates an existing comment.
+func (r *Repository) Update(ctx context.Context, comment domaincomment.Comment) (domaincomment.Comment, error) {
+	query := `
+		UPDATE comments
+		SET content = $1,
+		    media_path = $2,
+		    updated_at = NOW()
+		WHERE id = $3
+		RETURNING id, post_id, author_id, content, media_path, created_at, updated_at
+	`
+	var updated domaincomment.Comment
+	err := r.db.QueryRowContext(ctx, query, comment.Content, comment.MediaPath, comment.ID).Scan(
+		&updated.ID,
+		&updated.PostID,
+		&updated.AuthorID,
+		&updated.Content,
+		&updated.MediaPath,
+		&updated.CreatedAt,
+		&updated.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domaincomment.Comment{}, domaincomment.ErrNotFound
+		}
+		return domaincomment.Comment{}, fmt.Errorf("update comment: %w", err)
+	}
+
+	// Load reaction counts for consistency with list payloads
+	countQuery := `
+		SELECT
+			COALESCE(COUNT(*) FILTER (WHERE reaction = 'like'), 0) AS like_count,
+			COALESCE(COUNT(*) FILTER (WHERE reaction = 'dislike'), 0) AS dislike_count
+		FROM comment_reactions
+		WHERE comment_id = $1
+	`
+	if err := r.db.QueryRowContext(ctx, countQuery, updated.ID).Scan(&updated.LikeCount, &updated.DislikeCount); err != nil {
+		return domaincomment.Comment{}, fmt.Errorf("load comment counts: %w", err)
+	}
+
+	return updated, nil
+}
+
 // Delete deletes a comment
 func (r *Repository) Delete(ctx context.Context, id int64) error {
 	query := `DELETE FROM comments WHERE id = $1`

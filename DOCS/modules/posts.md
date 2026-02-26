@@ -17,9 +17,16 @@ Listing and creating posts require a valid session cookie. Use `credentials: "in
 
 `GET /posts`
 
+Query parameters:
+- `limit` (optional, default 20, max 100)
+- `offset` (optional, default 0)
+- `groups_only` (optional, `true`/`false`): return only group posts from groups the user belongs to
+- `author_id` (optional): list posts by a specific user (see "List posts by user")
+
 Notes:
 - Returns non-group posts the user can see (public/followers/private rules)
   plus group posts from groups the user is a member of.
+- If `groups_only=true`, only group posts are returned.
 
 Error responses:
 - `400 Bad Request` - Invalid pagination parameters
@@ -51,41 +58,6 @@ Response (200):
   ]
 }
 ```
-
-### Get post by ID
-
-`GET /posts/{id}`
-
-Response (200):
-
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "author_id": 2,
-    "group_id": null,
-    "author_first_name": "Jane",
-    "author_last_name": "Doe",
-    "author_nickname": "jdoe",
-    "author_avatar_path": "/uploads/avatars/jane.png",
-    "content": "Hello world",
-    "media_path": "/uploads/post-1.png",
-    "privacy": "public",
-    "comment_count": 3,
-    "like_count": 10,
-    "dislike_count": 1,
-    "created_at": "2025-01-24T12:34:56Z",
-    "updated_at": "2025-01-24T12:34:56Z"
-  }
-}
-```
-
-Error responses:
-- `400 Bad Request` - Invalid post id
-- `401 Unauthorized` - Not logged in or invalid session
-- `403 Forbidden` - You are not allowed to view this post
-- `404 Not Found` - Post not found
 
 ### Create post
 
@@ -143,6 +115,83 @@ Error responses:
 - `401 Unauthorized` - Not logged in or invalid session
 - `403 Forbidden` - Not allowed to post in the group
 - `404 Not Found` - Group not found (for group posts)
+
+### Update post
+
+`PATCH /posts/{id}`
+
+Request body (JSON):
+
+```json
+{
+  "content": "Updated content",
+  "media_path": "/uploads/new.png",
+  "privacy": "followers",
+  "allowed_user_ids": [5, 8]
+}
+```
+
+Notes:
+- Only the post author can update.
+- `content` or `media_path` must be present after update (one can be empty, not both).
+- `privacy` can be `public`, `followers`, or `private`.
+- `allowed_user_ids` is only used for `private` posts.
+- Group posts cannot change privacy or allowed users.
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 10,
+    "author_id": 2,
+    "group_id": null,
+    "author_first_name": "Jane",
+    "author_last_name": "Doe",
+    "author_nickname": "jdoe",
+    "author_avatar_path": "/uploads/avatars/jane.png",
+    "content": "Updated content",
+    "media_path": "/uploads/new.png",
+    "privacy": "followers",
+    "comment_count": 0,
+    "like_count": 0,
+    "dislike_count": 0,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T13:00:00Z"
+  }
+}
+```
+
+Error responses:
+- `400 Bad Request` - Invalid request body (bad privacy, missing content/media, invalid allowed_user_ids)
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to update this post
+- `404 Not Found` - Post not found
+
+### Delete post
+
+`DELETE /posts/{id}`
+
+Notes:
+- Only the post author can delete.
+
+Response (200):
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "deleted"
+  }
+}
+```
+
+Error responses:
+- `400 Bad Request` - Invalid post id
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to delete this post
+- `404 Not Found` - Post not found
 
 ### List posts by user
 

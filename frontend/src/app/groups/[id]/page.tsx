@@ -38,6 +38,7 @@ type GroupDetail = {
 
 type Post = {
   id: number;
+  author_id: number;
   author_first_name: string;
   author_last_name: string;
   content: string;
@@ -85,6 +86,13 @@ function shortDate(value: string) {
     return "Just now";
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function toMediaUrl(apiBaseUrl: string, path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${apiBaseUrl}${normalized}`;
 }
 
 function parseGroup(data: unknown): GroupDetail | null {
@@ -152,6 +160,8 @@ export default function GroupDetailsPage() {
   const [pageSize] = useState(8);
   const [composerText, setComposerText] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
+  const [composerFile, setComposerFile] = useState<File | null>(null);
+  const [composerFileName, setComposerFileName] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [postReactionMap, setPostReactionMap] = useState<ReactionMap>({});
@@ -160,7 +170,21 @@ export default function GroupDetailsPage() {
   const [commentsOpenByPost, setCommentsOpenByPost] = useState<Record<number, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<number, boolean>>({});
   const [commentDraftByPost, setCommentDraftByPost] = useState<Record<number, string>>({});
+  const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
+  const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
+  const [editingPostID, setEditingPostID] = useState<number | null>(null);
+  const [editPostText, setEditPostText] = useState("");
+  const [editPostFile, setEditPostFile] = useState<File | null>(null);
+  const [editPostFileName, setEditPostFileName] = useState("");
+  const [editPostClearMedia, setEditPostClearMedia] = useState(false);
+  const [editPostError, setEditPostError] = useState<string | null>(null);
+  const [editingCommentID, setEditingCommentID] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
+  const [editCommentFile, setEditCommentFile] = useState<File | null>(null);
+  const [editCommentFileName, setEditCommentFileName] = useState("");
+  const [editCommentClearMedia, setEditCommentClearMedia] = useState(false);
+  const [editCommentError, setEditCommentError] = useState<string | null>(null);
 
   const apiBaseUrl = useMemo(
     () =>
@@ -348,12 +372,30 @@ export default function GroupDetailsPage() {
     }
   };
 
+  const uploadMedia = async (file: File, kind: "post" | "comment") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("kind", kind);
+    const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const uploadJson = (await uploadRes.json().catch(() => null)) as
+      | ApiResponse<{ path?: string }>
+      | null;
+    if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
+      throw new Error(uploadJson?.error || "Could not upload media.");
+    }
+    return uploadJson.data.path;
+  };
+
   const handleCreatePost = async () => {
     if (isPosting) return;
     const content = composerText.trim();
     const media = mediaUrl.trim();
-    if (!content && !media) {
-      setComposerError("Add a message or a media URL before posting.");
+    if (!content && !media && !composerFile) {
+      setComposerError("Add a message or media before posting.");
       return;
     }
 
@@ -361,13 +403,18 @@ export default function GroupDetailsPage() {
     setComposerError(null);
 
     try {
+      let mediaPath: string | undefined;
+      if (composerFile) {
+        mediaPath = await uploadMedia(composerFile, "post");
+      }
+
       const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
-          media_path: media || undefined,
+          media_path: mediaPath || media || undefined,
           privacy: "public",
         }),
       });
@@ -379,6 +426,8 @@ export default function GroupDetailsPage() {
       setPosts((prev) => [result.data as Post, ...prev]);
       setComposerText("");
       setMediaUrl("");
+      setComposerFile(null);
+      setComposerFileName("");
     } catch {
       setComposerError("Network error. Please try again.");
     } finally {
@@ -446,20 +495,34 @@ export default function GroupDetailsPage() {
 
   const handleCreateComment = async (postID: number) => {
     const draft = (commentDraftByPost[postID] ?? "").trim();
-    if (!draft) {
+    const attachment = commentFileByPost[postID] ?? null;
+    if (!draft && !attachment) {
       setCommentErrorByPost((prev) => ({
         ...prev,
-        [postID]: "Write a comment before posting.",
+        [postID]: "Write a comment or attach media before posting.",
       }));
       return;
     }
 
     try {
+      let mediaPath: string | undefined;
+      if (attachment) {
+        try {
+          mediaPath = await uploadMedia(attachment, "comment");
+        } catch (err) {
+          setCommentErrorByPost((prev) => ({
+            ...prev,
+            [postID]: err instanceof Error ? err.message : "Could not upload comment media.",
+          }));
+          return;
+        }
+      }
+
       const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ content: draft }),
+        body: JSON.stringify({ content: draft || undefined, media_path: mediaPath }),
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
 
@@ -476,6 +539,8 @@ export default function GroupDetailsPage() {
         [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
       }));
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
+      setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
+      setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
       setPosts((prev) =>
         prev.map((post) =>
@@ -488,6 +553,157 @@ export default function GroupDetailsPage() {
         ...prev,
         [postID]: "Network error while posting comment.",
       }));
+    }
+  };
+
+  const startEditPost = (post: Post) => {
+    setEditingPostID(post.id);
+    setEditPostText(post.content || "");
+    setEditPostFile(null);
+    setEditPostFileName("");
+    setEditPostClearMedia(false);
+    setEditPostError(null);
+  };
+
+  const cancelEditPost = () => {
+    setEditingPostID(null);
+    setEditPostText("");
+    setEditPostFile(null);
+    setEditPostFileName("");
+    setEditPostClearMedia(false);
+    setEditPostError(null);
+  };
+
+  const saveEditPost = async (post: Post) => {
+    const content = editPostText.trim();
+    if (!content && !editPostFile && !post.media_path && !editPostClearMedia) {
+      setEditPostError("Content or media is required.");
+      return;
+    }
+    setEditPostError(null);
+    try {
+      let mediaPath: string | undefined;
+      if (editPostClearMedia && !editPostFile) {
+        mediaPath = "";
+      }
+      if (editPostFile) {
+        mediaPath = await uploadMedia(editPostFile, "post");
+      }
+      const response = await fetch(`${apiBaseUrl}/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: content || undefined,
+          media_path: mediaPath ?? undefined,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
+      if (!response.ok || !result?.success || !result.data) {
+        setEditPostError(result?.error || "Could not update post.");
+        return;
+      }
+      setPosts((prev) => prev.map((item) => (item.id === post.id ? result.data as Post : item)));
+      cancelEditPost();
+    } catch (err) {
+      setEditPostError(err instanceof Error ? err.message : "Network error.");
+    }
+  };
+
+  const deletePost = async (postID: number) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/posts/${postID}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return;
+      }
+      setPosts((prev) => prev.filter((post) => post.id !== postID));
+    } catch {
+      // ignore
+    }
+  };
+
+  const startEditComment = (comment: Comment) => {
+    setEditingCommentID(comment.id);
+    setEditCommentText(comment.content || "");
+    setEditCommentFile(null);
+    setEditCommentFileName("");
+    setEditCommentClearMedia(false);
+    setEditCommentError(null);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentID(null);
+    setEditCommentText("");
+    setEditCommentFile(null);
+    setEditCommentFileName("");
+    setEditCommentClearMedia(false);
+    setEditCommentError(null);
+  };
+
+  const saveEditComment = async (postID: number, comment: Comment) => {
+    const content = editCommentText.trim();
+    if (!content && !editCommentFile && !comment.media_path && !editCommentClearMedia) {
+      setEditCommentError("Content or media is required.");
+      return;
+    }
+    setEditCommentError(null);
+    try {
+      let mediaPath: string | undefined;
+      if (editCommentClearMedia && !editCommentFile) {
+        mediaPath = "";
+      }
+      if (editCommentFile) {
+        mediaPath = await uploadMedia(editCommentFile, "comment");
+      }
+      const response = await fetch(`${apiBaseUrl}/comments/${comment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: content || undefined,
+          media_path: mediaPath ?? undefined,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
+      if (!response.ok || !result?.success || !result.data) {
+        setEditCommentError(result?.error || "Could not update comment.");
+        return;
+      }
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? []).map((item) =>
+          item.id === comment.id ? (result.data as Comment) : item,
+        ),
+      }));
+      cancelEditComment();
+    } catch (err) {
+      setEditCommentError(err instanceof Error ? err.message : "Network error.");
+    }
+  };
+
+  const deleteComment = async (postID: number, commentID: number) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/comments/${commentID}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return;
+      }
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? []).filter((item) => item.id !== commentID),
+      }));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postID ? { ...post, comment_count: Math.max(0, post.comment_count - 1) } : post,
+        ),
+      );
+    } catch {
+      // ignore
     }
   };
 
@@ -584,7 +800,7 @@ export default function GroupDetailsPage() {
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
@@ -644,7 +860,7 @@ export default function GroupDetailsPage() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/groups"
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to groups
@@ -686,12 +902,30 @@ export default function GroupDetailsPage() {
               placeholder="Share an update with this group..."
               className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
             />
-            <input
-              value={mediaUrl}
-              onChange={(event) => setMediaUrl(event.target.value)}
-              placeholder="Optional media URL (image or file)"
-              className="mt-3 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
-            />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setComposerFile(file);
+                    setComposerFileName(file?.name ?? "");
+                  }}
+                />
+                Add media
+              </label>
+              {composerFileName ? (
+                <span className="text-xs text-neutral-500">{composerFileName}</span>
+              ) : null}
+              <input
+                value={mediaUrl}
+                onChange={(event) => setMediaUrl(event.target.value)}
+                placeholder="Or paste media URL"
+                className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+              />
+            </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
@@ -742,14 +976,78 @@ export default function GroupDetailsPage() {
                     </button>
                   </header>
 
-                  <p className="mt-3 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                  {editingPostID === post.id ? (
+                    <div className="mt-3 space-y-3">
+                      <textarea
+                        value={editPostText}
+                        onChange={(event) => setEditPostText(event.target.value)}
+                        rows={3}
+                        className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-400"
+                      />
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/gif"
+                              className="hidden"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] ?? null;
+                                setEditPostFile(file);
+                                setEditPostFileName(file?.name ?? "");
+                                setEditPostClearMedia(false);
+                              }}
+                            />
+                            Change media
+                          </label>
+                          {editPostFileName ? (
+                            <span className="text-xs text-neutral-500">{editPostFileName}</span>
+                          ) : null}
+                          {post.media_path ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditPostClearMedia(true);
+                                setEditPostFile(null);
+                                setEditPostFileName("");
+                              }}
+                              className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                                editPostClearMedia
+                                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                                  : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                              }`}
+                            >
+                              {editPostClearMedia ? "Media removed" : "Remove media"}
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => saveEditPost(post)}
+                            className="rounded-full bg-neutral-900 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditPost}
+                          className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {editPostError ? (
+                        <p className="text-xs text-rose-600">{editPostError}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                  )}
 
                   {post.media_path ? (
                     <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
                       <img
-                        src={post.media_path}
+                        src={toMediaUrl(apiBaseUrl, post.media_path)}
                         alt="Post media"
-                        className="h-64 w-full object-cover"
+                        className="max-h-[520px] w-full object-contain bg-white"
                       />
                     </div>
                   ) : null}
@@ -779,6 +1077,24 @@ export default function GroupDetailsPage() {
                       <ThumbsDown className="h-3.5 w-3.5" />
                       {post.dislike_count}
                     </button>
+                    {userID === post.author_id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEditPost(post)}
+                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePost(post.id)}
+                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : null}
                   </footer>
 
                   {commentsOpenByPost[post.id] ? (
@@ -786,7 +1102,84 @@ export default function GroupDetailsPage() {
                       <div className="space-y-2">
                         {(commentsByPost[post.id] ?? []).map((comment) => (
                           <article key={comment.id} className="rounded-xl bg-neutral-50 p-3">
-                            <p className="text-sm text-neutral-700">{comment.content}</p>
+                            {editingCommentID === comment.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={editCommentText}
+                                  onChange={(event) => setEditCommentText(event.target.value)}
+                                  rows={2}
+                                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                                    <input
+                                      type="file"
+                                      accept="image/png,image/jpeg,image/gif"
+                                      className="hidden"
+                                      onChange={(event) => {
+                                        const file = event.target.files?.[0] ?? null;
+                                        setEditCommentFile(file);
+                                        setEditCommentFileName(file?.name ?? "");
+                                        setEditCommentClearMedia(false);
+                                      }}
+                                    />
+                                    Change media
+                                  </label>
+                                  {editCommentFileName ? (
+                                    <span className="text-[11px] text-neutral-500">
+                                      {editCommentFileName}
+                                    </span>
+                                  ) : null}
+                                  {comment.media_path ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditCommentClearMedia(true);
+                                        setEditCommentFile(null);
+                                        setEditCommentFileName("");
+                                      }}
+                                      className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                                        editCommentClearMedia
+                                          ? "border-rose-200 bg-rose-50 text-rose-700"
+                                          : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                                      }`}
+                                    >
+                                      {editCommentClearMedia ? "Media removed" : "Remove media"}
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => saveEditComment(post.id, comment)}
+                                    className="rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-semibold text-white"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditComment}
+                                    className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {editCommentError ? (
+                                  <p className="text-[11px] text-rose-600">{editCommentError}</p>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm text-neutral-700">{comment.content}</p>
+                                {comment.media_path ? (
+                                  <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                                    <img
+                                      src={toMediaUrl(apiBaseUrl, comment.media_path)}
+                                      alt="Comment media"
+                                      className="max-h-64 w-full object-contain bg-white"
+                                    />
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
                             <div className="mt-2 flex items-center gap-2 text-xs">
                               <button
                                 type="button"
@@ -816,6 +1209,24 @@ export default function GroupDetailsPage() {
                                 <ThumbsDown className="h-3 w-3" />
                                 {comment.dislike_count}
                               </button>
+                              {userID === comment.author_id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditComment(comment)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteComment(post.id, comment.id)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : null}
                             </div>
                           </article>
                         ))}
@@ -840,6 +1251,22 @@ export default function GroupDetailsPage() {
                           placeholder="Write a comment..."
                           className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
                         />
+                        <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/gif"
+                            className="hidden"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] ?? null;
+                              setCommentFileByPost((prev) => ({ ...prev, [post.id]: file }));
+                              setCommentFileNameByPost((prev) => ({
+                                ...prev,
+                                [post.id]: file?.name ?? "",
+                              }));
+                            }}
+                          />
+                          Add media
+                        </label>
                         <button
                           type="button"
                           onClick={() => handleCreateComment(post.id)}
@@ -848,6 +1275,11 @@ export default function GroupDetailsPage() {
                           Comment
                         </button>
                       </div>
+                      {commentFileNameByPost[post.id] ? (
+                        <p className="mt-2 text-[11px] text-neutral-500">
+                          Attached: {commentFileNameByPost[post.id]}
+                        </p>
+                      ) : null}
                     </section>
                   ) : null}
                 </article>
@@ -861,7 +1293,7 @@ export default function GroupDetailsPage() {
                 type="button"
                 onClick={loadMorePosts}
                 disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isLoadingMore ? "Loading..." : "Load more posts"}
               </button>

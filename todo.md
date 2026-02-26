@@ -13,6 +13,7 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - Uses `GET /auth/me`
   - Uses `GET /posts`
   - Uses `POST /posts`
+  - Uses `POST /uploads` (post/comment media)
   - Uses `GET /posts/{id}/comments`, `POST /posts/{id}/comments`
   - Uses `POST /posts/{id}/reactions`, `GET /posts/{id}/reactions`
   - Uses `POST /comments/{id}/reactions`, `GET /comments/{id}/reactions`
@@ -20,6 +21,27 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - Uses `PATCH /notifications/{id}/read`, `PATCH /notifications/read-all`
   - Uses `GET /users` and `GET /users?q=...`
   - Uses WebSocket `/ws` (chat + notification events)
+- `frontend/src/app/profile/[id]/page.tsx`:
+  - Uses `GET /auth/me`
+  - Uses `GET /profiles/{id}/full`
+  - Uses `POST /follow-requests`
+  - Uses `GET /follow-requests/sent`
+  - Uses `PATCH /follow-requests/{id}` (cancel)
+  - Uses `DELETE /users/{id}/followers` (unfollow)
+- `frontend/src/app/profile/edit/page.tsx`:
+  - Uses `GET /auth/me`
+  - Uses `GET /profiles/{id}`
+  - Uses `PATCH /profiles/{id}`
+  - Uses `PATCH /profiles/{id}/visibility`
+  - Uses `POST /uploads` (avatar)
+- `frontend/src/app/profile/[id]/followers/page.tsx`:
+  - Uses `GET /auth/me`
+  - Uses `GET /profiles/{id}/followers`
+  - Uses `DELETE /followers/{id}` (remove follower)
+- `frontend/src/app/profile/[id]/following/page.tsx`:
+  - Uses `GET /auth/me`
+  - Uses `GET /profiles/{id}/following`
+  - Uses `DELETE /users/{id}/followers` (unfollow)
 - `frontend/src/app/groups/page.tsx`:
   - Uses `GET /auth/me`
   - Uses `GET /groups`
@@ -28,6 +50,7 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - Uses `GET /groups/{id}`
   - Uses `GET /groups/{id}/posts`
   - Uses `POST /groups/{id}/posts`
+  - Uses `POST /uploads` (post/comment media)
   - Uses `GET /posts/{id}/comments`, `POST /posts/{id}/comments`
   - Uses `POST /posts/{id}/reactions`, `GET /posts/{id}/reactions`
   - Uses `POST /comments/{id}/reactions`, `GET /comments/{id}/reactions`
@@ -38,42 +61,31 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - Uses `GET /conversations/unread-counts`
   - Uses `POST /messages/{id}/reactions`, `GET /messages/{id}/reactions`
   - Uses WebSocket `/ws` (chat + typing + unread counts)
+- `frontend/src/app/follow-requests/page.tsx`:
+  - Uses `GET /auth/me`
+  - Uses `GET /follow-requests`
+  - Uses `GET /follow-requests/sent`
+  - Uses `PATCH /follow-requests/{id}` (accept/decline/cancel)
+  - Uses `GET /users` (to resolve names when available)
 
 ## Missing Pages / Features (Must Implement)
 
 ### Profile + Followers
 - Pages:
-  - Profile view page (public/private rules)
-  - Profile edit page (nickname/about/avatar)
-  - Followers list page
-  - Following list page
 - APIs to use:
-  - `GET /profiles/{id}`
-  - `GET /profiles/{id}/full` (profile + posts + activity)
-  - `PATCH /profiles/{id}`
-  - `PATCH /profiles/{id}/visibility`
-  - `GET /profiles/{id}/followers`
-  - `GET /profiles/{id}/following`
+  - (done) profile edit + followers/following lists implemented
 
 ### Follow Requests + Unfollow
 - Pages / UI:
-  - Follow button on user cards / profile page
-  - Incoming requests page
-  - Sent requests page
   - Actions: accept/decline/cancel/unfollow/remove follower
 - APIs to use:
-  - `POST /follow-requests`
-  - `GET /follow-requests`
-  - `GET /follow-requests/sent`
-  - `PATCH /follow-requests/{id}`
-  - `DELETE /users/{id}/followers`
   - `DELETE /followers/{id}`
 
 ### Posts Privacy + Media Uploads
 - UI:
   - Privacy selector (public/followers/private)
   - Allowed users selection for `private`
-  - File upload for image/GIF in posts and comments
+-  - File upload for image/GIF in posts and comments (dashboard + group posts done)
 - APIs to use:
   - `POST /uploads` (get `media_path`)
   - `POST /posts` (with `privacy`, `allowed_user_ids`, `media_path`)
@@ -136,4 +148,3 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
 
 - Login response in frontend expects `token` but backend is cookie-session based.
   - Update login flow to rely on cookie + `/auth/me` for session state.
-

@@ -193,35 +193,84 @@ func (h *PostHandler) Create(w http.ResponseWriter, r *http.Request) {
 	utils.RespondWithSuccess(w, http.StatusCreated, post)
 }
 
-// GetByID handles GET /posts/{id}.
-func (h *PostHandler) GetByID(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil || id <= 0 {
-		logBadRequest(h.log, "posts.get", logger.F("post_id", idStr))
+// Update handles PATCH /posts/{id}.
+func (h *PostHandler) Update(w http.ResponseWriter, r *http.Request) {
+	postIDStr := r.PathValue("id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil || postID <= 0 {
+		logBadRequest(h.log, "posts.update", logger.F("post_id", postIDStr))
 		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidPostID)
 		return
 	}
 
-	viewerID, _ := middleware.GetUserID(r.Context())
-	post, err := h.service.GetByID(r.Context(), id, viewerID)
+	authorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "posts.update")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	var req usecasepost.UpdatePostRequest
+	if err := utils.ReadJSON(r, &req); err != nil {
+		logBadRequest(h.log, "posts.update", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	updated, err := h.service.Update(r.Context(), postID, authorID, req)
 	if err != nil {
 		if errors.Is(err, usecasepost.ErrForbidden) {
-			logForbidden(h.log, "posts.get", logger.F("post_id", id), logger.F("viewer_id", viewerID))
+			logForbidden(h.log, "posts.update", logger.F("post_id", postID), logger.F("author_id", authorID))
 			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
 			return
 		}
 		if errors.Is(err, domainpost.ErrNotFound) {
-			logNotFound(h.log, "posts.get", logger.F("post_id", id))
+			logNotFound(h.log, "posts.update", logger.F("post_id", postID))
 			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
 			return
 		}
-		logServerError(h.log, "posts.get", err, logger.F("post_id", id))
+		logBadRequest(h.log, "posts.update", logger.F("post_id", postID), logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, updated)
+}
+
+// Delete handles DELETE /posts/{id}.
+func (h *PostHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	postIDStr := r.PathValue("id")
+	postID, err := strconv.ParseInt(postIDStr, 10, 64)
+	if err != nil || postID <= 0 {
+		logBadRequest(h.log, "posts.delete", logger.F("post_id", postIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidPostID)
+		return
+	}
+
+	authorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "posts.delete")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), postID, authorID); err != nil {
+		if errors.Is(err, usecasepost.ErrForbidden) {
+			logForbidden(h.log, "posts.delete", logger.F("post_id", postID), logger.F("author_id", authorID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		if errors.Is(err, domainpost.ErrNotFound) {
+			logNotFound(h.log, "posts.delete", logger.F("post_id", postID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgPostNotFound)
+			return
+		}
+		logServerError(h.log, "posts.delete", err, logger.F("post_id", postID))
 		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
 		return
 	}
 
-	utils.RespondWithSuccess(w, http.StatusOK, post)
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 // ListByAuthor handles GET /posts?author_id=...&limit=&offset=

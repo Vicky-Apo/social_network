@@ -29,3 +29,11 @@ type CreatePostRequest struct {
 	GroupID        *int64  `json:"group_id,omitempty"`
 	AllowedUserIDs []int64 `json:"allowed_user_ids,omitempty"`
 }
+
+// UpdatePostRequest is the request to update a post.
+type UpdatePostRequest struct {
+	Content        *string `json:"content,omitempty"`
+	MediaPath      *string `json:"media_path,omitempty"`
+	Privacy        *string `json:"privacy,omitempty"`
+	AllowedUserIDs []int64 `json:"allowed_user_ids,omitempty"`
+}

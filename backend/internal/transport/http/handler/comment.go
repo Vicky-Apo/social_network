@@ -119,3 +119,83 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 
 	utils.RespondWithSuccess(w, http.StatusOK, comments)
 }
+
+// Update handles PATCH /comments/{id}
+func (h *CommentHandler) Update(w http.ResponseWriter, r *http.Request) {
+	commentIDStr := r.PathValue("id")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	if err != nil || commentID <= 0 {
+		logBadRequest(h.log, "comments.update", logger.F("comment_id", commentIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidCommentID)
+		return
+	}
+
+	authorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "comments.update")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	var req usecasecomment.UpdateCommentRequest
+	if err := utils.ReadJSON(r, &req); err != nil {
+		logBadRequest(h.log, "comments.update", logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	updated, err := h.service.Update(r.Context(), commentID, authorID, req)
+	if err != nil {
+		if errors.Is(err, usecasecomment.ErrForbidden) {
+			logForbidden(h.log, "comments.update", logger.F("comment_id", commentID), logger.F("author_id", authorID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		if errors.Is(err, domaincomment.ErrNotFound) {
+			logNotFound(h.log, "comments.update", logger.F("comment_id", commentID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+			return
+		}
+		logBadRequest(h.log, "comments.update", logger.F("comment_id", commentID), logger.F("error", err.Error()))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidRequestBody)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, updated)
+}
+
+// Delete handles DELETE /comments/{id}
+func (h *CommentHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	commentIDStr := r.PathValue("id")
+	commentID, err := strconv.ParseInt(commentIDStr, 10, 64)
+	if err != nil || commentID <= 0 {
+		logBadRequest(h.log, "comments.delete", logger.F("comment_id", commentIDStr))
+		utils.RespondWithError(w, http.StatusBadRequest, utils.MsgInvalidCommentID)
+		return
+	}
+
+	authorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		logUnauthorized(h.log, "comments.delete")
+		utils.RespondWithError(w, http.StatusUnauthorized, utils.MsgUnauthorized)
+		return
+	}
+
+	if err := h.service.Delete(r.Context(), commentID, authorID); err != nil {
+		if errors.Is(err, usecasecomment.ErrForbidden) {
+			logForbidden(h.log, "comments.delete", logger.F("comment_id", commentID), logger.F("author_id", authorID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		if errors.Is(err, domaincomment.ErrNotFound) {
+			logNotFound(h.log, "comments.delete", logger.F("comment_id", commentID))
+			utils.RespondWithError(w, http.StatusNotFound, utils.MsgNotFound)
+			return
+		}
+		logServerError(h.log, "comments.delete", err, logger.F("comment_id", commentID))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		return
+	}
+
+	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": "deleted"})
+}

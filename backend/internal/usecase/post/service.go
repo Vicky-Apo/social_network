@@ -182,6 +182,119 @@ func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequ
 	return mapPost(created), nil
 }
 
+// Update updates a post content/media/visibility. Only the author can update.
+func (s *Service) Update(ctx context.Context, postID, authorID int64, req UpdatePostRequest) (PostDTO, error) {
+	existing, err := s.repo.GetByID(ctx, postID)
+	if err != nil {
+		if errors.Is(err, domainpost.ErrNotFound) {
+			return PostDTO{}, err
+		}
+		return PostDTO{}, fmt.Errorf("get post: %w", err)
+	}
+	if existing.AuthorID != authorID {
+		return PostDTO{}, ErrForbidden
+	}
+
+	content := existing.Content
+	if req.Content != nil {
+		content = strings.TrimSpace(*req.Content)
+	}
+
+	var mediaPath *string
+	if req.MediaPath == nil {
+		mediaPath = existing.MediaPath
+	} else {
+		trimmed := strings.TrimSpace(*req.MediaPath)
+		if trimmed == "" {
+			mediaPath = nil
+		} else {
+			mediaPath = &trimmed
+		}
+	}
+
+	privacy := existing.Privacy
+	if req.Privacy != nil {
+		privacy = strings.TrimSpace(*req.Privacy)
+	}
+
+	if strings.TrimSpace(content) == "" && (mediaPath == nil || strings.TrimSpace(*mediaPath) == "") {
+		return PostDTO{}, errors.New("content or media_path is required")
+	}
+
+	// Group posts: restrict privacy changes and allowed users.
+	if existing.GroupID != nil {
+		if req.Privacy != nil || len(req.AllowedUserIDs) > 0 {
+			return PostDTO{}, errors.New("cannot change privacy or allowed users for group posts")
+		}
+		privacy = "public"
+	}
+
+	switch privacy {
+	case "public", "followers", "private":
+	default:
+		return PostDTO{}, errors.New("invalid privacy")
+	}
+
+	allowed := req.AllowedUserIDs
+	if privacy == "private" {
+		if len(allowed) == 0 {
+			return PostDTO{}, errors.New("allowed_user_ids is required for private posts")
+		}
+		seen := make(map[int64]struct{}, len(allowed))
+		for _, allowedID := range allowed {
+			if allowedID <= 0 {
+				return PostDTO{}, errors.New("allowed_user_ids must be positive integers")
+			}
+			if allowedID == authorID {
+				return PostDTO{}, errors.New("author cannot be in allowed_user_ids")
+			}
+			if _, exists := seen[allowedID]; exists {
+				continue
+			}
+			seen[allowedID] = struct{}{}
+			if s.access == nil {
+				return PostDTO{}, errors.New("access service not configured")
+			}
+			follows, err := s.access.IsFollowing(ctx, allowedID, authorID)
+			if err != nil {
+				return PostDTO{}, fmt.Errorf("check allowed users: %w", err)
+			}
+			if !follows {
+				return PostDTO{}, errors.New("allowed_user_ids must be followers of the author")
+			}
+		}
+	} else {
+		allowed = nil
+	}
+
+	updatedPost := domainpost.Post{
+		ID:        existing.ID,
+		AuthorID:  existing.AuthorID,
+		GroupID:   existing.GroupID,
+		Content:   content,
+		MediaPath: mediaPath,
+		Privacy:   privacy,
+	}
+
+	updated, err := s.repo.Update(ctx, updatedPost, allowed)
+	if err != nil {
+		return PostDTO{}, err
+	}
+	return mapPost(updated), nil
+}
+
+// Delete removes a post. Only the author can delete.
+func (s *Service) Delete(ctx context.Context, postID, authorID int64) error {
+	existing, err := s.repo.GetByID(ctx, postID)
+	if err != nil {
+		return err
+	}
+	if existing.AuthorID != authorID {
+		return ErrForbidden
+	}
+	return s.repo.Delete(ctx, postID)
+}
+
 // ListByGroup returns posts for a group with pagination.
 func (s *Service) ListByGroup(ctx context.Context, groupID, viewerID int64, limit, offset int) ([]PostDTO, error) {
 	if s.access == nil {

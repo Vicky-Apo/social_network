@@ -61,9 +61,16 @@ func (r *fakeReactionPostRepo) GetByID(ctx context.Context, id int64) (domainpos
 func (r *fakeReactionPostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakeReactionPostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
+	return nil, nil
+}
 func (r *fakeReactionPostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
+func (r *fakeReactionPostRepo) Update(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
+	return domainpost.Post{}, nil
+}
+func (r *fakeReactionPostRepo) Delete(ctx context.Context, id int64) error { return nil }
 func (r *fakeReactionPostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
@@ -86,6 +93,9 @@ func (r *fakeReactionCommentRepo) GetByID(ctx context.Context, id int64) (domain
 	return domaincomment.Comment{ID: id, PostID: 1, AuthorID: 2}, nil
 }
 func (r *fakeReactionCommentRepo) Delete(ctx context.Context, id int64) error { return nil }
+func (r *fakeReactionCommentRepo) Update(ctx context.Context, comment domaincomment.Comment) (domaincomment.Comment, error) {
+	return domaincomment.Comment{}, nil
+}
 
 type fakeReactionAccess struct{}
 

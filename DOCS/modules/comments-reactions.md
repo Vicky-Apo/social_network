@@ -118,6 +118,75 @@ Retrieves all comments for a specific post.
 - Requires authentication (session cookie)
 - Group post comments require group membership
 
+### Update Comment
+
+`PATCH /comments/{id}`
+
+**URL Parameters:**
+- `id` - The comment ID (integer)
+
+**Request body (JSON):**
+
+```json
+{
+  "content": "Updated comment",
+  "media_path": "/uploads/updated.gif"
+}
+```
+
+**Notes:**
+- Only the comment author can update.
+- `content` or `media_path` must be present after update (one can be empty, not both).
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "post_id": 1,
+    "author_id": 1,
+    "content": "Updated comment",
+    "media_path": "/uploads/updated.gif",
+    "like_count": 0,
+    "dislike_count": 0,
+    "created_at": "2025-01-24T12:34:56Z",
+    "updated_at": "2025-01-24T12:50:00Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Invalid comment ID or request body
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to update this comment
+- `404 Not Found` - Comment doesn't exist
+
+### Delete Comment
+
+`DELETE /comments/{id}`
+
+**Notes:**
+- Only the comment author can delete.
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "deleted"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Invalid comment ID
+- `401 Unauthorized` - Not logged in or invalid session
+- `403 Forbidden` - You are not allowed to delete this comment
+- `404 Not Found` - Comment doesn't exist
+
 ## Reactions Endpoints
 
 ### Toggle Post Reaction

@@ -1,13 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Compass, LogOut, MessageSquare, RefreshCw, Send, Users, Wifi, WifiOff } from "lucide-react";
+import { Compass, MessageSquare, Send, UserPlus, Users, Wifi, WifiOff } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAuth } from "../component/AuthContext";
-import { landingData } from "@/lib/data";
+import TopNav from "../component/TopNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -73,6 +71,7 @@ const quickLinks = [
   { label: "Explore", href: "/dashboard", icon: Compass },
   { label: "Groups", href: "/groups", icon: Users },
   { label: "Messages", href: "/messages", icon: MessageSquare },
+  { label: "Requests", href: "/follow-requests", icon: UserPlus },
 ];
 
 const quickReactions = ["👍", "❤️", "😂", "🔥"];
@@ -111,7 +110,6 @@ function formatChatTitle(
 
 export default function MessagesPage() {
   const router = useRouter();
-  const { logout } = useAuth();
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimerRef = useRef<number | null>(null);
   const typingSentRef = useRef(false);
@@ -423,18 +421,6 @@ export default function MessagesPage() {
     }
   }, [messagesNewestFirst]);
 
-  const handleLogout = async () => {
-    try {
-      await fetch(`${apiBaseUrl}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } finally {
-      logout();
-      router.replace("/login");
-    }
-  };
-
   const stopTyping = useCallback(() => {
     if (typingTimerRef.current) {
       window.clearTimeout(typingTimerRef.current);
@@ -573,39 +559,7 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <Image
-              src="/vybez-logo.png"
-              alt={`${landingData.productName} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
-              priority
-            />
-            <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => void fetchConversations()}
-            className="ml-auto inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Log out</span>
-          </button>
-        </div>
-      </header>
+      <TopNav user={user ?? undefined} onLogout={() => router.replace("/login")} />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
@@ -630,7 +584,7 @@ export default function MessagesPage() {
                     className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition ${
                       isActive
                         ? "brand-gradient border-transparent text-white"
-                        : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-300 hover:text-neutral-900"
+                        : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-400 hover:text-neutral-900"
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -696,7 +650,7 @@ export default function MessagesPage() {
                           className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
                             active
                               ? "border-neutral-900 bg-neutral-900 text-white"
-                              : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-300"
+                              : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-400"
                           }`}
                         >
                           <p className="text-xs font-semibold">
@@ -743,7 +697,7 @@ export default function MessagesPage() {
                         type="button"
                         onClick={() => void handleLoadOlder()}
                         disabled={isLoadingOlder}
-                        className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-300 hover:text-neutral-900 disabled:opacity-60"
+                        className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900 disabled:opacity-60"
                       >
                         {isLoadingOlder ? "Loading..." : "Load older messages"}
                       </button>
@@ -893,7 +847,7 @@ export default function MessagesPage() {
                   type="button"
                   key={person.id}
                   onClick={() => setRecipientIDInput(String(person.id))}
-                  className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left transition hover:border-neutral-300"
+                  className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left transition hover:border-neutral-400"
                 >
                   <div>
                     <p className="text-xs font-semibold text-neutral-800">

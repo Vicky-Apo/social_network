@@ -38,6 +38,10 @@ func (r *fakePostRepo) GetByID(ctx context.Context, id int64) (domainpost.Post, 
 func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
+func (r *fakePostRepo) Update(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
+	return domainpost.Post{}, nil
+}
+func (r *fakePostRepo) Delete(ctx context.Context, id int64) error { return nil }
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
