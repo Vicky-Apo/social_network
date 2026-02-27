@@ -559,52 +559,77 @@ func (r *Repository) RemoveMessageReaction(ctx context.Context, messageID, userI
 }
 
 // ToggleMessageReaction atomically adds or removes a reaction.
-func (r *Repository) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+func (r *Repository) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (string, []string, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return false, fmt.Errorf("begin tx: %w", err)
+		return "", nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
 	var exists int
 	if err := tx.QueryRowContext(ctx, `SELECT id FROM messages WHERE id = $1 FOR UPDATE`, messageID).Scan(&exists); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return false, domainchat.ErrMessageNotFound
+			return "", nil, domainchat.ErrMessageNotFound
 		}
-		return false, fmt.Errorf("lock message: %w", err)
+		return "", nil, fmt.Errorf("lock message: %w", err)
 	}
 
-	err = tx.QueryRowContext(ctx, `
-		SELECT 1
+	rows, err := tx.QueryContext(ctx, `
+		SELECT emoji
 		FROM message_reactions
-		WHERE message_id = $1 AND user_id = $2 AND emoji = $3
-	`, messageID, userID, emoji).Scan(&exists)
-	if err == nil {
+		WHERE message_id = $1 AND user_id = $2
+	`, messageID, userID)
+	if err != nil {
+		return "", nil, fmt.Errorf("list message reactions: %w", err)
+	}
+	defer rows.Close()
+
+	existing := make([]string, 0, 4)
+	for rows.Next() {
+		var e string
+		if err := rows.Scan(&e); err != nil {
+			return "", nil, fmt.Errorf("scan message reaction: %w", err)
+		}
+		existing = append(existing, e)
+	}
+	if err := rows.Err(); err != nil {
+		return "", nil, fmt.Errorf("list message reactions: %w", err)
+	}
+
+	for _, e := range existing {
+		if e == emoji {
+			if _, err := tx.ExecContext(ctx, `
+				DELETE FROM message_reactions
+				WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+			`, messageID, userID, emoji); err != nil {
+				return "", nil, fmt.Errorf("remove message reaction: %w", err)
+			}
+			if err := tx.Commit(); err != nil {
+				return "", nil, fmt.Errorf("commit: %w", err)
+			}
+			return "removed", []string{emoji}, nil
+		}
+	}
+
+	if len(existing) > 0 {
 		if _, err := tx.ExecContext(ctx, `
 			DELETE FROM message_reactions
-			WHERE message_id = $1 AND user_id = $2 AND emoji = $3
-		`, messageID, userID, emoji); err != nil {
-			return false, fmt.Errorf("remove message reaction: %w", err)
+			WHERE message_id = $1 AND user_id = $2
+		`, messageID, userID); err != nil {
+			return "", nil, fmt.Errorf("remove message reactions: %w", err)
 		}
-		if err := tx.Commit(); err != nil {
-			return false, fmt.Errorf("commit: %w", err)
-		}
-		return false, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return false, fmt.Errorf("check message reaction: %w", err)
 	}
 
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO message_reactions (message_id, user_id, emoji)
 		VALUES ($1, $2, $3)
 	`, messageID, userID, emoji); err != nil {
-		return false, fmt.Errorf("add message reaction: %w", err)
+		return "", nil, fmt.Errorf("add message reaction: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return false, fmt.Errorf("commit: %w", err)
+		return "", nil, fmt.Errorf("commit: %w", err)
 	}
-	return true, nil
+	return "added", existing, nil
 }
 
 // ListMessageReactions returns reactions for a message.

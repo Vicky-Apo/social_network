@@ -95,8 +95,8 @@ func (r *fakeChatRepo) AddMessageReaction(ctx context.Context, messageID, userID
 func (r *fakeChatRepo) RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
 	return nil
 }
-func (r *fakeChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
-	return true, nil
+func (r *fakeChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (string, []string, error) {
+	return "added", nil, nil
 }
 func (r *fakeChatRepo) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
 	return nil, nil

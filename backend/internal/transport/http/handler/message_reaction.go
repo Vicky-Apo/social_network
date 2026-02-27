@@ -8,6 +8,7 @@ import (
 	domainchat "social-network/backend/internal/domain/chat"
 	"social-network/backend/internal/transport/http/middleware"
 	"social-network/backend/internal/transport/http/utils"
+	transportws "social-network/backend/internal/transport/websocket"
 	usecasemessagereaction "social-network/backend/internal/usecase/message_reaction"
 	"social-network/backend/pkg/logger"
 )
@@ -15,13 +16,15 @@ import (
 // MessageReactionHandler serves REST endpoints for message reactions.
 type MessageReactionHandler struct {
 	service *usecasemessagereaction.Service
+	hub     *transportws.Hub
 	log     logger.Logger
 }
 
 // NewMessageReactionHandler builds a MessageReactionHandler.
-func NewMessageReactionHandler(service *usecasemessagereaction.Service, log logger.Logger) *MessageReactionHandler {
+func NewMessageReactionHandler(service *usecasemessagereaction.Service, hub *transportws.Hub, log logger.Logger) *MessageReactionHandler {
 	return &MessageReactionHandler{
 		service: service,
+		hub:     hub,
 		log:     log.WithFields(logger.F("handler", "message_reaction")),
 	}
 }
@@ -50,7 +53,7 @@ func (h *MessageReactionHandler) Toggle(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	status, err := h.service.ToggleReaction(r.Context(), userID, messageID, req.Emoji)
+	status, removed, err := h.service.ToggleReaction(r.Context(), userID, messageID, req.Emoji)
 	if err != nil {
 		code, msg := mapMessageReactionError(err)
 		if code >= http.StatusInternalServerError {
@@ -67,6 +70,38 @@ func (h *MessageReactionHandler) Toggle(w http.ResponseWriter, r *http.Request) 
 		}
 		utils.RespondWithError(w, code, msg)
 		return
+	}
+
+	if h.hub != nil {
+		conversationID, recipients, err := h.service.GetRecipients(r.Context(), userID, messageID)
+		if err == nil && len(recipients) > 0 {
+			for _, emoji := range removed {
+				payload := transportws.MessageReactionPayload{
+					MessageID:      messageID,
+					ConversationID: conversationID,
+					UserID:         userID,
+					Emoji:          emoji,
+					Status:         "removed",
+				}
+				msg, err := transportws.NewWSMessage(transportws.MessageTypeChatReaction, payload)
+				if err == nil {
+					h.hub.SendToUsers(recipients, msg)
+				}
+			}
+			if status == "added" {
+				payload := transportws.MessageReactionPayload{
+					MessageID:      messageID,
+					ConversationID: conversationID,
+					UserID:         userID,
+					Emoji:          req.Emoji,
+					Status:         "added",
+				}
+				msg, err := transportws.NewWSMessage(transportws.MessageTypeChatReaction, payload)
+				if err == nil {
+					h.hub.SendToUsers(recipients, msg)
+				}
+			}
+		}
 	}
 
 	utils.RespondWithSuccess(w, http.StatusOK, map[string]string{"status": status})

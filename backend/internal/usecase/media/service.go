@@ -70,14 +70,10 @@ func (s *Service) CanAccess(ctx context.Context, userID int64, path string) (boo
 		}
 		return ok, nil
 	case domainmedia.MediaTypeAvatar:
-		if s.access == nil {
-			return false, errors.New("access service not configured")
+		if userID == 0 {
+			return false, nil
 		}
-		ok, err := s.access.CanViewProfile(ctx, userID, ref.UserID)
-		if err != nil {
-			return false, fmt.Errorf("check profile access: %w", err)
-		}
-		return ok, nil
+		return true, nil
 	default:
 		return false, nil
 	}

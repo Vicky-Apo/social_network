@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthContext";
+import { NotificationsProvider } from "@/components/NotificationsContext";
+import { MessagesProvider } from "@/components/MessagesContext";
 import { landingData } from "@/lib/data";
 
 const manrope = Manrope({
@@ -28,7 +30,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={bodyClassName}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <NotificationsProvider>
+            <MessagesProvider>{children}</MessagesProvider>
+          </NotificationsProvider>
+        </AuthProvider>
       </body>
     </html>
   );

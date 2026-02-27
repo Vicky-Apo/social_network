@@ -46,14 +46,14 @@ func (r *fakeChatRepo) RemoveMessageReaction(ctx context.Context, messageID, use
 	return nil
 }
 
-func (r *fakeChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
+func (r *fakeChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (string, []string, error) {
 	key := [3]string{itoa(messageID), itoa(userID), emoji}
 	if r.reactions[key] {
 		delete(r.reactions, key)
-		return false, nil
+		return "removed", []string{emoji}, nil
 	}
 	r.reactions[key] = true
-	return true, nil
+	return "added", nil, nil
 }
 
 func (r *fakeChatRepo) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
@@ -113,7 +113,7 @@ func TestToggleReaction_ForbiddenForNonMember(t *testing.T) {
 	repo.isMember = false
 
 	svc := NewService(repo)
-	_, err := svc.ToggleReaction(context.Background(), 1, 1, "😀")
+	_, _, err := svc.ToggleReaction(context.Background(), 1, 1, "😀")
 	if !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected forbidden, got %v", err)
 	}
@@ -125,11 +125,11 @@ func TestToggleReaction_AddRemove(t *testing.T) {
 	repo.isMember = true
 
 	svc := NewService(repo)
-	status, err := svc.ToggleReaction(context.Background(), 1, 1, "😀")
+	status, _, err := svc.ToggleReaction(context.Background(), 1, 1, "😀")
 	if err != nil || status != "added" {
 		t.Fatalf("expected added, got %v, %v", status, err)
 	}
-	status, err = svc.ToggleReaction(context.Background(), 1, 1, "😀")
+	status, _, err = svc.ToggleReaction(context.Background(), 1, 1, "😀")
 	if err != nil || status != "removed" {
 		t.Fatalf("expected removed, got %v, %v", status, err)
 	}
@@ -141,7 +141,7 @@ func TestToggleReaction_InvalidEmoji(t *testing.T) {
 	repo.isMember = true
 
 	svc := NewService(repo)
-	_, err := svc.ToggleReaction(context.Background(), 1, 1, "")
+	_, _, err := svc.ToggleReaction(context.Background(), 1, 1, "")
 	if !errors.Is(err, ErrInvalidEmoji) {
 		t.Fatalf("expected invalid emoji, got %v", err)
 	}
@@ -153,7 +153,7 @@ func TestToggleReaction_EmojiTooLong(t *testing.T) {
 	repo.isMember = true
 
 	svc := NewService(repo)
-	_, err := svc.ToggleReaction(context.Background(), 1, 1, "😀😀😀😀😀😀😀😀😀")
+	_, _, err := svc.ToggleReaction(context.Background(), 1, 1, "😀😀😀😀😀😀😀😀😀")
 	if !errors.Is(err, ErrInvalidEmoji) {
 		t.Fatalf("expected invalid emoji, got %v", err)
 	}

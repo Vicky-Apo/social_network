@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -44,12 +45,6 @@ type SentInvite = {
   id: number;
   invited_at: string;
 };
-
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
 
 function toMediaUrl(apiBaseUrl: string, path?: string | null) {
   if (!path) return "";
@@ -365,19 +360,16 @@ export default function GroupMembersPage() {
                             }}
                             className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
                           >
-                            {person.avatar_path ? (
-                              <div className="h-8 w-8 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                                <img
-                                  src={toMediaUrl(apiBaseUrl, person.avatar_path)}
-                                  alt={`${person.first_name} ${person.last_name}`}
-                                  className="h-full w-full object-contain"
-                                />
-                              </div>
-                            ) : (
-                              <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
-                                {initials(person.first_name, person.last_name)}
-                              </div>
-                            )}
+                            <Avatar
+                              src={
+                                person.avatar_path
+                                  ? toMediaUrl(apiBaseUrl, person.avatar_path)
+                                  : null
+                              }
+                              name={`${person.first_name} ${person.last_name}`}
+                              size={32}
+                              textClassName="text-[10px]"
+                            />
                             <div>
                               <p className="text-xs font-semibold text-neutral-900">
                                 {person.first_name} {person.last_name}
@@ -517,19 +509,14 @@ export default function GroupMembersPage() {
                     key={member.id}
                     className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
                   >
-                    {member.avatar_path ? (
-                      <div className="h-10 w-10 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                        <img
-                          src={toMediaUrl(apiBaseUrl, member.avatar_path)}
-                          alt={`${member.first_name} ${member.last_name}`}
-                          className="h-full w-full object-contain"
-                        />
-                      </div>
-                    ) : (
-                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                        {initials(member.first_name, member.last_name)}
-                      </div>
-                    )}
+                    <Avatar
+                      src={
+                        member.avatar_path ? toMediaUrl(apiBaseUrl, member.avatar_path) : null
+                      }
+                      name={`${member.first_name} ${member.last_name}`}
+                      size={40}
+                      textClassName="text-xs"
+                    />
                     <div>
                       <p className="text-sm font-semibold text-neutral-900">
                         {member.first_name} {member.last_name}

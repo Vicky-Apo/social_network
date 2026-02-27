@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, Check, Pencil, ThumbsDown, ThumbsUp, Trash2 } from
 import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -431,19 +432,12 @@ export default function EventDetailPage() {
                       className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
                     >
                       <div className="flex items-center gap-3">
-                        {resp.avatar_path ? (
-                          <div className="h-9 w-9 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                            <img
-                              src={toMediaUrl(apiBaseUrl, resp.avatar_path)}
-                              alt={`${resp.first_name} ${resp.last_name}`}
-                              className="h-full w-full object-contain"
-                            />
-                          </div>
-                        ) : (
-                          <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-[11px] font-semibold text-white">
-                            {resp.first_name?.charAt(0)}{resp.last_name?.charAt(0)}
-                          </div>
-                        )}
+                        <Avatar
+                          src={resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null}
+                          name={`${resp.first_name} ${resp.last_name}`}
+                          size={36}
+                          textClassName="text-[11px]"
+                        />
                         <div>
                           <p className="text-xs font-semibold text-neutral-800">
                             {resp.first_name} {resp.last_name}

@@ -13,7 +13,7 @@ import (
 )
 
 func TestMessageReactionToggle_Unauthorized(t *testing.T) {
-	h := NewMessageReactionHandler(nil, logger.NewDefault(false))
+	h := NewMessageReactionHandler(nil, nil, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodPost, "/messages/1/reactions", nil)
 	req.SetPathValue("id", "1")
@@ -42,8 +42,8 @@ func (r *fakeMessageReactionChatRepo) AddMessageReaction(ctx context.Context, me
 func (r *fakeMessageReactionChatRepo) RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error {
 	return nil
 }
-func (r *fakeMessageReactionChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error) {
-	return true, nil
+func (r *fakeMessageReactionChatRepo) ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (string, []string, error) {
+	return "added", nil, nil
 }
 func (r *fakeMessageReactionChatRepo) ListMessageReactions(ctx context.Context, messageID int64) ([]domainchat.MessageReaction, error) {
 	return []domainchat.MessageReaction{{MessageID: messageID, UserID: 2, Emoji: "😀", CreatedAt: time.Now()}}, nil
@@ -96,7 +96,7 @@ func (r *fakeMessageReactionChatRepo) GetUnreadConversations(ctx context.Context
 
 func TestMessageReactionList_Success(t *testing.T) {
 	svc := usecasemessagereaction.NewService(&fakeMessageReactionChatRepo{})
-	h := NewMessageReactionHandler(svc, logger.NewDefault(false))
+	h := NewMessageReactionHandler(svc, nil, logger.NewDefault(false))
 
 	req := httptest.NewRequest(http.MethodGet, "/messages/1/reactions", nil)
 	req.SetPathValue("id", "1")

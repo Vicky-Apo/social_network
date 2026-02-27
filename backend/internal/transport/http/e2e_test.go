@@ -185,7 +185,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, func()) {
 	groupHandler := transporthandler.NewGroupHandler(groupService, log)
 	eventHandler := transporthandler.NewEventHandler(eventService, log)
 	chatHandler := transporthandler.NewChatHandler(chatService, log)
-	messageReactionHandler := transporthandler.NewMessageReactionHandler(messageReactionService, log)
+	messageReactionHandler := transporthandler.NewMessageReactionHandler(messageReactionService, wsHub, log)
 	uploadHandler := transporthandler.NewUploadHandler(t.TempDir(), 5*1024*1024, log)
 
 	authMiddleware := middleware.Auth(authService, authCfg.SessionCookieName, log)

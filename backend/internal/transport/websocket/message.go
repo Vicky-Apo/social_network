@@ -8,6 +8,7 @@ import (
 // Message types for WebSocket communication.
 const (
 	MessageTypeChat         = "chat_message"
+	MessageTypeChatReaction = "message_reaction"
 	MessageTypeTyping       = "typing"
 	MessageTypeError        = "error"
 	MessageTypeConnected    = "connected"
@@ -78,6 +79,15 @@ type NotificationPayload struct {
 	IsRead     bool           `json:"is_read"`
 	ReadAt     *time.Time     `json:"read_at"`
 	CreatedAt  time.Time      `json:"created_at"`
+}
+
+// MessageReactionPayload represents a chat message reaction update.
+type MessageReactionPayload struct {
+	MessageID      int64  `json:"message_id"`
+	ConversationID int64  `json:"conversation_id"`
+	UserID         int64  `json:"user_id"`
+	Emoji          string `json:"emoji"`
+	Status         string `json:"status"` // added | removed
 }
 
 // NewWSMessage creates a new WebSocket message with the given type and payload.

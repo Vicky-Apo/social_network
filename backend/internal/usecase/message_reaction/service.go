@@ -27,36 +27,55 @@ func NewService(repo domainchat.Repository) *Service {
 }
 
 // ToggleReaction adds or removes a reaction to a message.
-func (s *Service) ToggleReaction(ctx context.Context, userID, messageID int64, emoji string) (string, error) {
+func (s *Service) ToggleReaction(ctx context.Context, userID, messageID int64, emoji string) (string, []string, error) {
 	clean := strings.TrimSpace(emoji)
 	if clean == "" {
-		return "", ErrInvalidEmoji
+		return "", nil, ErrInvalidEmoji
 	}
 	if utf8.RuneCountInString(clean) > 8 {
-		return "", ErrInvalidEmoji
+		return "", nil, ErrInvalidEmoji
 	}
 
 	msg, err := s.repo.GetMessageByID(ctx, messageID)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 
 	isMember, err := s.repo.IsMember(ctx, msg.ConversationID, userID)
 	if err != nil {
-		return "", fmt.Errorf("check membership: %w", err)
+		return "", nil, fmt.Errorf("check membership: %w", err)
 	}
 	if !isMember {
-		return "", ErrForbidden
+		return "", nil, ErrForbidden
 	}
 
-	added, err := s.repo.ToggleMessageReaction(ctx, messageID, userID, clean)
+	status, removed, err := s.repo.ToggleMessageReaction(ctx, messageID, userID, clean)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	if added {
-		return "added", nil
+	return status, removed, nil
+}
+
+// GetRecipients returns the conversation id and member ids for a message.
+func (s *Service) GetRecipients(ctx context.Context, userID, messageID int64) (int64, []int64, error) {
+	msg, err := s.repo.GetMessageByID(ctx, messageID)
+	if err != nil {
+		return 0, nil, err
 	}
-	return "removed", nil
+
+	isMember, err := s.repo.IsMember(ctx, msg.ConversationID, userID)
+	if err != nil {
+		return 0, nil, fmt.Errorf("check membership: %w", err)
+	}
+	if !isMember {
+		return 0, nil, ErrForbidden
+	}
+
+	members, err := s.repo.GetConversationMembers(ctx, msg.ConversationID)
+	if err != nil {
+		return 0, nil, err
+	}
+	return msg.ConversationID, members, nil
 }
 
 // ListReactions returns reactions for a message.

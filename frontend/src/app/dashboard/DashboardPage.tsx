@@ -10,6 +10,7 @@ import { useAuth } from "@/components/AuthContext";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import { useNotifications } from "@/components/NotificationsContext";
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -128,15 +129,59 @@ function toMediaUrl(apiBaseUrl: string, path?: string | null) {
   return `${apiBaseUrl}${normalized}`;
 }
 
+function notificationActorName(item: NotificationItem) {
+  const meta = item.metadata ?? {};
+  const requester = meta["requester_name"];
+  if (typeof requester === "string" && requester.trim()) return requester;
+  return "Someone";
+}
+
+function notificationGroupName(item: NotificationItem) {
+  const meta = item.metadata ?? {};
+  const groupName = meta["group_name"];
+  if (typeof groupName === "string" && groupName.trim()) return groupName;
+  return "your group";
+}
+
+function notificationTitle(item: NotificationItem) {
+  switch (item.type) {
+    case "follow_request":
+      return "Follow request";
+    case "group_invitation":
+      return "Group invitation";
+    case "group_join_request":
+      return "Join request";
+    case "event_created":
+      return "New group event";
+    default:
+      return "Notification";
+  }
+}
+
+function notificationBody(item: NotificationItem) {
+  switch (item.type) {
+    case "follow_request":
+      return `${notificationActorName(item)} sent you a follow request.`;
+    case "group_invitation":
+      return `${notificationActorName(item)} invited you to ${notificationGroupName(item)}.`;
+    case "group_join_request":
+      return `${notificationActorName(item)} requested to join ${notificationGroupName(item)}.`;
+    case "event_created":
+      return `New event in ${notificationGroupName(item)}.`;
+    default:
+      return "Notification update.";
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { logout } = useAuth();
+  const notificationsContext = useNotifications();
 
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [feedError, setFeedError] = useState<string | null>(null);
-  const [notificationCount, setNotificationCount] = useState(0);
   const [composerText, setComposerText] = useState("");
   const [composerFile, setComposerFile] = useState<File | null>(null);
   const [composerFileName, setComposerFileName] = useState("");
@@ -154,9 +199,6 @@ export default function DashboardPage() {
   const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
   const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [chatRecipientID, setChatRecipientID] = useState("");
   const [chatDraft, setChatDraft] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -196,6 +238,13 @@ export default function DashboardPage() {
     return apiBaseUrl;
   }, [apiBaseUrl]);
 
+  const notifications = notificationsContext?.notifications ?? [];
+  const notificationsLoading = notificationsContext?.loading ?? false;
+  const markNotificationRead =
+    notificationsContext?.markRead ?? (async () => Promise.resolve());
+  const markAllNotificationsRead =
+    notificationsContext?.markAllRead ?? (async () => Promise.resolve());
+
 
   useEffect(() => {
     let cancelled = false;
@@ -223,16 +272,6 @@ export default function DashboardPage() {
 
         if (!cancelled) {
           setUser(me.result.data ?? null);
-        }
-
-        const unread = await fetchJson<{ count: number }>("/notifications/unread-count");
-        if (!cancelled && unread.response.ok && unread.result?.success) {
-          setNotificationCount(Number(unread.result.data?.count ?? 0));
-        }
-
-        const notificationsRes = await fetchJson<NotificationItem[]>("/notifications?limit=10");
-        if (!cancelled && notificationsRes.response.ok && notificationsRes.result?.success) {
-          setNotifications(notificationsRes.result.data ?? []);
         }
 
         setFollowersLoading(true);
@@ -381,9 +420,10 @@ export default function DashboardPage() {
             const payload = msg.payload as ChatMessage;
             setChatMessages((prev) => [payload, ...prev].slice(0, 50));
           } else if (msg.type === "notification") {
-            const payload = msg.payload as NotificationItem;
-            setNotifications((prev) => [payload, ...prev].slice(0, 20));
-            setNotificationCount((prev) => prev + 1);
+            if (notificationsContext) {
+              void notificationsContext.refreshNotifications();
+              void notificationsContext.refreshUnreadCount();
+            }
           } else if (msg.type === "unread_counts") {
             const payload = msg.payload as Array<{ conversation_id: number; unread_count: number }>;
             setChatUnreadMap((prev) => {
@@ -514,52 +554,6 @@ export default function DashboardPage() {
       throw new Error(uploadJson?.error || "Upload failed");
     }
     return uploadJson.data.path;
-  };
-
-  const refreshNotifications = async () => {
-    setNotificationsLoading(true);
-    try {
-      const response = await fetch(`${apiBaseUrl}/notifications?limit=20`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<NotificationItem[]>
-        | null;
-      if (response.ok && result?.success) {
-        setNotifications(result.data ?? []);
-      }
-    } finally {
-      setNotificationsLoading(false);
-    }
-  };
-
-  const markNotificationRead = async (id: number) => {
-    const old = notifications;
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, is_read: true } : item)),
-    );
-    setNotificationCount((prev) => Math.max(0, prev - 1));
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/notifications/${id}/read`, {
-        method: "PATCH",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        setNotifications(old);
-      }
-    } catch {
-      setNotifications(old);
-    }
-  };
-
-  const markAllNotificationsRead = async () => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, is_read: true })));
-    setNotificationCount(0);
-    await fetch(`${apiBaseUrl}/notifications/read-all`, {
-      method: "PATCH",
-      credentials: "include",
-    }).catch(() => undefined);
   };
 
   const sendChatMessage = () => {
@@ -1005,10 +999,6 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <TopNav
         user={user ?? undefined}
-        notifications={notifications}
-        notificationCount={notificationCount}
-        onNotificationsChange={setNotifications}
-        onNotificationCountChange={setNotificationCount}
         onLogout={handleLogout}
       />
 
@@ -1652,13 +1642,11 @@ export default function DashboardPage() {
                     className={`w-full rounded-2xl border px-3 py-2 text-left text-xs transition ${
                       item.is_read
                         ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-900"
+                        : "border-emerald-400 bg-emerald-50 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
                     }`}
                   >
-                    <p className="font-semibold">{item.type.replace(/_/g, " ")}</p>
-                    <p className="mt-0.5 text-[11px]">
-                      {item.entity_type} #{item.entity_id}
-                    </p>
+                    <p className="font-semibold">{notificationTitle(item)}</p>
+                    <p className="mt-0.5 text-[11px]">{notificationBody(item)}</p>
                   </button>
                 ))
               )}
@@ -1745,39 +1733,6 @@ export default function DashboardPage() {
         </aside>
       </main>
 
-      {notificationsOpen ? (
-        <div className="fixed right-4 top-16 z-50 w-[320px] rounded-2xl border border-neutral-200 bg-white p-3 shadow-xl lg:hidden">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-neutral-900">Notifications</p>
-            <button
-              type="button"
-              onClick={() => setNotificationsOpen(false)}
-              className="text-xs font-semibold text-neutral-500 hover:text-neutral-900"
-            >
-              Close
-            </button>
-          </div>
-          <div className="max-h-64 space-y-2 overflow-y-auto">
-            {notifications.map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                onClick={() => markNotificationRead(item.id)}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-xs ${
-                  item.is_read
-                    ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-900"
-                }`}
-              >
-                <p className="font-semibold">{item.type.replace(/_/g, " ")}</p>
-                <p className="mt-0.5 text-[11px]">
-                  {item.entity_type} #{item.entity_id}
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

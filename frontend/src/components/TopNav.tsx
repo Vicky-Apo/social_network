@@ -5,9 +5,12 @@ import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, Search, User, Users } from "lucide-react";
+import { Bell, LogOut, MessageSquare, Search, User, Users } from "lucide-react";
 import { useAuth } from "./AuthContext";
+import { useNotifications } from "./NotificationsContext";
+import { useMessages } from "./MessagesContext";
 import { landingData } from "@/lib/data";
+import Avatar from "@/components/Avatar";
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -91,8 +94,6 @@ function getActorName(item: TopNavNotification) {
   const meta = item.metadata ?? {};
   const requester = meta["requester_name"];
   if (typeof requester === "string" && requester.trim()) return requester;
-  const actorID = item.actor_id;
-  if (actorID) return `User #${actorID}`;
   return "Someone";
 }
 
@@ -100,8 +101,6 @@ function getGroupName(item: TopNavNotification) {
   const meta = item.metadata ?? {};
   const groupName = meta["group_name"];
   if (typeof groupName === "string" && groupName.trim()) return groupName;
-  const groupID = meta["group_id"];
-  if (typeof groupID === "number") return `Group #${groupID}`;
   return "your group";
 }
 
@@ -161,8 +160,11 @@ export default function TopNav({
 }: Props) {
   const router = useRouter();
   const { logout } = useAuth();
+  const notificationsContext = useNotifications();
+  const messagesContext = useMessages();
   const [localSearch, setLocalSearch] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const [localNotifications, setLocalNotifications] = useState<TopNavNotification[]>([]);
   const [localCount, setLocalCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -181,8 +183,20 @@ export default function TopNav({
     [],
   );
 
-  const resolvedNotifications = notifications ?? localNotifications;
-  const resolvedCount = notificationCount ?? localCount;
+  const resolvedNotifications =
+    notifications ?? notificationsContext?.notifications ?? localNotifications;
+  const resolvedCount = notificationCount ?? notificationsContext?.count ?? localCount;
+  const resolvedLoading = notificationsContext?.loading ?? loading;
+  const messageCount = messagesContext?.unreadCount ?? 0;
+  const messageLoading = messagesContext?.loading ?? false;
+  const messageConversations = messagesContext?.conversations ?? [];
+  const usersByID = messagesContext?.usersByID ?? {};
+  const groupsByID = messagesContext?.groupsByID ?? {};
+  const usingControlledNotifications =
+    notifications !== undefined ||
+    notificationCount !== undefined ||
+    onNotificationsChange !== undefined ||
+    onNotificationCountChange !== undefined;
 
   const setNotificationsSafe = useCallback(
     (items: TopNavNotification[]) => {
@@ -206,7 +220,7 @@ export default function TopNav({
     [onNotificationCountChange],
   );
 
-  const refreshNotifications = useCallback(async () => {
+  const refreshNotificationsLocal = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`${apiBaseUrl}/notifications?limit=20`, {
@@ -224,7 +238,7 @@ export default function TopNav({
   }, [apiBaseUrl, setNotificationsSafe]);
 
   useEffect(() => {
-    if (notifications && notificationCount !== undefined) {
+    if (usingControlledNotifications || notificationsContext) {
       return;
     }
     let cancelled = false;
@@ -249,9 +263,13 @@ export default function TopNav({
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, notificationCount, notifications, setCountSafe]);
+  }, [apiBaseUrl, notificationsContext, setCountSafe, usingControlledNotifications]);
 
   const markNotificationRead = async (id: number) => {
+    if (!usingControlledNotifications && notificationsContext?.markRead) {
+      await notificationsContext.markRead(id);
+      return;
+    }
     const old = resolvedNotifications;
     setNotificationsSafe(
       resolvedNotifications.map((item) =>
@@ -274,6 +292,10 @@ export default function TopNav({
   };
 
   const markAllRead = async () => {
+    if (!usingControlledNotifications && notificationsContext?.markAllRead) {
+      await notificationsContext.markAllRead();
+      return;
+    }
     setNotificationsSafe(resolvedNotifications.map((item) => ({ ...item, is_read: true })));
     setCountSafe(0);
     await fetch(`${apiBaseUrl}/notifications/read-all`, {
@@ -281,6 +303,15 @@ export default function TopNav({
       credentials: "include",
     }).catch(() => undefined);
   };
+
+  const unreadMessageConversations = messageConversations
+    .filter((conv) => (conv.unread_count ?? 0) > 0)
+    .sort((a, b) => {
+      const aTime = a.last_message?.created_at ? Date.parse(a.last_message.created_at) : 0;
+      const bTime = b.last_message?.created_at ? Date.parse(b.last_message.created_at) : 0;
+      return bTime - aTime;
+    })
+    .slice(0, 5);
 
   const handleLogout = async () => {
     try {
@@ -471,20 +502,12 @@ export default function TopNav({
                               onClick={() => router.push(`/profile/${item.id}`)}
                               className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
                             >
-                              {item.avatar_path ? (
-                                <div className="h-8 w-8 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                                  <img
-                                    src={toMediaUrl(apiBaseUrl, item.avatar_path)}
-                                    alt={`${item.first_name} ${item.last_name}`}
-                                    className="h-full w-full object-contain"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
-                                  {item.first_name?.charAt(0)}
-                                  {item.last_name?.charAt(0)}
-                                </div>
-                              )}
+                              <Avatar
+                                src={item.avatar_path ? toMediaUrl(apiBaseUrl, item.avatar_path) : null}
+                                name={`${item.first_name} ${item.last_name}`}
+                                size={32}
+                                textClassName="text-[10px]"
+                              />
                               <div>
                                 <p className="text-xs font-semibold text-neutral-900">
                                   {item.first_name} {item.last_name}
@@ -529,12 +552,35 @@ export default function TopNav({
 
         <button
           type="button"
+          aria-label="Messages"
+          onClick={() => {
+            const next = !messagesOpen;
+            setMessagesOpen(next);
+            if (next && messagesContext) {
+              void messagesContext.refreshConversations();
+              void messagesContext.refreshUnreadCounts();
+            }
+          }}
+          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+        >
+          <MessageSquare className="h-4 w-4" />
+          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
+            {messageCount}
+          </span>
+        </button>
+
+        <button
+          type="button"
           aria-label="Notifications"
           onClick={() => {
             const next = !notificationsOpen;
             setNotificationsOpen(next);
             if (next) {
-              void refreshNotifications();
+              if (!usingControlledNotifications && notificationsContext?.refreshNotifications) {
+                void notificationsContext.refreshNotifications();
+              } else {
+                void refreshNotificationsLocal();
+              }
             }
           }}
           className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
@@ -578,14 +624,14 @@ export default function TopNav({
             </button>
           </div>
           <div className="mt-3 space-y-2">
-            {loading ? (
+            {resolvedLoading ? (
               <p className="text-xs text-neutral-500">Loading notifications...</p>
             ) : resolvedNotifications.length === 0 ? (
               <p className="text-xs text-neutral-500">No notifications yet.</p>
             ) : (
               resolvedNotifications
                 .filter((item) => allowedNotificationTypes.has(item.type))
-                .slice(0, 8)
+                .slice(0, 5)
                 .map((item) => {
                   const href = getNotificationHref(item);
                   return (
@@ -602,7 +648,7 @@ export default function TopNav({
                       className={`flex w-full flex-col rounded-2xl border px-3 py-2 text-left text-xs transition ${
                         item.is_read
                           ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                          : "border-neutral-900/10 bg-white text-neutral-800"
+                          : "border-emerald-400 bg-emerald-50 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
                       }`}
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-wide">
@@ -616,6 +662,83 @@ export default function TopNav({
                 })
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setNotificationsOpen(false);
+              router.push("/notifications");
+            }}
+            className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+          >
+            View all notifications
+          </button>
+        </div>
+      ) : null}
+
+      {messagesOpen ? (
+        <div className="absolute right-48 top-16 z-50 w-80 rounded-3xl border border-neutral-200 bg-white p-4 shadow-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-neutral-900">Messages</p>
+            <button
+              type="button"
+              onClick={() => messagesContext?.markAllRead()}
+              className="text-xs font-semibold text-neutral-600 transition hover:text-neutral-900"
+            >
+              Mark all read
+            </button>
+          </div>
+          <div className="mt-3 space-y-2">
+            {messageLoading ? (
+              <p className="text-xs text-neutral-500">Loading messages...</p>
+            ) : unreadMessageConversations.length === 0 ? (
+              <p className="text-xs text-neutral-500">No new messages.</p>
+            ) : (
+              unreadMessageConversations.map((conv) => {
+                const otherUser = conv.other_user_id ? usersByID[conv.other_user_id] : null;
+                const group = conv.group_id ? groupsByID[conv.group_id] : null;
+                const title =
+                  conv.type === "direct"
+                    ? otherUser
+                      ? `${otherUser.first_name} ${otherUser.last_name}`
+                      : "Direct message"
+                    : group
+                      ? group.title || group.name || "Group"
+                      : "Group chat";
+                const preview =
+                  conv.last_message?.content ||
+                  (conv.last_message?.media_path ? "(media)" : "New message");
+                return (
+                  <button
+                    key={conv.id}
+                    type="button"
+                    onClick={async () => {
+                      await messagesContext?.markConversationRead(conv.id);
+                      setMessagesOpen(false);
+                      router.push(`/messages?conversation=${conv.id}`);
+                    }}
+                    className="flex w-full flex-col rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-left text-xs text-emerald-900 transition"
+                  >
+                    <span className="text-[11px] font-semibold uppercase tracking-wide">
+                      {title}
+                    </span>
+                    <span className="mt-1 text-[11px] text-emerald-800">
+                      {preview}
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setMessagesOpen(false);
+              router.push("/messages");
+            }}
+            className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+          >
+            View all messages
+          </button>
         </div>
       ) : null}
     </header>

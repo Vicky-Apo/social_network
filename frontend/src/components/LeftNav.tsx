@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Compass, MessageSquare, UserPlus, Users } from "lucide-react";
 import { useCachedAvatar } from "@/lib/useCachedAvatar";
+import Avatar from "@/components/Avatar";
 
 type LeftNavUser = {
   id: number;
@@ -25,12 +26,6 @@ const quickLinks = [
   { label: "Requests", href: "/follow-requests", icon: UserPlus },
 ];
 
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
-
 function toMediaUrl(apiBaseUrl: string, path?: string | null) {
   if (!path) return "";
   if (path.startsWith("http://") || path.startsWith("https://")) return path;
@@ -50,19 +45,12 @@ export default function LeftNav({ user, activeHref }: Props) {
   return (
     <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3">
-        {avatarPath ? (
-          <div className="h-11 w-11 overflow-hidden rounded-full border border-neutral-200 bg-white">
-            <img
-              src={toMediaUrl(apiBaseUrl, avatarPath)}
-              alt={displayName}
-              className="h-full w-full object-contain"
-            />
-          </div>
-        ) : (
-          <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-            {initials(user?.first_name, user?.last_name)}
-          </div>
-        )}
+        <Avatar
+          src={avatarPath ? toMediaUrl(apiBaseUrl, avatarPath) : null}
+          name={displayName}
+          size={44}
+          textClassName="text-sm"
+        />
         <div>
           <p className="text-sm font-semibold text-neutral-900">{displayName || "Loading"}</p>
           <p className="text-xs text-neutral-500">@{userTag}</p>

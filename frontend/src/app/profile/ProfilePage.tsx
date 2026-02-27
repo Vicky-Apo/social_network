@@ -17,6 +17,7 @@ import {
 import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -647,19 +648,16 @@ export default function ProfilePage() {
             ) : profile ? (
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                  {profile.user.avatar_path ? (
-                    <div className="h-16 w-16 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                      <img
-                        src={toMediaUrl(apiBaseUrl, profile.user.avatar_path)}
-                        alt={displayName}
-                        className="h-full w-full object-contain"
-                      />
-                    </div>
-                  ) : (
-                    <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-neutral-900 text-lg font-semibold text-white">
-                      {initials(profile.user.first_name, profile.user.last_name)}
-                    </div>
-                  )}
+                  <Avatar
+                    src={
+                      profile.user.avatar_path
+                        ? toMediaUrl(apiBaseUrl, profile.user.avatar_path)
+                        : null
+                    }
+                    name={displayName}
+                    size={64}
+                    textClassName="text-lg"
+                  />
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">

@@ -70,6 +70,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       sessionStorage.setItem(STORAGE_KEY, payload);
       localStorage.removeItem(STORAGE_KEY);
     }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("app-login"));
+    }
   };
 
   const logout = () => {
@@ -77,6 +80,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("app-logout"));
+    }
   };
 
   const value = useMemo<AuthContextType>(

@@ -74,7 +74,7 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
 
 ## Missing Pages / Features (Must Implement)
 
-
+None currently.
 
 ### Groups: Create + Membership + Invitations + Join Requests
 - Pages / UI:
@@ -123,22 +123,22 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
 
 ### Notifications (Global UI)
 - Requirement: notifications on **every page**.
-- Needed:
-  - Shared notification tray / header component in groups/messages pages.
 - APIs already used but not everywhere:
   - `GET /notifications`
   - `GET /notifications/unread-count`
   - `PATCH /notifications/{id}/read`
   - `PATCH /notifications/read-all`
   - (done) `event_created` notification label supported in TopNav list
+  - (done) Notifications page (`/notifications`)
+  - (done) WebSocket live updates (`notification` + `message_reaction`)
 
 ### Chat: Group Chat & Media
-- Status: group chat done, media upload missing
-- APIs to use:
-  - `GET /conversations` (already)
-  - `GET /conversations/{id}/messages` (already)
-  - WebSocket `/ws` (already)
-  - `POST /uploads` + `media_path` for message attachments (if enabled)
+- Status: done
+- APIs used:
+  - `GET /conversations`
+  - `GET /conversations/{id}/messages`
+  - WebSocket `/ws` (chat + typing + unread + reactions)
+  - `POST /uploads` + `media_path` for message attachments
 
 ## Known Contract Mismatches (Fix in Frontend Later)
 

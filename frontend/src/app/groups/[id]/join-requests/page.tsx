@@ -7,6 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -31,12 +32,6 @@ type JoinRequest = {
   status: string;
   created_at?: string;
 };
-
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
 
 function shortDate(value?: string) {
   if (!value) return "Just now";
@@ -267,22 +262,16 @@ export default function GroupJoinRequestsPage() {
                     className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      {requesterProfiles[req.user_id]?.avatar_path ? (
-                        <div className="h-9 w-9 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                          <img
-                            src={toMediaUrl(apiBaseUrl, requesterProfiles[req.user_id]?.avatar_path)}
-                            alt={`${requesterProfiles[req.user_id]?.first_name ?? "User"} ${requesterProfiles[req.user_id]?.last_name ?? ""}`}
-                            className="h-full w-full object-contain"
-                          />
-                        </div>
-                      ) : (
-                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-neutral-900 text-[11px] font-semibold text-white">
-                          {initials(
-                            requesterProfiles[req.user_id]?.first_name,
-                            requesterProfiles[req.user_id]?.last_name,
-                          )}
-                        </div>
-                      )}
+                      <Avatar
+                        src={
+                          requesterProfiles[req.user_id]?.avatar_path
+                            ? toMediaUrl(apiBaseUrl, requesterProfiles[req.user_id]?.avatar_path)
+                            : null
+                        }
+                        name={`${requesterProfiles[req.user_id]?.first_name ?? ""} ${requesterProfiles[req.user_id]?.last_name ?? ""}`.trim()}
+                        size={36}
+                        textClassName="text-[11px]"
+                      />
                       <div>
                         <p className="text-sm font-semibold text-neutral-800">
                           {requesterProfiles[req.user_id]

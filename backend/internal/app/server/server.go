@@ -136,7 +136,7 @@ func Run(ctx context.Context) error {
 	groupHandler := handler.NewGroupHandler(groupService, log)
 	eventHandler := handler.NewEventHandler(eventService, log)
 	chatHandler := handler.NewChatHandler(chatService, log)
-	messageReactionHandler := handler.NewMessageReactionHandler(messageReactionService, log)
+	messageReactionHandler := handler.NewMessageReactionHandler(messageReactionService, wsHub, log)
 	uploadHandler := handler.NewUploadHandler(cfg.Server.UploadDir, cfg.Server.MaxUploadBytes, log)
 	mediaHandler := handler.NewMediaHandler(mediaService, cfg.Server.UploadDir, log)
 

@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -30,12 +31,6 @@ type UserListItem = {
   nickname?: string | null;
   avatar_path?: string | null;
 };
-
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
 
 function toMediaUrl(apiBaseUrl: string, path?: string | null) {
   if (!path) return "";
@@ -204,19 +199,14 @@ export default function FollowersPage() {
                     className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
                   >
                     <Link href={`/profile/${person.id}`} className="flex items-center gap-3">
-                      {person.avatar_path ? (
-                        <div className="h-10 w-10 overflow-hidden rounded-full border border-neutral-200 bg-white">
-                          <img
-                            src={toMediaUrl(apiBaseUrl, person.avatar_path)}
-                            alt={`${person.first_name} ${person.last_name}`}
-                            className="h-full w-full object-contain"
-                          />
-                        </div>
-                      ) : (
-                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                          {initials(person.first_name, person.last_name)}
-                        </div>
-                      )}
+                      <Avatar
+                        src={
+                          person.avatar_path ? toMediaUrl(apiBaseUrl, person.avatar_path) : null
+                        }
+                        name={`${person.first_name} ${person.last_name}`}
+                        size={40}
+                        textClassName="text-xs"
+                      />
                       <div>
                         <p className="text-sm font-semibold text-neutral-800">
                           {person.first_name} {person.last_name}

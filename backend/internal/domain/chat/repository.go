@@ -33,7 +33,7 @@ type Repository interface {
 	HasMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
 	AddMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error
 	RemoveMessageReaction(ctx context.Context, messageID, userID int64, emoji string) error
-	ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (bool, error)
+	ToggleMessageReaction(ctx context.Context, messageID, userID int64, emoji string) (string, []string, error)
 	ListMessageReactions(ctx context.Context, messageID int64) ([]MessageReaction, error)
 
 	// Read tracking
