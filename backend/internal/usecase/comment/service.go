@@ -59,21 +59,7 @@ func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (Comment
 	if err != nil {
 		return CommentDTO{}, err
 	}
-	if s.notifier != nil && s.postRepo != nil {
-		post, err := s.postRepo.GetByID(ctx, created.PostID)
-		if err == nil && post.AuthorID != created.AuthorID {
-			_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
-				UserID:     post.AuthorID,
-				ActorID:    &created.AuthorID,
-				Type:       "comment_on_post",
-				EntityType: "post",
-				EntityID:   post.ID,
-				Metadata: map[string]any{
-					"comment_id": created.ID,
-				},
-			})
-		}
-	}
+	// Notifications limited to follow/group/event only.
 
 	return mapComment(created), nil
 }
@@ -96,6 +82,55 @@ func (s *Service) GetByPostID(ctx context.Context, postID, viewerID int64, limit
 	}
 
 	return mapComments(comments), nil
+}
+
+// Update updates an existing comment. Only the author can update.
+func (s *Service) Update(ctx context.Context, commentID, authorID int64, req UpdateCommentRequest) (CommentDTO, error) {
+	existing, err := s.repo.GetByID(ctx, commentID)
+	if err != nil {
+		return CommentDTO{}, err
+	}
+	if existing.AuthorID != authorID {
+		return CommentDTO{}, ErrForbidden
+	}
+
+	content := existing.Content
+	if req.Content != nil {
+		content = strings.TrimSpace(*req.Content)
+	}
+	mediaPath := existing.MediaPath
+	if req.MediaPath != nil {
+		trimmed := strings.TrimSpace(*req.MediaPath)
+		mediaPath = trimmed
+	}
+
+	if strings.TrimSpace(content) == "" && strings.TrimSpace(mediaPath) == "" {
+		return CommentDTO{}, errors.New("content or media is required")
+	}
+
+	updated, err := s.repo.Update(ctx, domaincomment.Comment{
+		ID:        existing.ID,
+		PostID:    existing.PostID,
+		AuthorID:  existing.AuthorID,
+		Content:   content,
+		MediaPath: mediaPath,
+	})
+	if err != nil {
+		return CommentDTO{}, err
+	}
+	return mapComment(updated), nil
+}
+
+// Delete removes a comment. Only the author can delete.
+func (s *Service) Delete(ctx context.Context, commentID, authorID int64) error {
+	existing, err := s.repo.GetByID(ctx, commentID)
+	if err != nil {
+		return err
+	}
+	if existing.AuthorID != authorID {
+		return ErrForbidden
+	}
+	return s.repo.Delete(ctx, commentID)
 }
 
 // ErrForbidden is returned when a viewer cannot access comments.

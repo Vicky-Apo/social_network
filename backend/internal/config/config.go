@@ -101,7 +101,7 @@ func Load() (*Config, error) {
 		CORS: CORSConfig{
 			Enabled:          utils.GetBool("CORS_ENABLED", true),
 			AllowedOrigins:   utils.GetString("CORS_ALLOWED_ORIGINS", "http://localhost:3000"),
-			AllowedMethods:   utils.GetString("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS"),
+			AllowedMethods:   utils.GetString("CORS_ALLOWED_METHODS", "GET,POST,PUT,PATCH,DELETE,OPTIONS"),
 			AllowedHeaders:   utils.GetString("CORS_ALLOWED_HEADERS", "Content-Type,Authorization"),
 			AllowCredentials: utils.GetBool("CORS_ALLOW_CREDENTIALS", true),
 			MaxAge:           utils.GetInt("CORS_MAX_AGE", 86400),

@@ -27,6 +27,10 @@ func (r *fakeCommentRepo) GetByID(ctx context.Context, id int64) (domaincomment.
 	return domaincomment.Comment{}, domaincomment.ErrNotFound
 }
 
+func (r *fakeCommentRepo) Update(ctx context.Context, c domaincomment.Comment) (domaincomment.Comment, error) {
+	return c, nil
+}
+
 func (r *fakeCommentRepo) Delete(ctx context.Context, id int64) error {
 	return nil
 }
@@ -80,10 +84,17 @@ func (r *fakePostRepo) IsUserAllowed(ctx context.Context, postID, userID int64) 
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
+	return nil, nil
+}
 
 func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
+func (r *fakePostRepo) Update(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
+	return domainpost.Post{}, nil
+}
+func (r *fakePostRepo) Delete(ctx context.Context, id int64) error { return nil }
 
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil

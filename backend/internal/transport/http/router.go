@@ -58,12 +58,15 @@ func NewRouter(
 
 	// Post routes
 	mux.Handle("GET /posts", mw.Auth(http.HandlerFunc(postHandler.List)))
-	mux.Handle("GET /posts/{id}", mw.Auth(http.HandlerFunc(postHandler.GetByID)))
 	mux.Handle("POST /posts", mw.Auth(http.HandlerFunc(postHandler.Create)))
+	mux.Handle("PATCH /posts/{id}", mw.Auth(http.HandlerFunc(postHandler.Update)))
+	mux.Handle("DELETE /posts/{id}", mw.Auth(http.HandlerFunc(postHandler.Delete)))
 
 	// Comment routes (protected)
 	mux.Handle("POST /posts/{id}/comments", mw.Auth(http.HandlerFunc(commentHandler.Create)))
 	mux.Handle("GET /posts/{id}/comments", mw.Auth(http.HandlerFunc(commentHandler.GetByPostID)))
+	mux.Handle("PATCH /comments/{id}", mw.Auth(http.HandlerFunc(commentHandler.Update)))
+	mux.Handle("DELETE /comments/{id}", mw.Auth(http.HandlerFunc(commentHandler.Delete)))
 
 	// Post reaction routes (protected)
 	mux.Handle("POST /posts/{id}/reactions", mw.Auth(http.HandlerFunc(reactionHandler.AddPostReaction)))

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAuth } from "../component/AuthContext";
+import { useAuth } from "@/components/AuthContext";
 import { landingData } from "@/lib/data";
 import { fadeUp, staggerContainer } from "@/components/Motion";
 

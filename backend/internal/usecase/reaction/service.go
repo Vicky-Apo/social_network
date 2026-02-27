@@ -241,44 +241,9 @@ func mapCommentReactions(reactions []domainreaction.CommentReaction) []ReactionD
 }
 
 func (s *Service) emitPostReactionNotification(ctx context.Context, postID, actorID int64, reaction string, action string) {
-	if s.notifier == nil || s.postRepo == nil {
-		return
-	}
-	post, err := s.postRepo.GetByID(ctx, postID)
-	if err != nil || post.AuthorID == actorID {
-		return
-	}
-	_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
-		UserID:     post.AuthorID,
-		ActorID:    &actorID,
-		Type:       "post_reaction",
-		EntityType: "post",
-		EntityID:   post.ID,
-		Metadata: map[string]any{
-			"reaction": reaction,
-			"action":   action,
-		},
-	})
+	// Notifications limited to follow/group/event only.
 }
 
 func (s *Service) emitCommentReactionNotification(ctx context.Context, commentID, actorID int64, reaction string, action string) {
-	if s.notifier == nil || s.commentRepo == nil {
-		return
-	}
-	comment, err := s.commentRepo.GetByID(ctx, commentID)
-	if err != nil || comment.AuthorID == actorID {
-		return
-	}
-	_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
-		UserID:     comment.AuthorID,
-		ActorID:    &actorID,
-		Type:       "comment_reaction",
-		EntityType: "comment",
-		EntityID:   comment.ID,
-		Metadata: map[string]any{
-			"reaction": reaction,
-			"action":   action,
-			"post_id":  comment.PostID,
-		},
-	})
+	// Notifications limited to follow/group/event only.
 }

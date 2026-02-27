@@ -263,6 +263,10 @@ func (s *Service) notifyGroupMembers(ctx context.Context, ev domainevent.Event) 
 	if err != nil {
 		return
 	}
+	groupTitle := ""
+	if group, err := s.groupRepo.GetByID(ctx, ev.GroupID); err == nil {
+		groupTitle = group.Title
+	}
 	for _, id := range memberIDs {
 		if id == ev.CreatorID {
 			continue
@@ -275,6 +279,7 @@ func (s *Service) notifyGroupMembers(ctx context.Context, ev domainevent.Event) 
 			EntityID:   ev.ID,
 			Metadata: map[string]any{
 				"group_id":   ev.GroupID,
+				"group_name": groupTitle,
 				"title":      ev.Title,
 				"event_time": ev.EventTime.Format(time.RFC3339),
 			},

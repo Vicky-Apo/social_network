@@ -3,27 +3,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  Compass,
-  MessageCircle,
-  LogOut,
-  MessageSquare,
-  ThumbsDown,
-  ThumbsUp,
-  Plus,
-  Search,
-  Send,
-  Users,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+import { MessageCircle, User, ThumbsDown, ThumbsUp, Plus, Send, Wifi, WifiOff } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAuth } from "../component/AuthContext";
-import { landingData } from "@/lib/data";
+import { useAuth } from "@/components/AuthContext";
 import { fadeUp, viewportOnce } from "@/components/Motion";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -37,11 +23,13 @@ type User = {
   first_name: string;
   last_name: string;
   nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type Post = {
   id: number;
   author_id: number;
+  group_id?: number | null;
   author_first_name: string;
   author_last_name: string;
   content: string;
@@ -106,11 +94,7 @@ type UserListItem = {
   avatar_path?: string | null;
 };
 
-const quickLinks = [
-  { label: "Explore", href: "#", icon: Compass },
-  { label: "Groups", href: "/groups", icon: Users },
-  { label: "Messages", href: "/messages", icon: MessageSquare },
-];
+type PostPrivacy = "public" | "followers" | "private";
 
 const trends = [
   { title: "Product Feedback", posts: "1.2k posts this week" },
@@ -132,6 +116,18 @@ function shortDate(value: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function normalizePrivacy(value?: string | null): PostPrivacy {
+  if (value === "followers" || value === "private") return value;
+  return "public";
+}
+
+function toMediaUrl(apiBaseUrl: string, path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${apiBaseUrl}${normalized}`;
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { logout } = useAuth();
@@ -142,6 +138,10 @@ export default function DashboardPage() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [composerText, setComposerText] = useState("");
+  const [composerFile, setComposerFile] = useState<File | null>(null);
+  const [composerFileName, setComposerFileName] = useState("");
+  const [composerPrivacy, setComposerPrivacy] = useState<PostPrivacy>("public");
+  const [composerAllowedIDs, setComposerAllowedIDs] = useState<number[]>([]);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [groupsOnly, setGroupsOnly] = useState(false);
@@ -151,6 +151,8 @@ export default function DashboardPage() {
   const [commentsOpenByPost, setCommentsOpenByPost] = useState<Record<number, boolean>>({});
   const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<number, boolean>>({});
   const [commentDraftByPost, setCommentDraftByPost] = useState<Record<number, string>>({});
+  const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
+  const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -161,10 +163,26 @@ export default function DashboardPage() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatConnected, setChatConnected] = useState(false);
   const [chatUnreadMap, setChatUnreadMap] = useState<Record<number, number>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [people, setPeople] = useState<UserListItem[]>([]);
-  const [peopleLoading, setPeopleLoading] = useState(false);
+  const [followers, setFollowers] = useState<UserListItem[]>([]);
+  const [followersLoading, setFollowersLoading] = useState(false);
+  const [editingPostID, setEditingPostID] = useState<number | null>(null);
+  const [editPostText, setEditPostText] = useState("");
+  const [editPostFile, setEditPostFile] = useState<File | null>(null);
+  const [editPostFileName, setEditPostFileName] = useState("");
+  const [editPostClearMedia, setEditPostClearMedia] = useState(false);
+  const [editPostPrivacy, setEditPostPrivacy] = useState<PostPrivacy>("public");
+  const [editPostAllowedIDs, setEditPostAllowedIDs] = useState<number[]>([]);
+  const [editPostError, setEditPostError] = useState<string | null>(null);
+  const [editingCommentID, setEditingCommentID] = useState<number | null>(null);
+  const [editCommentText, setEditCommentText] = useState("");
+  const [editCommentFile, setEditCommentFile] = useState<File | null>(null);
+  const [editCommentFileName, setEditCommentFileName] = useState("");
+  const [editCommentClearMedia, setEditCommentClearMedia] = useState(false);
+  const [editCommentError, setEditCommentError] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
+  const feedLimit = 20;
 
   const apiBaseUrl = useMemo(
     () =>
@@ -177,6 +195,7 @@ export default function DashboardPage() {
     if (apiBaseUrl.startsWith("http://")) return apiBaseUrl.replace("http://", "ws://");
     return apiBaseUrl;
   }, [apiBaseUrl]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -216,7 +235,20 @@ export default function DashboardPage() {
           setNotifications(notificationsRes.result.data ?? []);
         }
 
-        const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+        setFollowersLoading(true);
+        const followerList = await fetchJson<UserListItem[]>(
+          `/profiles/${me.result.data?.id ?? 0}/followers`,
+        );
+        if (!cancelled && followerList.response.ok && followerList.result?.success) {
+          setFollowers(followerList.result.data ?? []);
+        }
+        if (!cancelled) {
+          setFollowersLoading(false);
+        }
+
+        const feedPath = groupsOnly
+          ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+          : `/posts?limit=${feedLimit}&offset=0`;
         const feed = await fetchJson<Post[]>(feedPath);
         if (!feed.response.ok || !feed.result?.success) {
           if (!cancelled) {
@@ -229,6 +261,7 @@ export default function DashboardPage() {
         if (!cancelled) {
           const nextPosts = feed.result.data ?? [];
           setPosts(nextPosts);
+          setHasMorePosts(nextPosts.length >= feedLimit);
 
           const currentUserID = me.result.data?.id;
           if (currentUserID) {
@@ -263,6 +296,7 @@ export default function DashboardPage() {
       } finally {
         if (!cancelled) {
           setIsLoading(false);
+          setFollowersLoading(false);
         }
       }
     };
@@ -274,39 +308,30 @@ export default function DashboardPage() {
     };
   }, [apiBaseUrl, router, groupsOnly]);
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
-
-    let cancelled = false;
-    const run = async () => {
-      setPeopleLoading(true);
-      try {
-        const query = searchQuery.trim();
-        const path = query ? `/users?q=${encodeURIComponent(query)}` : "/users";
-        const response = await fetch(`${apiBaseUrl}${path}`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<UserListItem[]>
-          | null;
-        if (!cancelled && response.ok && result?.success) {
-          setPeople(result.data ?? []);
-        }
-      } finally {
-        if (!cancelled) {
-          setPeopleLoading(false);
-        }
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMorePosts) return;
+    setIsLoadingMore(true);
+    setFeedError(null);
+    try {
+      const offset = posts.length;
+      const feedPath = groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
+        : `/posts?limit=${feedLimit}&offset=${offset}`;
+      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
+        credentials: "include",
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
+      if (!response.ok || !result?.success) {
+        setFeedError(result?.error || "Could not load more posts.");
+        return;
       }
-    };
-
-    const timeoutID = window.setTimeout(run, 220);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutID);
-    };
-  }, [apiBaseUrl, searchQuery, user?.id]);
+      const nextPosts = result.data ?? [];
+      setPosts((prev) => [...prev, ...nextPosts]);
+      setHasMorePosts(nextPosts.length >= feedLimit);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) {
@@ -314,7 +339,9 @@ export default function DashboardPage() {
     }
 
     const intervalID = window.setInterval(async () => {
-      const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+      const feedPath = groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+        : `/posts?limit=${feedLimit}&offset=0`;
       const response = await fetch(`${apiBaseUrl}${feedPath}`, {
         credentials: "include",
       }).catch(() => null);
@@ -405,8 +432,12 @@ export default function DashboardPage() {
   const handleCreatePost = async () => {
     if (isPosting) return;
     const content = composerText.trim();
-    if (!content) {
-      setComposerError("Write something before posting.");
+    if (!content && !composerFile) {
+      setComposerError("Write something or attach media before posting.");
+      return;
+    }
+    if (composerPrivacy === "private" && composerAllowedIDs.length === 0) {
+      setComposerError("Select at least one follower for a private post.");
       return;
     }
 
@@ -414,6 +445,26 @@ export default function DashboardPage() {
     setComposerError(null);
 
     try {
+      let mediaPath: string | undefined;
+      if (composerFile) {
+        const formData = new FormData();
+        formData.append("file", composerFile);
+        formData.append("kind", "post");
+        const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const uploadJson = (await uploadRes.json().catch(() => null)) as
+          | ApiResponse<{ path?: string }>
+          | null;
+        if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
+          setComposerError(uploadJson?.error || "Could not upload media.");
+          return;
+        }
+        mediaPath = uploadJson.data.path;
+      }
+
       const response = await fetch(`${apiBaseUrl}/posts`, {
         method: "POST",
         headers: {
@@ -421,8 +472,10 @@ export default function DashboardPage() {
         },
         credentials: "include",
         body: JSON.stringify({
-          content,
-          privacy: "public",
+          content: content || undefined,
+          media_path: mediaPath,
+          privacy: composerPrivacy,
+          allowed_user_ids: composerPrivacy === "private" ? composerAllowedIDs : undefined,
         }),
       });
 
@@ -434,11 +487,33 @@ export default function DashboardPage() {
 
       setPosts((prev) => [result.data as Post, ...prev]);
       setComposerText("");
+      setComposerFile(null);
+      setComposerFileName("");
+      setComposerAllowedIDs([]);
+      setComposerPrivacy("public");
     } catch {
       setComposerError("Network error. Please try again.");
     } finally {
       setIsPosting(false);
     }
+  };
+
+  const uploadMedia = async (file: File, kind: "post" | "comment") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("kind", kind);
+    const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const uploadJson = (await uploadRes.json().catch(() => null)) as
+      | ApiResponse<{ path?: string }>
+      | null;
+    if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
+      throw new Error(uploadJson?.error || "Upload failed");
+    }
+    return uploadJson.data.path;
   };
 
   const refreshNotifications = async () => {
@@ -496,7 +571,7 @@ export default function DashboardPage() {
       return;
     }
     if (!recipient || !content) {
-      setChatError("Enter recipient ID and message.");
+      setChatError("Pick a recipient and write a message.");
       return;
     }
 
@@ -515,7 +590,9 @@ export default function DashboardPage() {
     setIsLoading(true);
     setFeedError(null);
     try {
-      const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+      const feedPath = groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+        : `/posts?limit=${feedLimit}&offset=0`;
       const response = await fetch(`${apiBaseUrl}${feedPath}`, {
         credentials: "include",
       });
@@ -525,6 +602,7 @@ export default function DashboardPage() {
         return;
       }
       setPosts(result.data ?? []);
+      setHasMorePosts((result.data ?? []).length >= feedLimit);
     } catch {
       setFeedError("Network error. Please try again.");
     } finally {
@@ -593,20 +671,44 @@ export default function DashboardPage() {
 
   const handleCreateComment = async (postID: number) => {
     const draft = (commentDraftByPost[postID] ?? "").trim();
-    if (!draft) {
+    const attachment = commentFileByPost[postID] ?? null;
+    if (!draft && !attachment) {
       setCommentErrorByPost((prev) => ({
         ...prev,
-        [postID]: "Write a comment before posting.",
+        [postID]: "Write a comment or attach media before posting.",
       }));
       return;
     }
 
     try {
+      let mediaPath: string | undefined;
+      if (attachment) {
+        const formData = new FormData();
+        formData.append("file", attachment);
+        formData.append("kind", "comment");
+        const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
+          method: "POST",
+          credentials: "include",
+          body: formData,
+        });
+        const uploadJson = (await uploadRes.json().catch(() => null)) as
+          | ApiResponse<{ path?: string }>
+          | null;
+        if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
+          setCommentErrorByPost((prev) => ({
+            ...prev,
+            [postID]: uploadJson?.error || "Could not upload comment media.",
+          }));
+          return;
+        }
+        mediaPath = uploadJson.data.path;
+      }
+
       const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ content: draft }),
+        body: JSON.stringify({ content: draft || undefined, media_path: mediaPath }),
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
 
@@ -623,6 +725,8 @@ export default function DashboardPage() {
         [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
       }));
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
+      setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
+      setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
       setPosts((prev) =>
         prev.map((post) =>
@@ -635,6 +739,169 @@ export default function DashboardPage() {
         ...prev,
         [postID]: "Network error while posting comment.",
       }));
+    }
+  };
+
+  const startEditPost = (post: Post) => {
+    setEditingPostID(post.id);
+    setEditPostText(post.content || "");
+    setEditPostFile(null);
+    setEditPostFileName("");
+    setEditPostClearMedia(false);
+    setEditPostPrivacy(normalizePrivacy(post.privacy));
+    setEditPostAllowedIDs([]);
+    setEditPostError(null);
+  };
+
+  const cancelEditPost = () => {
+    setEditingPostID(null);
+    setEditPostText("");
+    setEditPostFile(null);
+    setEditPostFileName("");
+    setEditPostClearMedia(false);
+    setEditPostPrivacy("public");
+    setEditPostAllowedIDs([]);
+    setEditPostError(null);
+  };
+
+  const saveEditPost = async (post: Post) => {
+    const isGroupPost = post.group_id != null;
+    const content = editPostText.trim();
+    if (!content && !editPostFile && !post.media_path && !editPostClearMedia) {
+      setEditPostError("Content or media is required.");
+      return;
+    }
+    if (!isGroupPost && editPostPrivacy === "private" && editPostAllowedIDs.length === 0) {
+      setEditPostError("Select at least one follower for a private post.");
+      return;
+    }
+    setEditPostError(null);
+    try {
+      let mediaPath: string | undefined;
+      if (editPostClearMedia && !editPostFile) {
+        mediaPath = "";
+      }
+      if (editPostFile) {
+        mediaPath = await uploadMedia(editPostFile, "post");
+      }
+      const response = await fetch(`${apiBaseUrl}/posts/${post.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: content || undefined,
+          media_path: mediaPath ?? undefined,
+          privacy: isGroupPost ? undefined : editPostPrivacy,
+          allowed_user_ids:
+            !isGroupPost && editPostPrivacy === "private" ? editPostAllowedIDs : undefined,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
+      if (!response.ok || !result?.success || !result.data) {
+        setEditPostError(result?.error || "Could not update post.");
+        return;
+      }
+      setPosts((prev) => prev.map((item) => (item.id === post.id ? result.data as Post : item)));
+      cancelEditPost();
+    } catch (err) {
+      setEditPostError(err instanceof Error ? err.message : "Network error.");
+    }
+  };
+
+  const deletePost = async (postID: number) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/posts/${postID}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return;
+      }
+      setPosts((prev) => prev.filter((post) => post.id !== postID));
+    } catch {
+      // ignore
+    }
+  };
+
+  const startEditComment = (comment: Comment) => {
+    setEditingCommentID(comment.id);
+    setEditCommentText(comment.content || "");
+    setEditCommentFile(null);
+    setEditCommentFileName("");
+    setEditCommentClearMedia(false);
+    setEditCommentError(null);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentID(null);
+    setEditCommentText("");
+    setEditCommentFile(null);
+    setEditCommentFileName("");
+    setEditCommentClearMedia(false);
+    setEditCommentError(null);
+  };
+
+  const saveEditComment = async (postID: number, comment: Comment) => {
+    const content = editCommentText.trim();
+    if (!content && !editCommentFile && !comment.media_path && !editCommentClearMedia) {
+      setEditCommentError("Content or media is required.");
+      return;
+    }
+    setEditCommentError(null);
+    try {
+      let mediaPath: string | undefined;
+      if (editCommentClearMedia && !editCommentFile) {
+        mediaPath = "";
+      }
+      if (editCommentFile) {
+        mediaPath = await uploadMedia(editCommentFile, "comment");
+      }
+      const response = await fetch(`${apiBaseUrl}/comments/${comment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          content: content || undefined,
+          media_path: mediaPath ?? undefined,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
+      if (!response.ok || !result?.success || !result.data) {
+        setEditCommentError(result?.error || "Could not update comment.");
+        return;
+      }
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? []).map((item) =>
+          item.id === comment.id ? (result.data as Comment) : item,
+        ),
+      }));
+      cancelEditComment();
+    } catch (err) {
+      setEditCommentError(err instanceof Error ? err.message : "Network error.");
+    }
+  };
+
+  const deleteComment = async (postID: number, commentID: number) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/comments/${commentID}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        return;
+      }
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? []).filter((item) => item.id !== commentID),
+      }));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postID ? { ...post, comment_count: Math.max(0, post.comment_count - 1) } : post,
+        ),
+      );
+    } catch {
+      // ignore
     }
   };
 
@@ -736,122 +1003,18 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <Image
-              src="/vybez-logo.png"
-              alt={`${landingData.productName} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
-              priority
-            />
-            <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
-          </Link>
-
-          <div className="relative ml-2 hidden flex-1 sm:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search posts, people, topics..."
-              className="h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
-            />
-          </div>
-
-          <button
-            type="button"
-            aria-label="Notifications"
-            onClick={() => {
-              const next = !notificationsOpen;
-              setNotificationsOpen(next);
-              if (next) {
-                void refreshNotifications();
-              }
-            }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
-              {notificationCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Log out</span>
-          </button>
-        </div>
-      </header>
+      <TopNav
+        user={user ?? undefined}
+        notifications={notifications}
+        notificationCount={notificationCount}
+        onNotificationsChange={setNotifications}
+        onNotificationCountChange={setNotificationCount}
+        onLogout={handleLogout}
+      />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(user?.first_name, user?.last_name)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
-                <p className="text-xs text-neutral-500">@{userTag}</p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                People
-              </p>
-              <div className="space-y-2">
-                {peopleLoading ? (
-                  <p className="text-xs text-neutral-500">Searching users...</p>
-                ) : people.filter((person) => person.id !== user?.id).length === 0 ? (
-                  <p className="text-xs text-neutral-500">No users found.</p>
-                ) : (
-                  people
-                    .filter((person) => person.id !== user?.id)
-                    .slice(0, 5)
-                    .map((person) => (
-                      <div
-                        key={person.id}
-                        className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
-                      >
-                        <div>
-                          <p className="text-xs font-semibold text-neutral-800">
-                            {person.first_name} {person.last_name}
-                          </p>
-                          <p className="text-[11px] text-neutral-500">
-                            @{person.nickname || `user-${person.id}`}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-500">
-                          ID {person.id}
-                        </span>
-                      </div>
-                    ))
-                )}
-              </div>
-            </div>
-          </div>
+          <LeftNav user={user ?? undefined} activeHref="/dashboard" />
         </aside>
 
         <section className="space-y-5">
@@ -880,7 +1043,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={refreshFeed}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900"
+                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
                 >
                   Refresh feed
                 </button>
@@ -902,14 +1065,75 @@ export default function DashboardPage() {
               placeholder="Share an update with Vybez..."
               className="w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
             />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <label className="text-xs font-semibold text-neutral-600">
+                Privacy
+                <select
+                  value={composerPrivacy}
+                  onChange={(event) => {
+                    const next = event.target.value as PostPrivacy;
+                    setComposerPrivacy(next);
+                    if (next !== "private") {
+                      setComposerAllowedIDs([]);
+                    }
+                  }}
+                  className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-neutral-700 outline-none focus:border-neutral-400 sm:w-48"
+                >
+                  <option value="public">Public</option>
+                  <option value="followers">Followers</option>
+                  <option value="private">Private (select followers)</option>
+                </select>
+              </label>
+              {composerPrivacy === "private" ? (
+                <div className="flex flex-1 flex-wrap gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+                  {followersLoading ? (
+                    <span className="text-xs text-neutral-500">Loading followers...</span>
+                  ) : followers.length === 0 ? (
+                    <span className="text-xs text-neutral-500">No followers available.</span>
+                  ) : (
+                    followers.map((follower) => {
+                      const checked = composerAllowedIDs.includes(follower.id);
+                      return (
+                        <label key={follower.id} className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => {
+                              const nextChecked = event.target.checked;
+                              setComposerAllowedIDs((prev) =>
+                                nextChecked
+                                  ? [...prev, follower.id]
+                                  : prev.filter((id) => id !== follower.id),
+                              );
+                            }}
+                            className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                          />
+                          <span>@{follower.nickname || "user"}</span>
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              ) : null}
+            </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
-              >
+              <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setComposerFile(file);
+                    setComposerFileName(file?.name ?? "");
+                  }}
+                />
                 <Plus className="h-3.5 w-3.5" />
-                Add media
-              </button>
+                {composerFileName ? "Change media" : "Add media"}
+              </label>
+              {composerFileName ? (
+                <span className="text-xs text-neutral-500">{composerFileName}</span>
+              ) : null}
               <button
                 type="button"
                 onClick={handleCreatePost}
@@ -948,7 +1172,7 @@ export default function DashboardPage() {
                 type="number"
                 value={chatRecipientID}
                 onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient user ID"
+                placeholder="Recipient"
                 className="h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
               />
               <div className="flex gap-2">
@@ -973,11 +1197,11 @@ export default function DashboardPage() {
             <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
               Feed status: {isLoading ? "loading" : `${posts.length} post(s)`}
             </div>
-            {isLoading ? (
-              <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-                Loading your feed...
-              </article>
-            ) : feedError ? (
+          {isLoading ? (
+            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+              Loading your feed...
+            </article>
+          ) : feedError ? (
               <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
                 {feedError}
               </article>
@@ -1008,11 +1232,141 @@ export default function DashboardPage() {
                     </span>
                   </header>
 
-                  <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                  {editingPostID === post.id ? (
+                    <div className="mt-4 space-y-3">
+                      <textarea
+                        value={editPostText}
+                        onChange={(event) => setEditPostText(event.target.value)}
+                        rows={3}
+                        className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none focus:border-neutral-400"
+                      />
+                      {post.group_id == null ? (
+                        <div className="flex flex-wrap items-start gap-3">
+                          <label className="text-xs font-semibold text-neutral-600">
+                            Privacy
+                            <select
+                              value={editPostPrivacy}
+                              onChange={(event) => {
+                                const next = event.target.value as PostPrivacy;
+                                setEditPostPrivacy(next);
+                                if (next !== "private") {
+                                  setEditPostAllowedIDs([]);
+                                }
+                              }}
+                              className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-neutral-700 outline-none focus:border-neutral-400 sm:w-48"
+                            >
+                              <option value="public">Public</option>
+                              <option value="followers">Followers</option>
+                              <option value="private">Private (select followers)</option>
+                            </select>
+                          </label>
+                          {editPostPrivacy === "private" ? (
+                            <div className="flex flex-1 flex-wrap gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+                              {followersLoading ? (
+                                <span className="text-xs text-neutral-500">
+                                  Loading followers...
+                                </span>
+                              ) : followers.length === 0 ? (
+                                <span className="text-xs text-neutral-500">
+                                  No followers available.
+                                </span>
+                              ) : (
+                                followers.map((follower) => {
+                                  const checked = editPostAllowedIDs.includes(follower.id);
+                                  return (
+                                    <label
+                                      key={follower.id}
+                                      className="inline-flex items-center gap-2"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={(event) => {
+                                          const nextChecked = event.target.checked;
+                                          setEditPostAllowedIDs((prev) =>
+                                            nextChecked
+                                              ? [...prev, follower.id]
+                                              : prev.filter((id) => id !== follower.id),
+                                          );
+                                        }}
+                                        className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                                      />
+                                      <span>@{follower.nickname || "user"}</span>
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-neutral-500">
+                          Group post privacy cannot be changed.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                          <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/gif"
+                              className="hidden"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] ?? null;
+                                setEditPostFile(file);
+                                setEditPostFileName(file?.name ?? "");
+                                setEditPostClearMedia(false);
+                              }}
+                            />
+                            Change media
+                          </label>
+                          {editPostFileName ? (
+                            <span className="text-xs text-neutral-500">{editPostFileName}</span>
+                          ) : null}
+                          {post.media_path ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditPostClearMedia(true);
+                                setEditPostFile(null);
+                                setEditPostFileName("");
+                              }}
+                              className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                                editPostClearMedia
+                                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                                  : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                              }`}
+                            >
+                              {editPostClearMedia ? "Media removed" : "Remove media"}
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => saveEditPost(post)}
+                            className="rounded-full bg-neutral-900 px-3 py-2 text-xs font-semibold text-white"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditPost}
+                          className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {editPostError ? <p className="text-xs text-rose-600">{editPostError}</p> : null}
+                    </div>
+                  ) : (
+                    <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                  )}
 
                   {post.media_path ? (
                     <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200">
-                      <img src={post.media_path} alt="Post media" className="h-72 w-full object-cover" />
+                      <img
+                        src={toMediaUrl(apiBaseUrl, post.media_path)}
+                        alt="Post media"
+                        className="max-h-[520px] w-full object-contain bg-white"
+                      />
                     </div>
                   ) : null}
 
@@ -1049,6 +1403,24 @@ export default function DashboardPage() {
                       <MessageCircle className="h-3.5 w-3.5" />
                       {post.comment_count}
                     </button>
+                    {user?.id === post.author_id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEditPost(post)}
+                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deletePost(post.id)}
+                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    ) : null}
                   </footer>
 
                   {commentsOpenByPost[post.id] ? (
@@ -1056,7 +1428,84 @@ export default function DashboardPage() {
                       <div className="space-y-2">
                         {(commentsByPost[post.id] ?? []).map((comment) => (
                           <article key={comment.id} className="rounded-xl bg-white p-3">
-                            <p className="text-sm text-neutral-700">{comment.content}</p>
+                            {editingCommentID === comment.id ? (
+                              <div className="space-y-2">
+                                <textarea
+                                  value={editCommentText}
+                                  onChange={(event) => setEditCommentText(event.target.value)}
+                                  rows={2}
+                                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                                />
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                                    <input
+                                      type="file"
+                                      accept="image/png,image/jpeg,image/gif"
+                                      className="hidden"
+                                      onChange={(event) => {
+                                        const file = event.target.files?.[0] ?? null;
+                                        setEditCommentFile(file);
+                                        setEditCommentFileName(file?.name ?? "");
+                                        setEditCommentClearMedia(false);
+                                      }}
+                                    />
+                                    Change media
+                                  </label>
+                                  {editCommentFileName ? (
+                                    <span className="text-[11px] text-neutral-500">
+                                      {editCommentFileName}
+                                    </span>
+                                  ) : null}
+                                  {comment.media_path ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditCommentClearMedia(true);
+                                        setEditCommentFile(null);
+                                        setEditCommentFileName("");
+                                      }}
+                                      className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                                        editCommentClearMedia
+                                          ? "border-rose-200 bg-rose-50 text-rose-700"
+                                          : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                                      }`}
+                                    >
+                                      {editCommentClearMedia ? "Media removed" : "Remove media"}
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => saveEditComment(post.id, comment)}
+                                    className="rounded-full bg-neutral-900 px-3 py-1 text-[11px] font-semibold text-white"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditComment}
+                                    className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {editCommentError ? (
+                                  <p className="text-[11px] text-rose-600">{editCommentError}</p>
+                                ) : null}
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm text-neutral-700">{comment.content}</p>
+                                {comment.media_path ? (
+                                  <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                                    <img
+                                      src={toMediaUrl(apiBaseUrl, comment.media_path)}
+                                      alt="Comment media"
+                                      className="max-h-64 w-full object-contain bg-white"
+                                    />
+                                  </div>
+                                ) : null}
+                              </>
+                            )}
                             <div className="mt-2 flex items-center gap-2 text-xs">
                               <button
                                 type="button"
@@ -1086,6 +1535,24 @@ export default function DashboardPage() {
                                 <ThumbsDown className="h-3 w-3" />
                                 {comment.dislike_count}
                               </button>
+                              {user?.id === comment.author_id ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditComment(comment)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteComment(post.id, comment.id)}
+                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              ) : null}
                             </div>
                           </article>
                         ))}
@@ -1110,6 +1577,22 @@ export default function DashboardPage() {
                           placeholder="Write a comment..."
                           className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
                         />
+                        <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/gif"
+                            className="hidden"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] ?? null;
+                              setCommentFileByPost((prev) => ({ ...prev, [post.id]: file }));
+                              setCommentFileNameByPost((prev) => ({
+                                ...prev,
+                                [post.id]: file?.name ?? "",
+                              }));
+                            }}
+                          />
+                          <Plus className="h-3.5 w-3.5" />
+                        </label>
                         <button
                           type="button"
                           onClick={() => handleCreateComment(post.id)}
@@ -1118,48 +1601,32 @@ export default function DashboardPage() {
                           Comment
                         </button>
                       </div>
+                      {commentFileNameByPost[post.id] ? (
+                        <p className="mt-2 text-[11px] text-neutral-500">
+                          Attached: {commentFileNameByPost[post.id]}
+                        </p>
+                      ) : null}
                     </section>
                   ) : null}
                 </article>
               ))
             )}
           </div>
+          {hasMorePosts && !isLoading && !feedError ? (
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={loadMorePosts}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoadingMore ? "Loading..." : "Load more posts"}
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <aside className="hidden space-y-5 md:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">People</h2>
-            <div className="mt-3 space-y-2">
-              {peopleLoading ? (
-                <p className="text-xs text-neutral-500">Loading users...</p>
-              ) : people.filter((person) => person.id !== user?.id).length === 0 ? (
-                <p className="text-xs text-neutral-500">No other users found yet.</p>
-              ) : (
-                people
-                  .filter((person) => person.id !== user?.id)
-                  .slice(0, 8)
-                  .map((person) => (
-                    <div
-                      key={`right-user-${person.id}`}
-                      className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-800">
-                          {person.first_name} {person.last_name}
-                        </p>
-                        <p className="text-[11px] text-neutral-500">
-                          @{person.nickname || `user-${person.id}`}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-500">
-                        ID {person.id}
-                      </span>
-                    </div>
-                  ))
-              )}
-            </div>
-          </div>
-
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900">Notifications</h2>
@@ -1217,7 +1684,7 @@ export default function DashboardPage() {
                 type="number"
                 value={chatRecipientID}
                 onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient user ID"
+                placeholder="Recipient"
                 className="h-9 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
               />
               <div className="flex gap-2">
