@@ -60,30 +60,6 @@ func (s *Service) ListGroupsOnly(ctx context.Context, viewerID int64, limit, off
 	return mapPosts(posts), nil
 }
 
-// GetByID returns a single post as a DTO.
-func (s *Service) GetByID(ctx context.Context, id int64, viewerID int64) (PostDTO, error) {
-	post, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		if errors.Is(err, domainpost.ErrNotFound) {
-			s.log.Debug("post not found", logger.F("post_id", id))
-			return PostDTO{}, err
-		}
-		s.log.Error("failed to get post", err, logger.F("post_id", id))
-		return PostDTO{}, fmt.Errorf("get post: %w", err)
-	}
-	if s.access == nil {
-		return PostDTO{}, errors.New("access service not configured")
-	}
-	ok, err := s.access.CanViewPost(ctx, viewerID, id)
-	if err != nil {
-		return PostDTO{}, err
-	}
-	if !ok {
-		return PostDTO{}, ErrForbidden
-	}
-	return mapPost(post), nil
-}
-
 // Create creates a new post.
 func (s *Service) Create(ctx context.Context, authorID int64, req CreatePostRequest) (PostDTO, error) {
 	privacy := strings.TrimSpace(req.Privacy)

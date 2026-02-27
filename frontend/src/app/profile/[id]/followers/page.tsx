@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Compass, MessageSquare, UserPlus, Users } from "lucide-react";
 import { motion } from "framer-motion";
-import TopNav from "../../../component/TopNav";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -20,6 +20,7 @@ type User = {
   first_name: string;
   last_name: string;
   nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type UserListItem = {
@@ -29,13 +30,6 @@ type UserListItem = {
   nickname?: string | null;
   avatar_path?: string | null;
 };
-
-const quickLinks = [
-  { label: "Explore", href: "/dashboard", icon: Compass },
-  { label: "Groups", href: "/groups", icon: Users },
-  { label: "Messages", href: "/messages", icon: MessageSquare },
-  { label: "Requests", href: "/follow-requests", icon: UserPlus },
-];
 
 function initials(first?: string, last?: string) {
   const left = first?.trim().charAt(0) ?? "";
@@ -129,8 +123,6 @@ export default function FollowersPage() {
     }
   };
 
-  const viewerTag =
-    viewer?.nickname || (viewer?.email ? viewer.email.split("@")[0] : "member");
   const isOwner = viewer?.id === profileID;
 
   return (
@@ -139,34 +131,7 @@ export default function FollowersPage() {
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(viewer?.first_name, viewer?.last_name)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {viewer ? `${viewer.first_name} ${viewer.last_name}` : "Loading"}
-                </p>
-                <p className="text-xs text-neutral-500">@{viewerTag}</p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" />
         </aside>
 
         <section className="space-y-5">
@@ -240,11 +205,13 @@ export default function FollowersPage() {
                   >
                     <Link href={`/profile/${person.id}`} className="flex items-center gap-3">
                       {person.avatar_path ? (
-                        <img
-                          src={toMediaUrl(apiBaseUrl, person.avatar_path)}
-                          alt={`${person.first_name} ${person.last_name}`}
-                          className="h-10 w-10 rounded-full border border-neutral-200 object-cover"
-                        />
+                        <div className="h-10 w-10 overflow-hidden rounded-full border border-neutral-200 bg-white">
+                          <img
+                            src={toMediaUrl(apiBaseUrl, person.avatar_path)}
+                            alt={`${person.first_name} ${person.last_name}`}
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
                       ) : (
                         <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
                           {initials(person.first_name, person.last_name)}
@@ -255,7 +222,7 @@ export default function FollowersPage() {
                           {person.first_name} {person.last_name}
                         </p>
                         <p className="text-xs text-neutral-500">
-                          @{person.nickname || `user-${person.id}`}
+                          @{person.nickname || "user"}
                         </p>
                       </div>
                     </Link>

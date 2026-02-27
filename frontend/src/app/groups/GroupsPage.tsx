@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Compass, Globe, Lock, MessageSquare,
-  UserPlus, Users,} from "lucide-react";
+import { ArrowRight, Users } from "lucide-react";
 import { motion } from "framer-motion";
-import TopNav from "../component/TopNav";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -21,6 +21,7 @@ type User = {
   first_name: string;
   last_name: string;
   nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type GroupApiItem = {
@@ -29,7 +30,6 @@ type GroupApiItem = {
   title?: string | null;
   description?: string | null;
   about?: string | null;
-  privacy?: string | null;
   members_count?: number | null;
   member_count?: number | null;
 };
@@ -38,28 +38,14 @@ type GroupItem = {
   id: number;
   name: string;
   description: string;
-  privacy: "private" | "public";
   memberCount: number;
 };
-
-const quickLinks = [
-  { label: "Explore", href: "/dashboard", icon: Compass },
-  { label: "Groups", href: "/groups", icon: Users },
-  { label: "Messages", href: "/messages", icon: MessageSquare },
-  { label: "Requests", href: "/follow-requests", icon: UserPlus },
-];
 
 const trends = [
   { title: "Design systems", posts: "276 group discussions" },
   { title: "Career growth", posts: "241 group discussions" },
   { title: "JavaScript patterns", posts: "198 group discussions" },
 ];
-
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
 
 function extractRawGroups(data: unknown): GroupApiItem[] {
   if (Array.isArray(data)) {
@@ -82,15 +68,12 @@ function normalizeGroup(item: GroupApiItem): GroupItem | null {
 
   const name = (item.name ?? item.title ?? "").trim() || `Group ${id}`;
   const description = (item.description ?? item.about ?? "").trim() || "No description yet.";
-  const privacyValue = String(item.privacy ?? "").toLowerCase();
-  const privacy: GroupItem["privacy"] = privacyValue.includes("private") ? "private" : "public";
   const memberCount = Math.max(0, Number(item.members_count ?? item.member_count ?? 0) || 0);
 
   return {
     id,
     name,
     description,
-    privacy,
     memberCount,
   };
 }
@@ -170,10 +153,6 @@ export default function GroupsPage() {
     [groups],
   );
 
-  const displayName = user ? `${user.first_name} ${user.last_name}` : "Loading";
-  const userTag =
-    user?.nickname || (user?.email ? user.email.split("@")[0] : "community-member");
-
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <TopNav
@@ -186,37 +165,7 @@ export default function GroupsPage() {
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(user?.first_name, user?.last_name)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
-                <p className="text-xs text-neutral-500">@{userTag}</p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.href === "/groups";
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={`flex items-center gap-2 rounded-2xl border px-3 py-2 text-sm transition ${
-                      isActive
-                        ? "brand-gradient border-transparent text-white"
-                        : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-400 hover:text-neutral-900"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          <LeftNav user={user ?? undefined} activeHref="/groups" />
         </aside>
 
         <section className="space-y-5">
@@ -235,6 +184,18 @@ export default function GroupsPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/groups/create"
+                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                >
+                  Create group
+                </Link>
+                <Link
+                  href="/group-invitations"
+                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                >
+                  Invitations
+                </Link>
                 <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
                   Total groups: {groups.length}
                 </span>
@@ -260,7 +221,6 @@ export default function GroupsPage() {
           ) : (
             <div className="space-y-4">
               {filteredGroups.map((group) => {
-                const isPrivate = group.privacy === "private";
                 return (
                   <article
                     key={group.id}
@@ -275,16 +235,6 @@ export default function GroupsPage() {
                           {group.description}
                         </p>
                       </div>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-                          isPrivate
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-emerald-100 text-emerald-800"
-                        }`}
-                      >
-                        {isPrivate ? <Lock className="h-3.5 w-3.5" /> : <Globe className="h-3.5 w-3.5" />}
-                        {isPrivate ? "Private" : "Public"}
-                      </span>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

@@ -5,16 +5,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
-  Compass,
   Globe,
   Lock,
-  MessageSquare,
+  MessageCircle,
+  Plus,
+  ThumbsDown,
+  ThumbsUp,
   UserPlus,
   UserMinus,
-  Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import TopNav from "../component/TopNav";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -29,6 +31,7 @@ type MeUser = {
   first_name: string;
   last_name: string;
   nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type ProfileUser = {
@@ -72,6 +75,25 @@ type Post = {
   updated_at?: string;
 };
 
+type Comment = {
+  id: number;
+  post_id: number;
+  author_id: number;
+  content: string;
+  media_path?: string;
+  like_count: number;
+  dislike_count: number;
+  created_at: string;
+};
+
+type Reaction = {
+  user_id: number;
+  reaction: "like" | "dislike";
+};
+
+type ReactionKind = "like" | "dislike";
+type ReactionMap = Record<number, ReactionKind | null>;
+
 type FullProfileResponse = {
   profile: ProfileDTO;
   posts: Post[];
@@ -89,13 +111,6 @@ type FollowRequest = {
 };
 
 type FollowState = "none" | "requested" | "following" | "loading";
-
-const quickLinks = [
-  { label: "Explore", href: "/dashboard", icon: Compass },
-  { label: "Groups", href: "/groups", icon: Users },
-  { label: "Messages", href: "/messages", icon: MessageSquare },
-  { label: "Requests", href: "/follow-requests", icon: UserPlus },
-];
 
 function initials(first?: string | null, last?: string | null) {
   const left = first?.trim().charAt(0) ?? "";
@@ -134,6 +149,17 @@ export default function ProfilePage() {
   const [viewer, setViewer] = useState<MeUser | null>(null);
   const [profile, setProfile] = useState<ProfileDTO | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [postReactionMap, setPostReactionMap] = useState<ReactionMap>({});
+  const [commentReactionMap, setCommentReactionMap] = useState<ReactionMap>({});
+  const [commentsByPost, setCommentsByPost] = useState<Record<number, Comment[]>>({});
+  const [commentsOpenByPost, setCommentsOpenByPost] = useState<Record<number, boolean>>({});
+  const [commentsLoadingByPost, setCommentsLoadingByPost] = useState<Record<number, boolean>>({});
+  const [commentDraftByPost, setCommentDraftByPost] = useState<Record<number, string>>({});
+  const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
+  const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
+  const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [followState, setFollowState] = useState<FollowState>("none");
@@ -146,6 +172,25 @@ export default function ProfilePage() {
       "http://localhost:8080",
     [],
   );
+  const feedLimit = 10;
+
+  const uploadMedia = async (file: File, kind: "comment") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("kind", kind);
+    const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    const uploadJson = (await uploadRes.json().catch(() => null)) as
+      | ApiResponse<{ path?: string }>
+      | null;
+    if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
+      throw new Error(uploadJson?.error || "Could not upload media.");
+    }
+    return uploadJson.data.path;
+  };
 
   const loadProfile = useCallback(async () => {
     if (!Number.isFinite(profileID) || profileID <= 0) {
@@ -193,7 +238,8 @@ export default function ProfilePage() {
 
       const nextProfile = profileResult.data.profile;
       setProfile(nextProfile);
-      setPosts(profileResult.data.posts ?? []);
+      setPosts([]);
+      setHasMorePosts(true);
 
       const sentRequests = sentResponse.ok && sentResult?.success ? sentResult.data ?? [] : [];
       const pendingRequest = sentRequests.find((req) => req.target_id === profileID);
@@ -218,6 +264,64 @@ export default function ProfilePage() {
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  const fetchPostsPage = async (offset: number, append: boolean) => {
+    const response = await fetch(
+      `${apiBaseUrl}/posts?author_id=${profileID}&limit=${feedLimit}&offset=${offset}`,
+      { credentials: "include" },
+    );
+    const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || "Could not load posts.");
+    }
+    const nextPosts = result.data ?? [];
+    setPosts((prev) => (append ? [...prev, ...nextPosts] : nextPosts));
+    setHasMorePosts(nextPosts.length >= feedLimit);
+  };
+
+  useEffect(() => {
+    if (!profile || profile.limited) {
+      setPosts([]);
+      setHasMorePosts(false);
+      return;
+    }
+    void fetchPostsPage(0, false);
+  }, [apiBaseUrl, profile, profileID]);
+
+  useEffect(() => {
+    if (!viewer?.id || posts.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(
+      posts.map(async (post) => {
+        try {
+          const res = await fetch(`${apiBaseUrl}/posts/${post.id}/reactions`, {
+            credentials: "include",
+          });
+          const json = (await res.json().catch(() => null)) as
+            | ApiResponse<Reaction[]>
+            | null;
+          if (!res.ok || !json?.success) {
+            return [post.id, null] as const;
+          }
+          const mine = (json.data ?? []).find((item) => item.user_id === viewer.id);
+          return [post.id, mine?.reaction ?? null] as const;
+        } catch {
+          return [post.id, null] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!cancelled) {
+        setPostReactionMap(Object.fromEntries(entries));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, posts, viewer?.id]);
 
   const handleFollow = async () => {
     if (!profile || followState === "loading") return;
@@ -281,6 +385,209 @@ export default function ProfilePage() {
     }
   };
 
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMorePosts) return;
+    setIsLoadingMore(true);
+    try {
+      await fetchPostsPage(posts.length, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load more posts.");
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const loadCommentsForPost = async (postID: number) => {
+    setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: true }));
+    setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+        credentials: "include",
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
+
+      if (!response.ok || !result?.success) {
+        setCommentErrorByPost((prev) => ({
+          ...prev,
+          [postID]: result?.error || "Could not load comments.",
+        }));
+        return;
+      }
+
+      const comments = result.data ?? [];
+      setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
+
+      if (viewer?.id && comments.length > 0) {
+        const entries = await Promise.all(
+          comments.map(async (comment) => {
+            try {
+              const reactionRes = await fetch(
+                `${apiBaseUrl}/comments/${comment.id}/reactions`,
+                { credentials: "include" },
+              );
+              const reactionJson = (await reactionRes.json().catch(() => null)) as
+                | ApiResponse<Reaction[]>
+                | null;
+              if (!reactionRes.ok || !reactionJson?.success) {
+                return [comment.id, null] as const;
+              }
+              const mine = (reactionJson.data ?? []).find((item) => item.user_id === viewer.id);
+              return [comment.id, mine?.reaction ?? null] as const;
+            } catch {
+              return [comment.id, null] as const;
+            }
+          }),
+        );
+        setCommentReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      }
+    } catch {
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postID]: "Network error while loading comments.",
+      }));
+    } finally {
+      setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: false }));
+    }
+  };
+
+  const toggleComments = (postID: number) => {
+    const isOpen = commentsOpenByPost[postID] ?? false;
+    const nextOpen = !isOpen;
+    setCommentsOpenByPost((prev) => ({ ...prev, [postID]: nextOpen }));
+    if (nextOpen && !commentsByPost[postID]) {
+      void loadCommentsForPost(postID);
+    }
+  };
+
+  const handleCreateComment = async (postID: number) => {
+    const draft = (commentDraftByPost[postID] ?? "").trim();
+    const attachment = commentFileByPost[postID] ?? null;
+    if (!draft && !attachment) {
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postID]: "Write a comment or attach media before posting.",
+      }));
+      return;
+    }
+
+    try {
+      let mediaPath: string | undefined;
+      if (attachment) {
+        try {
+          mediaPath = await uploadMedia(attachment, "comment");
+        } catch (err) {
+          setCommentErrorByPost((prev) => ({
+            ...prev,
+            [postID]: err instanceof Error ? err.message : "Could not upload comment media.",
+          }));
+          return;
+        }
+      }
+
+      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content: draft || undefined, media_path: mediaPath }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
+
+      if (!response.ok || !result?.success || !result.data) {
+        setCommentErrorByPost((prev) => ({
+          ...prev,
+          [postID]: result?.error || "Could not post comment.",
+        }));
+        return;
+      }
+
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
+      }));
+      setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
+      setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
+      setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
+      setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postID ? { ...post, comment_count: post.comment_count + 1 } : post,
+        ),
+      );
+      setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
+    } catch {
+      setCommentErrorByPost((prev) => ({
+        ...prev,
+        [postID]: "Network error while posting comment.",
+      }));
+    }
+  };
+
+  const handlePostReaction = async (postID: number, reaction: ReactionKind) => {
+    const previous = postReactionMap[postID] ?? null;
+    const next = previous === reaction ? null : reaction;
+
+    setPostReactionMap((prev) => ({ ...prev, [postID]: next }));
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== postID) return post;
+        let like = post.like_count;
+        let dislike = post.dislike_count;
+        if (previous === "like") like = Math.max(0, like - 1);
+        if (previous === "dislike") dislike = Math.max(0, dislike - 1);
+        if (next === "like") like += 1;
+        if (next === "dislike") dislike += 1;
+        return { ...post, like_count: like, dislike_count: dislike };
+      }),
+    );
+
+    try {
+      await fetch(`${apiBaseUrl}/posts/${postID}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reaction: next }),
+      });
+    } catch {
+      setPostReactionMap((prev) => ({ ...prev, [postID]: previous }));
+    }
+  };
+
+  const handleCommentReaction = async (
+    postID: number,
+    commentID: number,
+    reaction: ReactionKind,
+  ) => {
+    const previous = commentReactionMap[commentID] ?? null;
+    const next = previous === reaction ? null : reaction;
+
+    setCommentReactionMap((prev) => ({ ...prev, [commentID]: next }));
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [postID]: (prev[postID] ?? []).map((comment) => {
+        if (comment.id !== commentID) return comment;
+        let like = comment.like_count;
+        let dislike = comment.dislike_count;
+        if (previous === "like") like = Math.max(0, like - 1);
+        if (previous === "dislike") dislike = Math.max(0, dislike - 1);
+        if (next === "like") like += 1;
+        if (next === "dislike") dislike += 1;
+        return { ...comment, like_count: like, dislike_count: dislike };
+      }),
+    }));
+
+    try {
+      await fetch(`${apiBaseUrl}/comments/${commentID}/reactions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reaction: next }),
+      });
+    } catch {
+      setCommentReactionMap((prev) => ({ ...prev, [commentID]: previous }));
+    }
+  };
+
   const handleCancelRequest = async () => {
     if (!pendingRequestID || followState === "loading") return;
     setFollowState("loading");
@@ -311,7 +618,7 @@ export default function ProfilePage() {
   const displayName = profile
     ? `${profile.user.first_name} ${profile.user.last_name}`
     : "Profile";
-  const userTag = profile?.user.nickname || `user-${profile?.user.id ?? ""}`;
+  const userTag = profile?.user.nickname || "user";
   const visibilityLabel = profile?.user.is_public ? "Public profile" : "Private profile";
   const privacyIcon = profile?.user.is_public ? Globe : Lock;
   const PrivacyIcon = privacyIcon;
@@ -322,36 +629,7 @@ export default function ProfilePage() {
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(viewer?.first_name, viewer?.last_name)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {viewer ? `${viewer.first_name} ${viewer.last_name}` : "Loading"}
-                </p>
-                <p className="text-xs text-neutral-500">
-                  @{viewer?.nickname || (viewer?.email ? viewer.email.split("@")[0] : "member")}
-                </p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" />
         </aside>
 
         <section className="space-y-5">
@@ -370,11 +648,13 @@ export default function ProfilePage() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                   {profile.user.avatar_path ? (
-                    <img
-                      src={toMediaUrl(apiBaseUrl, profile.user.avatar_path)}
-                      alt={displayName}
-                      className="h-16 w-16 rounded-full border border-neutral-200 object-cover"
-                    />
+                    <div className="h-16 w-16 overflow-hidden rounded-full border border-neutral-200 bg-white">
+                      <img
+                        src={toMediaUrl(apiBaseUrl, profile.user.avatar_path)}
+                        alt={displayName}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
                   ) : (
                     <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-neutral-900 text-lg font-semibold text-white">
                       {initials(profile.user.first_name, profile.user.last_name)}
@@ -559,14 +839,155 @@ export default function ProfilePage() {
                     ) : null}
 
                     <footer className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
-                      <span>{post.comment_count} comments</span>
-                      <span>{post.like_count} likes</span>
-                      <span>{post.dislike_count} dislikes</span>
+                      <button
+                        type="button"
+                        onClick={() => handlePostReaction(post.id, "like")}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                          postReactionMap[post.id] === "like"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        }`}
+                      >
+                        <ThumbsUp className="h-3.5 w-3.5" />
+                        {post.like_count}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePostReaction(post.id, "dislike")}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                          postReactionMap[post.id] === "dislike"
+                            ? "bg-rose-100 text-rose-800"
+                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                        }`}
+                      >
+                        <ThumbsDown className="h-3.5 w-3.5" />
+                        {post.dislike_count}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleComments(post.id)}
+                        className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        {post.comment_count}
+                      </button>
                     </footer>
+
+                    {commentsOpenByPost[post.id] ? (
+                      <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-3">
+                        <div className="space-y-2">
+                          {(commentsByPost[post.id] ?? []).map((comment) => (
+                            <article key={comment.id} className="rounded-xl bg-neutral-50 p-3">
+                              <p className="text-sm text-neutral-700">{comment.content}</p>
+                              {comment.media_path ? (
+                                <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                                  <img
+                                    src={toMediaUrl(apiBaseUrl, comment.media_path)}
+                                    alt="Comment media"
+                                    className="max-h-64 w-full object-contain bg-white"
+                                  />
+                                </div>
+                              ) : null}
+                              <div className="mt-2 flex items-center gap-2 text-xs">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCommentReaction(post.id, comment.id, "like")
+                                  }
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                                    commentReactionMap[comment.id] === "like"
+                                      ? "bg-emerald-100 text-emerald-800"
+                                      : "bg-neutral-100 text-neutral-600"
+                                  }`}
+                                >
+                                  <ThumbsUp className="h-3 w-3" />
+                                  {comment.like_count}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCommentReaction(post.id, comment.id, "dislike")
+                                  }
+                                  className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                                    commentReactionMap[comment.id] === "dislike"
+                                      ? "bg-rose-100 text-rose-800"
+                                      : "bg-neutral-100 text-neutral-600"
+                                  }`}
+                                >
+                                  <ThumbsDown className="h-3 w-3" />
+                                  {comment.dislike_count}
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+
+                          {commentsLoadingByPost[post.id] ? (
+                            <p className="text-xs text-neutral-500">Loading comments...</p>
+                          ) : null}
+                          {commentErrorByPost[post.id] ? (
+                            <p className="text-xs text-rose-600">{commentErrorByPost[post.id]}</p>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            value={commentDraftByPost[post.id] ?? ""}
+                            onChange={(event) =>
+                              setCommentDraftByPost((prev) => ({
+                                ...prev,
+                                [post.id]: event.target.value,
+                              }))
+                            }
+                            placeholder="Write a comment..."
+                            className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                          />
+                          <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/gif"
+                              className="hidden"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] ?? null;
+                                setCommentFileByPost((prev) => ({ ...prev, [post.id]: file }));
+                                setCommentFileNameByPost((prev) => ({
+                                  ...prev,
+                                  [post.id]: file?.name ?? "",
+                                }));
+                              }}
+                            />
+                            <Plus className="h-3.5 w-3.5" />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleCreateComment(post.id)}
+                            className="rounded-xl bg-neutral-900 px-3 text-xs font-semibold text-white"
+                          >
+                            Comment
+                          </button>
+                        </div>
+                        {commentFileNameByPost[post.id] ? (
+                          <p className="mt-2 text-[11px] text-neutral-500">
+                            Attached: {commentFileNameByPost[post.id]}
+                          </p>
+                        ) : null}
+                      </section>
+                    ) : null}
                   </article>
                 ))}
               </div>
             )}
+            {hasMorePosts && !profile?.limited ? (
+              <div className="mt-5">
+                <button
+                  type="button"
+                  onClick={loadMorePosts}
+                  disabled={isLoadingMore}
+                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isLoadingMore ? "Loading..." : "Load more posts"}
+                </button>
+              </div>
+            ) : null}
           </motion.div>
         </section>
 

@@ -3,29 +3,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import {
-  Bell,
-  Compass,
-  MessageCircle,
-  LogOut,
-  MessageSquare,
-  UserPlus,
-  User,
-  ThumbsDown,
-  ThumbsUp,
-  Plus,
-  Search,
-  Send,
-  Users,
-  Wifi,
-  WifiOff,
-} from "lucide-react";
+import { MessageCircle, User, ThumbsDown, ThumbsUp, Plus, Send, Wifi, WifiOff } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAuth } from "../component/AuthContext";
-import { landingData } from "@/lib/data";
+import { useAuth } from "@/components/AuthContext";
 import { fadeUp, viewportOnce } from "@/components/Motion";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -39,11 +23,13 @@ type User = {
   first_name: string;
   last_name: string;
   nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type Post = {
   id: number;
   author_id: number;
+  group_id?: number | null;
   author_first_name: string;
   author_last_name: string;
   content: string;
@@ -110,13 +96,6 @@ type UserListItem = {
 
 type PostPrivacy = "public" | "followers" | "private";
 
-const quickLinks = [
-  { label: "Explore", href: "#", icon: Compass },
-  { label: "Groups", href: "/groups", icon: Users },
-  { label: "Messages", href: "/messages", icon: MessageSquare },
-  { label: "Requests", href: "/follow-requests", icon: UserPlus },
-];
-
 const trends = [
   { title: "Product Feedback", posts: "1.2k posts this week" },
   { title: "Community Showcase", posts: "840 posts this week" },
@@ -135,6 +114,11 @@ function shortDate(value: string) {
     return "Just now";
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function normalizePrivacy(value?: string | null): PostPrivacy {
+  if (value === "followers" || value === "private") return value;
+  return "public";
 }
 
 function toMediaUrl(apiBaseUrl: string, path?: string | null) {
@@ -179,9 +163,6 @@ export default function DashboardPage() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [chatConnected, setChatConnected] = useState(false);
   const [chatUnreadMap, setChatUnreadMap] = useState<Record<number, number>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-  const [people, setPeople] = useState<UserListItem[]>([]);
-  const [peopleLoading, setPeopleLoading] = useState(false);
   const [followers, setFollowers] = useState<UserListItem[]>([]);
   const [followersLoading, setFollowersLoading] = useState(false);
   const [editingPostID, setEditingPostID] = useState<number | null>(null);
@@ -189,6 +170,8 @@ export default function DashboardPage() {
   const [editPostFile, setEditPostFile] = useState<File | null>(null);
   const [editPostFileName, setEditPostFileName] = useState("");
   const [editPostClearMedia, setEditPostClearMedia] = useState(false);
+  const [editPostPrivacy, setEditPostPrivacy] = useState<PostPrivacy>("public");
+  const [editPostAllowedIDs, setEditPostAllowedIDs] = useState<number[]>([]);
   const [editPostError, setEditPostError] = useState<string | null>(null);
   const [editingCommentID, setEditingCommentID] = useState<number | null>(null);
   const [editCommentText, setEditCommentText] = useState("");
@@ -196,7 +179,10 @@ export default function DashboardPage() {
   const [editCommentFileName, setEditCommentFileName] = useState("");
   const [editCommentClearMedia, setEditCommentClearMedia] = useState(false);
   const [editCommentError, setEditCommentError] = useState<string | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
   const wsRef = useRef<WebSocket | null>(null);
+  const feedLimit = 20;
 
   const apiBaseUrl = useMemo(
     () =>
@@ -209,6 +195,7 @@ export default function DashboardPage() {
     if (apiBaseUrl.startsWith("http://")) return apiBaseUrl.replace("http://", "ws://");
     return apiBaseUrl;
   }, [apiBaseUrl]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -259,7 +246,9 @@ export default function DashboardPage() {
           setFollowersLoading(false);
         }
 
-        const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+        const feedPath = groupsOnly
+          ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+          : `/posts?limit=${feedLimit}&offset=0`;
         const feed = await fetchJson<Post[]>(feedPath);
         if (!feed.response.ok || !feed.result?.success) {
           if (!cancelled) {
@@ -272,6 +261,7 @@ export default function DashboardPage() {
         if (!cancelled) {
           const nextPosts = feed.result.data ?? [];
           setPosts(nextPosts);
+          setHasMorePosts(nextPosts.length >= feedLimit);
 
           const currentUserID = me.result.data?.id;
           if (currentUserID) {
@@ -318,39 +308,30 @@ export default function DashboardPage() {
     };
   }, [apiBaseUrl, router, groupsOnly]);
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
-
-    let cancelled = false;
-    const run = async () => {
-      setPeopleLoading(true);
-      try {
-        const query = searchQuery.trim();
-        const path = query ? `/users?q=${encodeURIComponent(query)}` : "/users";
-        const response = await fetch(`${apiBaseUrl}${path}`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<UserListItem[]>
-          | null;
-        if (!cancelled && response.ok && result?.success) {
-          setPeople(result.data ?? []);
-        }
-      } finally {
-        if (!cancelled) {
-          setPeopleLoading(false);
-        }
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMorePosts) return;
+    setIsLoadingMore(true);
+    setFeedError(null);
+    try {
+      const offset = posts.length;
+      const feedPath = groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
+        : `/posts?limit=${feedLimit}&offset=${offset}`;
+      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
+        credentials: "include",
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
+      if (!response.ok || !result?.success) {
+        setFeedError(result?.error || "Could not load more posts.");
+        return;
       }
-    };
-
-    const timeoutID = window.setTimeout(run, 220);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutID);
-    };
-  }, [apiBaseUrl, searchQuery, user?.id]);
+      const nextPosts = result.data ?? [];
+      setPosts((prev) => [...prev, ...nextPosts]);
+      setHasMorePosts(nextPosts.length >= feedLimit);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     if (!user?.id) {
@@ -358,7 +339,9 @@ export default function DashboardPage() {
     }
 
     const intervalID = window.setInterval(async () => {
-      const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+      const feedPath = groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+        : `/posts?limit=${feedLimit}&offset=0`;
       const response = await fetch(`${apiBaseUrl}${feedPath}`, {
         credentials: "include",
       }).catch(() => null);
@@ -588,7 +571,7 @@ export default function DashboardPage() {
       return;
     }
     if (!recipient || !content) {
-      setChatError("Enter recipient ID and message.");
+      setChatError("Pick a recipient and write a message.");
       return;
     }
 
@@ -607,7 +590,9 @@ export default function DashboardPage() {
     setIsLoading(true);
     setFeedError(null);
     try {
-      const feedPath = groupsOnly ? "/posts?groups_only=true" : "/posts";
+      const feedPath = groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+        : `/posts?limit=${feedLimit}&offset=0`;
       const response = await fetch(`${apiBaseUrl}${feedPath}`, {
         credentials: "include",
       });
@@ -617,6 +602,7 @@ export default function DashboardPage() {
         return;
       }
       setPosts(result.data ?? []);
+      setHasMorePosts((result.data ?? []).length >= feedLimit);
     } catch {
       setFeedError("Network error. Please try again.");
     } finally {
@@ -762,6 +748,8 @@ export default function DashboardPage() {
     setEditPostFile(null);
     setEditPostFileName("");
     setEditPostClearMedia(false);
+    setEditPostPrivacy(normalizePrivacy(post.privacy));
+    setEditPostAllowedIDs([]);
     setEditPostError(null);
   };
 
@@ -771,13 +759,20 @@ export default function DashboardPage() {
     setEditPostFile(null);
     setEditPostFileName("");
     setEditPostClearMedia(false);
+    setEditPostPrivacy("public");
+    setEditPostAllowedIDs([]);
     setEditPostError(null);
   };
 
   const saveEditPost = async (post: Post) => {
+    const isGroupPost = post.group_id != null;
     const content = editPostText.trim();
     if (!content && !editPostFile && !post.media_path && !editPostClearMedia) {
       setEditPostError("Content or media is required.");
+      return;
+    }
+    if (!isGroupPost && editPostPrivacy === "private" && editPostAllowedIDs.length === 0) {
+      setEditPostError("Select at least one follower for a private post.");
       return;
     }
     setEditPostError(null);
@@ -796,6 +791,9 @@ export default function DashboardPage() {
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath ?? undefined,
+          privacy: isGroupPost ? undefined : editPostPrivacy,
+          allowed_user_ids:
+            !isGroupPost && editPostPrivacy === "private" ? editPostAllowedIDs : undefined,
         }),
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
@@ -1005,133 +1003,18 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
-          <Link href="/dashboard" className="inline-flex items-center gap-2">
-            <Image
-              src="/vybez-logo.png"
-              alt={`${landingData.productName} logo`}
-              width={32}
-              height={32}
-              className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
-              priority
-            />
-            <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
-          </Link>
-
-          <div className="relative ml-2 hidden flex-1 sm:block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search posts, people, topics..."
-              className="h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-4 text-sm outline-none transition focus:border-neutral-400"
-            />
-          </div>
-
-          <button
-            type="button"
-            aria-label="Notifications"
-            onClick={() => {
-              const next = !notificationsOpen;
-              setNotificationsOpen(next);
-              if (next) {
-                void refreshNotifications();
-              }
-            }}
-            className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
-              {notificationCount}
-            </span>
-          </button>
-
-          {user ? (
-            <Link
-              href={`/profile/${user.id}`}
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
-            >
-              <User className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">My profile</span>
-            </Link>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Log out</span>
-          </button>
-        </div>
-      </header>
+      <TopNav
+        user={user ?? undefined}
+        notifications={notifications}
+        notificationCount={notificationCount}
+        onNotificationsChange={setNotifications}
+        onNotificationCountChange={setNotificationCount}
+        onLogout={handleLogout}
+      />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(user?.first_name, user?.last_name)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
-                <p className="text-xs text-neutral-500">@{userTag}</p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                People
-              </p>
-              <div className="space-y-2">
-                {peopleLoading ? (
-                  <p className="text-xs text-neutral-500">Searching users...</p>
-                ) : people.filter((person) => person.id !== user?.id).length === 0 ? (
-                  <p className="text-xs text-neutral-500">No users found.</p>
-                ) : (
-                  people
-                    .filter((person) => person.id !== user?.id)
-                    .slice(0, 5)
-                    .map((person) => (
-                      <Link
-                        key={person.id}
-                        href={`/profile/${person.id}`}
-                        className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 transition hover:border-neutral-400 hover:bg-white"
-                      >
-                        <div>
-                          <p className="text-xs font-semibold text-neutral-800">
-                            {person.first_name} {person.last_name}
-                          </p>
-                          <p className="text-[11px] text-neutral-500">
-                            @{person.nickname || `user-${person.id}`}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-500">
-                          ID {person.id}
-                        </span>
-                      </Link>
-                    ))
-                )}
-              </div>
-            </div>
-          </div>
+          <LeftNav user={user ?? undefined} activeHref="/dashboard" />
         </aside>
 
         <section className="space-y-5">
@@ -1225,7 +1108,7 @@ export default function DashboardPage() {
                             }}
                             className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
                           />
-                          <span>@{follower.nickname || `user-${follower.id}`}</span>
+                          <span>@{follower.nickname || "user"}</span>
                         </label>
                       );
                     })
@@ -1289,7 +1172,7 @@ export default function DashboardPage() {
                 type="number"
                 value={chatRecipientID}
                 onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient user ID"
+                placeholder="Recipient"
                 className="h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
               />
               <div className="flex gap-2">
@@ -1314,11 +1197,11 @@ export default function DashboardPage() {
             <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
               Feed status: {isLoading ? "loading" : `${posts.length} post(s)`}
             </div>
-            {isLoading ? (
-              <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-                Loading your feed...
-              </article>
-            ) : feedError ? (
+          {isLoading ? (
+            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+              Loading your feed...
+            </article>
+          ) : feedError ? (
               <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
                 {feedError}
               </article>
@@ -1357,9 +1240,73 @@ export default function DashboardPage() {
                         rows={3}
                         className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none focus:border-neutral-400"
                       />
-                        <div className="flex flex-wrap items-center gap-2">
-                          <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
-                            <input
+                      {post.group_id == null ? (
+                        <div className="flex flex-wrap items-start gap-3">
+                          <label className="text-xs font-semibold text-neutral-600">
+                            Privacy
+                            <select
+                              value={editPostPrivacy}
+                              onChange={(event) => {
+                                const next = event.target.value as PostPrivacy;
+                                setEditPostPrivacy(next);
+                                if (next !== "private") {
+                                  setEditPostAllowedIDs([]);
+                                }
+                              }}
+                              className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-neutral-700 outline-none focus:border-neutral-400 sm:w-48"
+                            >
+                              <option value="public">Public</option>
+                              <option value="followers">Followers</option>
+                              <option value="private">Private (select followers)</option>
+                            </select>
+                          </label>
+                          {editPostPrivacy === "private" ? (
+                            <div className="flex flex-1 flex-wrap gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+                              {followersLoading ? (
+                                <span className="text-xs text-neutral-500">
+                                  Loading followers...
+                                </span>
+                              ) : followers.length === 0 ? (
+                                <span className="text-xs text-neutral-500">
+                                  No followers available.
+                                </span>
+                              ) : (
+                                followers.map((follower) => {
+                                  const checked = editPostAllowedIDs.includes(follower.id);
+                                  return (
+                                    <label
+                                      key={follower.id}
+                                      className="inline-flex items-center gap-2"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={checked}
+                                        onChange={(event) => {
+                                          const nextChecked = event.target.checked;
+                                          setEditPostAllowedIDs((prev) =>
+                                            nextChecked
+                                              ? [...prev, follower.id]
+                                              : prev.filter((id) => id !== follower.id),
+                                          );
+                                        }}
+                                        className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                                      />
+                                      <span>@{follower.nickname || "user"}</span>
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-neutral-500">
+                          Group post privacy cannot be changed.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                          <input
                               type="file"
                               accept="image/png,image/jpeg,image/gif"
                               className="hidden"
@@ -1665,42 +1612,21 @@ export default function DashboardPage() {
               ))
             )}
           </div>
+          {hasMorePosts && !isLoading && !feedError ? (
+            <div className="mt-5">
+              <button
+                type="button"
+                onClick={loadMorePosts}
+                disabled={isLoadingMore}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoadingMore ? "Loading..." : "Load more posts"}
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <aside className="hidden space-y-5 md:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">People</h2>
-            <div className="mt-3 space-y-2">
-              {peopleLoading ? (
-                <p className="text-xs text-neutral-500">Loading users...</p>
-              ) : people.filter((person) => person.id !== user?.id).length === 0 ? (
-                <p className="text-xs text-neutral-500">No other users found yet.</p>
-              ) : (
-                people
-                  .filter((person) => person.id !== user?.id)
-                  .slice(0, 8)
-                  .map((person) => (
-                    <div
-                      key={`right-user-${person.id}`}
-                      className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
-                    >
-                      <div>
-                        <p className="text-xs font-semibold text-neutral-800">
-                          {person.first_name} {person.last_name}
-                        </p>
-                        <p className="text-[11px] text-neutral-500">
-                          @{person.nickname || `user-${person.id}`}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] text-neutral-500">
-                        ID {person.id}
-                      </span>
-                    </div>
-                  ))
-              )}
-            </div>
-          </div>
-
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-neutral-900">Notifications</h2>
@@ -1758,7 +1684,7 @@ export default function DashboardPage() {
                 type="number"
                 value={chatRecipientID}
                 onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient user ID"
+                placeholder="Recipient"
                 className="h-9 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
               />
               <div className="flex gap-2">

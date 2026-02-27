@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "./component/AuthContext";
+import { AuthProvider } from "@/components/AuthContext";
 import { landingData } from "@/lib/data";
 
 const manrope = Manrope({

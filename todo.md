@@ -60,6 +60,7 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - Uses `PATCH /conversations/{id}/read`
   - Uses `GET /conversations/unread-counts`
   - Uses `POST /messages/{id}/reactions`, `GET /messages/{id}/reactions`
+  - Uses `GET /groups` (to label group conversations)
   - Uses WebSocket `/ws` (chat + typing + unread counts)
 - `frontend/src/app/follow-requests/page.tsx`:
   - Uses `GET /auth/me`
@@ -67,38 +68,23 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - Uses `GET /follow-requests/sent`
   - Uses `PATCH /follow-requests/{id}` (accept/decline/cancel)
   - Uses `GET /users` (to resolve names when available)
+  - Uses `GET /profiles/{id}/followers`, `GET /profiles/{id}/following`
+  - Uses `DELETE /followers/{id}` (remove follower)
+  - Uses `DELETE /users/{id}/followers` (unfollow)
 
 ## Missing Pages / Features (Must Implement)
 
-### Profile + Followers
-- Pages:
-- APIs to use:
-  - (done) profile edit + followers/following lists implemented
 
-### Follow Requests + Unfollow
-- Pages / UI:
-  - Actions: accept/decline/cancel/unfollow/remove follower
-- APIs to use:
-  - `DELETE /followers/{id}`
-
-### Posts Privacy + Media Uploads
-- UI:
-  - Privacy selector (public/followers/private)
-  - Allowed users selection for `private`
--  - File upload for image/GIF in posts and comments (dashboard + group posts done)
-- APIs to use:
-  - `POST /uploads` (get `media_path`)
-  - `POST /posts` (with `privacy`, `allowed_user_ids`, `media_path`)
-  - `POST /posts/{id}/comments` (with `media_path`)
-  - `GET /uploads/{path...}` (for rendering secured media)
 
 ### Groups: Create + Membership + Invitations + Join Requests
 - Pages / UI:
-  - Create group page/form
-  - Group join request flow
-  - Group invitation flow
-  - Group members list page
-  - Leave group action
+  - (done) Create group page/form
+  - (done) Group join request flow
+  - (done) Group invitation flow
+  - (done) Group members list page
+  - (done) Leave group action
+  - (done) Browse all groups (entry point for join requests)
+  - (done) Group posts + comments (members only view)
 - APIs to use:
   - `POST /groups`
   - `GET /groups/{id}/members`
@@ -110,12 +96,14 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - `PATCH /group-join-requests/{id}`
   - `DELETE /groups/{id}/members/me`
 
-### Group Events
+### Groups: Events (Required by project askings)
+- Status: done
 - Pages / UI:
-  - Group events list
-  - Create event form
-  - Event detail + RSVP
-- APIs to use:
+  - (done) Group events list
+  - (done) Create event form
+  - (done) Event detail + RSVP (Going / Not going)
+  - (done) Event edit + delete (creator only)
+- APIs used:
   - `POST /groups/{id}/events`
   - `GET /groups/{id}/events`
   - `GET /events/{id}`
@@ -123,6 +111,15 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - `DELETE /events/{id}`
   - `POST /events/{id}/responses`
   - `GET /events/{id}/responses`
+
+### Groups: Chat Room (Required by project askings)
+- Status: done
+- Pages / UI:
+  - (done) Group chat room inside messages (group conversations)
+  - (done) Group chat entry point from group details
+- APIs to use:
+  - WebSocket `/ws` with `chat_message` payload `{ group_id, content, media_path? }`
+  - `GET /conversations` + `GET /conversations/{id}/messages` (if group conversations are listed there)
 
 ### Notifications (Global UI)
 - Requirement: notifications on **every page**.
@@ -133,11 +130,10 @@ This list summarizes what is implemented in the frontend, which APIs it uses, an
   - `GET /notifications/unread-count`
   - `PATCH /notifications/{id}/read`
   - `PATCH /notifications/read-all`
+  - (done) `event_created` notification label supported in TopNav list
 
 ### Chat: Group Chat & Media
-- Missing UI:
-  - Group chat room (if conversations include group chat)
-  - Media upload for chat messages (if supported)
+- Status: group chat done, media upload missing
 - APIs to use:
   - `GET /conversations` (already)
   - `GET /conversations/{id}/messages` (already)

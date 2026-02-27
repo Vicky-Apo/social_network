@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	domainfollow "social-network/backend/internal/domain/follow"
 	domainuser "social-network/backend/internal/domain/user"
@@ -89,6 +90,10 @@ func (s *Service) RequestFollow(ctx context.Context, requesterID, targetID int64
 		return FollowResultDTO{}, fmt.Errorf("create request: %w", err)
 	}
 	if s.notifier != nil {
+		actorName := ""
+		if actor, err := s.userRepo.GetByID(ctx, requesterID); err == nil {
+			actorName = strings.TrimSpace(actor.FirstName + " " + actor.LastName)
+		}
 		_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
 			UserID:     targetID,
 			ActorID:    &requesterID,
@@ -96,7 +101,8 @@ func (s *Service) RequestFollow(ctx context.Context, requesterID, targetID int64
 			EntityType: "follow_request",
 			EntityID:   req.ID,
 			Metadata: map[string]any{
-				"requester_id": requesterID,
+				"requester_id":   requesterID,
+				"requester_name": actorName,
 			},
 		})
 	}

@@ -11,12 +11,13 @@ import {
   MessageCircle,
   RefreshCw,
   Send,
-  Shield,
   ThumbsDown,
   ThumbsUp,
   Users,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -31,9 +32,23 @@ type GroupDetail = {
   description: string;
   creatorID?: number;
   memberCount: number;
-  privacy: "public" | "private" | "unknown";
   createdAt?: string;
   updatedAt?: string;
+};
+
+type ProfileSummary = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  nickname?: string | null;
+};
+
+type UserSearchItem = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type Post = {
@@ -68,6 +83,34 @@ type Reaction = {
 type ReactionKind = "like" | "dislike";
 type ReactionMap = Record<number, ReactionKind | null>;
 
+type Viewer = {
+  id: number;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  nickname?: string | null;
+  avatar_path?: string | null;
+};
+
+type GroupMember = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  nickname?: string | null;
+  avatar_path?: string | null;
+};
+
+type EventItem = {
+  id: number;
+  group_id: number;
+  creator_id: number;
+  title: string;
+  description?: string | null;
+  event_time: string;
+  created_at: string;
+  updated_at: string;
+};
+
 function toNumber(value: unknown): number | null {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -86,6 +129,13 @@ function shortDate(value: string) {
     return "Just now";
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function toMediaUrl(apiBaseUrl: string, path?: string | null) {
@@ -121,13 +171,6 @@ function parseGroup(data: unknown): GroupDetail | null {
   const creatorID = toNumber(source.creator_id ?? source.creatorID) ?? undefined;
   const memberCount =
     toNumber(source.members_count ?? source.member_count ?? source.membersCount) ?? 0;
-  const privacyText = String(source.privacy ?? "").toLowerCase();
-  const privacy: GroupDetail["privacy"] = privacyText.includes("private")
-    ? "private"
-    : privacyText.includes("public")
-      ? "public"
-      : "unknown";
-
   const createdAtRaw = source.created_at ?? source.createdAt;
   const updatedAtRaw = source.updated_at ?? source.updatedAt;
 
@@ -137,7 +180,6 @@ function parseGroup(data: unknown): GroupDetail | null {
     description,
     creatorID,
     memberCount: Math.max(0, memberCount),
-    privacy,
     createdAt: typeof createdAtRaw === "string" ? createdAtRaw : undefined,
     updatedAt: typeof updatedAtRaw === "string" ? updatedAtRaw : undefined,
   };
@@ -149,9 +191,15 @@ export default function GroupDetailsPage() {
   const groupID = typeof params?.id === "string" ? params.id : "";
   const groupIDNumber = Number(groupID);
   const [group, setGroup] = useState<GroupDetail | null>(null);
+  const [viewer, setViewer] = useState<Viewer | null>(null);
+  const [creatorProfile, setCreatorProfile] = useState<ProfileSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userID, setUserID] = useState<number | null>(null);
+  const [isMember, setIsMember] = useState(false);
+  const [joinStatus, setJoinStatus] = useState<"idle" | "requested" | "error">("idle");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [postsError, setPostsError] = useState<string | null>(null);
@@ -185,6 +233,26 @@ export default function GroupDetailsPage() {
   const [editCommentFileName, setEditCommentFileName] = useState("");
   const [editCommentClearMedia, setEditCommentClearMedia] = useState(false);
   const [editCommentError, setEditCommentError] = useState<string | null>(null);
+  const [inviteQuery, setInviteQuery] = useState("");
+  const [inviteResults, setInviteResults] = useState<UserSearchItem[]>([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [selectedInvitee, setSelectedInvitee] = useState<UserSearchItem | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"posts" | "events" | "members">("posts");
+  const [members, setMembers] = useState<GroupMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [eventsHasMore, setEventsHasMore] = useState(true);
+  const [eventsLoadingMore, setEventsLoadingMore] = useState(false);
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventDescription, setEventDescription] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [eventCreateError, setEventCreateError] = useState<string | null>(null);
+  const [eventCreating, setEventCreating] = useState(false);
 
   const apiBaseUrl = useMemo(
     () =>
@@ -220,8 +288,9 @@ export default function GroupDetailsPage() {
           }
           return;
         }
-        const meUser = meResult.data as { id?: number } | null;
+        const meUser = meResult.data as Viewer | null;
         if (!cancelled) {
+          setViewer(meUser);
           setUserID(typeof meUser?.id === "number" ? meUser.id : null);
         }
 
@@ -304,6 +373,17 @@ export default function GroupDetailsPage() {
             });
           }
         }
+
+        if (!cancelled) {
+          try {
+            const membersResponse = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/members`, {
+              credentials: "include",
+            });
+            setIsMember(membersResponse.ok);
+          } catch {
+            setIsMember(false);
+          }
+        }
       } catch {
         if (!cancelled) {
           setError("Network error while loading group details.");
@@ -311,6 +391,7 @@ export default function GroupDetailsPage() {
           setPostsError("Network error while loading group posts.");
           setPosts([]);
           setHasMorePosts(false);
+          setIsMember(false);
         }
       } finally {
         if (!cancelled) {
@@ -325,6 +406,102 @@ export default function GroupDetailsPage() {
       cancelled = true;
     };
   }, [apiBaseUrl, groupIDNumber, pageSize, router]);
+
+  useEffect(() => {
+    const creatorID = group?.creatorID;
+    if (!creatorID) {
+      setCreatorProfile(null);
+      return;
+    }
+    let cancelled = false;
+    const loadCreator = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/profiles/${creatorID}`, {
+          credentials: "include",
+        });
+        const result = (await response.json().catch(() => null)) as
+          | ApiResponse<{ user?: ProfileSummary }>
+          | null;
+        if (!cancelled && response.ok && result?.success && result.data?.user) {
+          setCreatorProfile(result.data.user);
+        }
+      } catch {
+        if (!cancelled) {
+          setCreatorProfile(null);
+        }
+      }
+    };
+    void loadCreator();
+    return () => {
+      cancelled = true;
+    };
+  }, [apiBaseUrl, group?.creatorID]);
+
+  useEffect(() => {
+    if (!inviteQuery.trim()) {
+      setInviteResults([]);
+      setInviteLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+    const timeoutID = window.setTimeout(async () => {
+      setInviteLoading(true);
+      try {
+        const response = await fetch(
+          `${apiBaseUrl}/users?q=${encodeURIComponent(inviteQuery.trim())}&limit=6&offset=0`,
+          { credentials: "include", signal: controller.signal },
+        );
+        const result = (await response.json().catch(() => null)) as
+          | ApiResponse<UserSearchItem[]>
+          | null;
+        if (!cancelled && response.ok && result?.success) {
+          setInviteResults(result.data ?? []);
+        } else if (!cancelled) {
+          setInviteResults([]);
+        }
+      } catch {
+        if (!cancelled) {
+          setInviteResults([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setInviteLoading(false);
+        }
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutID);
+      controller.abort();
+    };
+  }, [apiBaseUrl, inviteQuery]);
+
+  useEffect(() => {
+    if (!userID || !Number.isFinite(groupIDNumber) || groupIDNumber <= 0) return;
+    const key = `group-join-request:${groupIDNumber}:${userID}`;
+    if (isMember) {
+      localStorage.removeItem(key);
+      setJoinStatus("idle");
+      return;
+    }
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      setJoinStatus("requested");
+    }
+  }, [groupIDNumber, isMember, userID]);
+
+  useEffect(() => {
+    if (!isMember) return;
+    if (activeTab === "members" && members.length === 0 && !membersLoading) {
+      void loadMembers();
+    }
+    if (activeTab === "events" && events.length === 0 && !eventsLoading) {
+      void loadEvents(0, false);
+    }
+  }, [activeTab, events.length, eventsLoading, isMember, members.length, membersLoading]);
 
   const loadMorePosts = async () => {
     if (isLoadingMore || !hasMorePosts) return;
@@ -372,6 +549,183 @@ export default function GroupDetailsPage() {
     }
   };
 
+  const requestToJoin = async () => {
+    setJoinError(null);
+    setJoinStatus("idle");
+    try {
+      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/join-requests`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+        if (response.status === 409) {
+          setJoinStatus("requested");
+          if (userID) {
+            localStorage.setItem(`group-join-request:${groupIDNumber}:${userID}`, "requested");
+          }
+          setJoinError("Join request already sent.");
+        } else {
+          setJoinError(result?.error || "Could not send join request.");
+          setJoinStatus("error");
+        }
+        return;
+      }
+      setJoinStatus("requested");
+      if (userID) {
+        localStorage.setItem(`group-join-request:${groupIDNumber}:${userID}`, "requested");
+      }
+    } catch {
+      setJoinError("Network error. Please try again.");
+      setJoinStatus("error");
+    }
+  };
+
+  const loadMembers = async () => {
+    if (!Number.isFinite(groupIDNumber) || groupIDNumber <= 0) return;
+    setMembersLoading(true);
+    setMembersError(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/members`, {
+        credentials: "include",
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<GroupMember[]> | null;
+      if (!response.ok || !result?.success) {
+        setMembersError(result?.error || "Could not load members.");
+        setMembers([]);
+        return;
+      }
+      setMembers(result.data ?? []);
+    } catch {
+      setMembersError("Network error. Please try again.");
+      setMembers([]);
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const loadEvents = async (offset = 0, append = false) => {
+    if (!Number.isFinite(groupIDNumber) || groupIDNumber <= 0) return;
+    if (append) {
+      setEventsLoadingMore(true);
+    } else {
+      setEventsLoading(true);
+      setEventsError(null);
+    }
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/groups/${groupIDNumber}/events?limit=${pageSize}&offset=${offset}`,
+        { credentials: "include" },
+      );
+      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem[]> | null;
+      if (!response.ok || !result?.success) {
+        if (!append) {
+          setEventsError(result?.error || "Could not load events.");
+          setEvents([]);
+        }
+        return;
+      }
+      const items = result.data ?? [];
+      setEvents((prev) => (append ? [...prev, ...items] : items));
+      setEventsHasMore(items.length >= pageSize);
+    } catch {
+      if (!append) {
+        setEventsError("Network error. Please try again.");
+        setEvents([]);
+      }
+    } finally {
+      if (append) {
+        setEventsLoadingMore(false);
+      } else {
+        setEventsLoading(false);
+      }
+    }
+  };
+
+  const handleCreateEvent = async () => {
+    setEventCreateError(null);
+    if (!eventTitle.trim() || !eventTime) {
+      setEventCreateError("Title and date/time are required.");
+      return;
+    }
+    setEventCreating(true);
+    try {
+      const payload = {
+        title: eventTitle.trim(),
+        description: eventDescription.trim() || undefined,
+        event_time: new Date(eventTime).toISOString(),
+      };
+      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem> | null;
+      if (!response.ok || !result?.success || !result.data) {
+        setEventCreateError(result?.error || "Could not create event.");
+        return;
+      }
+      setEvents((prev) => [result.data as EventItem, ...prev]);
+      setEventTitle("");
+      setEventDescription("");
+      setEventTime("");
+      setActiveTab("events");
+    } catch {
+      setEventCreateError("Network error. Please try again.");
+    } finally {
+      setEventCreating(false);
+    }
+  };
+
+  const leaveGroup = async () => {
+    setLeaveError(null);
+    try {
+      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/members/me`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+        setLeaveError(result?.error || "Could not leave group.");
+        return;
+      }
+      setIsMember(false);
+      setPosts([]);
+      setPostsError("You left this group. Re-join to view posts.");
+    } catch {
+      setLeaveError("Network error. Please try again.");
+    }
+  };
+
+  const sendInvite = async () => {
+    setInviteError(null);
+    setInviteSuccess(null);
+    if (!selectedInvitee) {
+      setInviteError("Pick a user to invite.");
+      return;
+    }
+    try {
+      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/invitations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ invitee_id: selectedInvitee.id }),
+      });
+      const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+      if (!response.ok || !result?.success) {
+        setInviteError(result?.error || "Could not send invitation.");
+        return;
+      }
+      setInviteSuccess("Invitation sent.");
+      setSelectedInvitee(null);
+      setInviteQuery("");
+      setInviteResults([]);
+    } catch {
+      setInviteError("Network error. Please try again.");
+    }
+  };
+
   const uploadMedia = async (file: File, kind: "post" | "comment") => {
     const formData = new FormData();
     formData.append("file", file);
@@ -415,7 +769,6 @@ export default function GroupDetailsPage() {
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath || media || undefined,
-          privacy: "public",
         }),
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
@@ -783,8 +1136,14 @@ export default function GroupDetailsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-4 py-10 text-neutral-900 sm:px-6">
-      <main className="mx-auto w-full max-w-3xl">
+    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <aside className="hidden lg:block">
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+        </aside>
+
+        <section>
         <motion.section
           initial="hidden"
           whileInView="show"
@@ -795,7 +1154,7 @@ export default function GroupDetailsPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-semibold text-neutral-600">
               <Users className="h-3.5 w-3.5" />
-              Group #{groupID}
+              {group?.name || "Group"}
             </span>
             <button
               type="button"
@@ -818,21 +1177,25 @@ export default function GroupDetailsPage() {
               <h1 className="mt-3 text-2xl font-semibold tracking-tight text-neutral-900">{group.name}</h1>
               <p className="mt-2 text-sm text-neutral-600">{group.description}</p>
 
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-neutral-500">Privacy</p>
-                  <p className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-neutral-800">
-                    <Shield className="h-3.5 w-3.5" />
-                    {group.privacy}
-                  </p>
-                </div>
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-neutral-500">Members</p>
                   <p className="mt-1 text-sm font-semibold text-neutral-800">{group.memberCount}</p>
                 </div>
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-neutral-500">Creator ID</p>
-                  <p className="mt-1 text-sm font-semibold text-neutral-800">{group.creatorID ?? "N/A"}</p>
+                  <p className="text-[11px] uppercase tracking-wide text-neutral-500">Creator</p>
+                  {group.creatorID ? (
+                    <Link
+                      href={`/profile/${group.creatorID}`}
+                      className="mt-1 inline-flex text-sm font-semibold text-neutral-800 transition hover:text-neutral-900"
+                    >
+                      {creatorProfile
+                        ? `${creatorProfile.first_name} ${creatorProfile.last_name}`
+                        : "Group creator"}
+                    </Link>
+                  ) : (
+                    <p className="mt-1 text-sm font-semibold text-neutral-800">N/A</p>
+                  )}
                 </div>
               </div>
 
@@ -866,10 +1229,10 @@ export default function GroupDetailsPage() {
               Back to groups
             </Link>
             <Link
-              href="/dashboard"
+              href="/messages"
               className="brand-gradient inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              Open dashboard
+              Open group chat
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -894,71 +1257,148 @@ export default function GroupDetailsPage() {
             </span>
           </div>
 
-          <div className="mt-5 rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
-            <textarea
-              value={composerText}
-              onChange={(event) => setComposerText(event.target.value)}
-              rows={4}
-              placeholder="Share an update with this group..."
-              className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    setComposerFile(file);
-                    setComposerFileName(file?.name ?? "");
-                  }}
-                />
-                Add media
-              </label>
-              {composerFileName ? (
-                <span className="text-xs text-neutral-500">{composerFileName}</span>
-              ) : null}
-              <input
-                value={mediaUrl}
-                onChange={(event) => setMediaUrl(event.target.value)}
-                placeholder="Or paste media URL"
-                className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
-              />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white p-1 text-[11px] font-semibold text-neutral-600">
               <button
                 type="button"
-                onClick={handleCreatePost}
-                disabled={isPosting}
-                className="brand-gradient inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={() => setActiveTab("posts")}
+                className={`rounded-full px-3 py-1 transition ${
+                  activeTab === "posts"
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
               >
-                <Send className="h-3.5 w-3.5" />
-                {isPosting ? "Posting..." : "Publish"}
+                Posts
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("events")}
+                className={`rounded-full px-3 py-1 transition ${
+                  activeTab === "events"
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                Events
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("members")}
+                className={`rounded-full px-3 py-1 transition ${
+                  activeTab === "members"
+                    ? "bg-neutral-900 text-white"
+                    : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                Members
               </button>
             </div>
-            {composerError ? (
-              <p className="mt-3 text-xs text-rose-600">{composerError}</p>
+            {group?.creatorID && userID === group.creatorID ? (
+              <Link
+                href={`/groups/${groupIDNumber}/join-requests`}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+              >
+                Join requests
+              </Link>
+            ) : null}
+            {!isMember ? (
+              <button
+                type="button"
+                onClick={requestToJoin}
+                disabled={joinStatus === "requested"}
+                className="inline-flex items-center gap-2 rounded-full bg-neutral-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Request to join
+              </button>
+            ) : group?.creatorID && userID === group.creatorID ? (
+              <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                You are the creator
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={leaveGroup}
+                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+              >
+                Leave group
+              </button>
+            )}
+            {joinStatus === "requested" ? (
+              <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                Join request pending
+              </span>
             ) : null}
           </div>
+          {joinError ? <p className="mt-2 text-xs text-rose-600">{joinError}</p> : null}
+          {leaveError ? <p className="mt-2 text-xs text-rose-600">{leaveError}</p> : null}
 
-          {postsLoading ? (
-            <p className="mt-4 text-sm text-neutral-600">Loading group posts...</p>
-          ) : postsError ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {postsError}
-            </p>
-          ) : posts.length === 0 ? (
-            <p className="mt-4 text-sm text-neutral-600">
-              No posts yet. Be the first to share something.
-            </p>
-          ) : (
-            <div className="mt-4 space-y-4">
-              {posts.map((post) => (
-                <article
-                  key={post.id}
-                  className="rounded-3xl border border-neutral-200 bg-neutral-50 p-5"
-                >
+          {activeTab === "posts" ? (
+            <>
+              <div className="mt-5 rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                <textarea
+                  value={composerText}
+                  onChange={(event) => setComposerText(event.target.value)}
+                  rows={4}
+                  placeholder="Share an update with this group..."
+                  className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/gif"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0] ?? null;
+                        setComposerFile(file);
+                        setComposerFileName(file?.name ?? "");
+                      }}
+                    />
+                    Add media
+                  </label>
+                  {composerFileName ? (
+                    <span className="text-xs text-neutral-500">{composerFileName}</span>
+                  ) : null}
+                  <input
+                    value={mediaUrl}
+                    onChange={(event) => setMediaUrl(event.target.value)}
+                    placeholder="Or paste media URL"
+                    className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCreatePost}
+                    disabled={isPosting}
+                    className="brand-gradient inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    {isPosting ? "Posting..." : "Publish"}
+                  </button>
+                </div>
+                {composerError ? (
+                  <p className="mt-3 text-xs text-rose-600">{composerError}</p>
+                ) : null}
+              </div>
+
+              {postsLoading ? (
+                <p className="mt-4 text-sm text-neutral-600">Loading group posts...</p>
+              ) : postsError ? (
+                <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {postsError}
+                </p>
+              ) : posts.length === 0 ? (
+                <p className="mt-4 text-sm text-neutral-600">
+                  No posts yet. Be the first to share something.
+                </p>
+              ) : (
+                <div className="mt-4 space-y-4">
+                  {posts.map((post) => (
+                    <article
+                      key={post.id}
+                      className="rounded-3xl border border-neutral-200 bg-neutral-50 p-5"
+                    >
                   <header className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-neutral-900">
@@ -1282,10 +1722,258 @@ export default function GroupDetailsPage() {
                       ) : null}
                     </section>
                   ) : null}
-                </article>
-              ))}
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : null}
+
+          {!isMember && activeTab !== "posts" ? (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Join this group to access {activeTab === "events" ? "events" : "members"}.
             </div>
-          )}
+          ) : null}
+
+          {activeTab === "events" && isMember ? (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                <h3 className="text-sm font-semibold text-neutral-900">Create event</h3>
+                <div className="mt-3 grid gap-3">
+                  <input
+                    value={eventTitle}
+                    onChange={(event) => setEventTitle(event.target.value)}
+                    placeholder="Event title"
+                    className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                  />
+                  <textarea
+                    value={eventDescription}
+                    onChange={(event) => setEventDescription(event.target.value)}
+                    rows={3}
+                    placeholder="Description"
+                    className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                  />
+                  <input
+                    type="datetime-local"
+                    value={eventTime}
+                    onChange={(event) => setEventTime(event.target.value)}
+                    className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateEvent}
+                    disabled={eventCreating}
+                    className="inline-flex w-fit items-center gap-2 rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Create event
+                  </button>
+                  {eventCreateError ? (
+                    <p className="text-xs text-rose-600">{eventCreateError}</p>
+                  ) : null}
+                </div>
+              </div>
+
+              {eventsLoading ? (
+                <p className="text-sm text-neutral-600">Loading events...</p>
+              ) : eventsError ? (
+                <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {eventsError}
+                </p>
+              ) : events.length === 0 ? (
+                <p className="text-sm text-neutral-600">No events yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {events.map((event) => (
+                    <article
+                      key={event.id}
+                      className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-base font-semibold text-neutral-900">
+                            {event.title}
+                          </h4>
+                          <p className="mt-1 text-sm text-neutral-600">
+                            {event.description || "No description."}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                          {formatDateTime(event.event_time)}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex items-center justify-between gap-2">
+                        <span className="text-xs text-neutral-500">Event</span>
+                        <Link
+                          href={`/events/${event.id}`}
+                          className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                        >
+                          View details
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
+                  {eventsHasMore ? (
+                    <button
+                      type="button"
+                      onClick={() => loadEvents(events.length, true)}
+                      disabled={eventsLoadingMore}
+                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {eventsLoadingMore ? "Loading..." : "Load more"}
+                    </button>
+                  ) : null}
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {activeTab === "members" && isMember ? (
+            <div className="mt-5 space-y-4">
+              {group?.creatorID && userID === group.creatorID ? (
+                <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+                  <h3 className="text-sm font-semibold text-neutral-900">Invite members</h3>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Search users and send an invitation to join this group.
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    <div className="relative">
+                      <input
+                        value={inviteQuery}
+                        onChange={(event) => {
+                          setInviteQuery(event.target.value);
+                          if (selectedInvitee) {
+                            setSelectedInvitee(null);
+                          }
+                        }}
+                        placeholder="Search by name or nickname"
+                        className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                      />
+                      {inviteQuery.trim() ? (
+                        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl">
+                          {inviteLoading ? (
+                            <p className="px-2 py-2 text-xs text-neutral-500">Searching...</p>
+                          ) : inviteResults.length === 0 ? (
+                            <p className="px-2 py-2 text-xs text-neutral-500">No users found.</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {inviteResults.map((person) => (
+                                <button
+                                  key={person.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedInvitee(person);
+                                    setInviteQuery("");
+                                    setInviteResults([]);
+                                  }}
+                                  className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                                >
+                                  {person.avatar_path ? (
+                                    <div className="h-8 w-8 overflow-hidden rounded-full border border-neutral-200 bg-white">
+                                      <img
+                                        src={toMediaUrl(apiBaseUrl, person.avatar_path)}
+                                        alt={`${person.first_name} ${person.last_name}`}
+                                        className="h-full w-full object-contain"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
+                                      {person.first_name?.charAt(0)}
+                                      {person.last_name?.charAt(0)}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="text-xs font-semibold text-neutral-900">
+                                      {person.first_name} {person.last_name}
+                                    </p>
+                                    <p className="text-[11px] text-neutral-500">
+                                      @{person.nickname || "user"}
+                                    </p>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    {selectedInvitee ? (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">
+                            {selectedInvitee.first_name} {selectedInvitee.last_name}
+                          </span>
+                          <span className="text-[11px] text-neutral-500">
+                            @{selectedInvitee.nickname || "user"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedInvitee(null)}
+                          className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={sendInvite}
+                      disabled={!selectedInvitee}
+                      className="rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Send invitation
+                    </button>
+                  </div>
+                  {inviteError ? <p className="mt-2 text-xs text-rose-600">{inviteError}</p> : null}
+                  {inviteSuccess ? (
+                    <p className="mt-2 text-xs text-emerald-600">{inviteSuccess}</p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {membersLoading ? (
+                <p className="text-sm text-neutral-600">Loading members...</p>
+              ) : membersError ? (
+                <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {membersError}
+                </p>
+              ) : members.length === 0 ? (
+                <p className="text-sm text-neutral-600">No members found.</p>
+              ) : (
+                <div className="space-y-2">
+                  {members.map((member, index) => (
+                    <div
+                      key={`${member.id}-${index}`}
+                      className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                    >
+                      {member.avatar_path ? (
+                        <div className="h-10 w-10 overflow-hidden rounded-full border border-neutral-200 bg-white">
+                          <img
+                            src={toMediaUrl(apiBaseUrl, member.avatar_path)}
+                            alt={`${member.first_name} ${member.last_name}`}
+                            className="h-full w-full object-contain"
+                          />
+                        </div>
+                      ) : (
+                        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                          {member.first_name?.charAt(0)}
+                          {member.last_name?.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-900">
+                          {member.first_name} {member.last_name}
+                        </p>
+                        <p className="text-xs text-neutral-500">
+                          @{member.nickname || "user"}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : null}
 
           {hasMorePosts && !postsLoading && !postsError ? (
             <div className="mt-5">
@@ -1300,6 +1988,7 @@ export default function GroupDetailsPage() {
             </div>
           ) : null}
         </motion.section>
+        </section>
       </main>
     </div>
   );

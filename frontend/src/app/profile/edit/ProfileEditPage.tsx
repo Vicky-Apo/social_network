@@ -4,9 +4,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Compass, MessageSquare, UserPlus, Users } from "lucide-react";
 import { motion } from "framer-motion";
-import TopNav from "../../component/TopNav";
+import TopNav from "@/components/TopNav";
+import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -21,6 +21,7 @@ type MeUser = {
   first_name: string;
   last_name: string;
   nickname?: string | null;
+  avatar_path?: string | null;
 };
 
 type ProfileDTO = {
@@ -36,19 +37,6 @@ type ProfileDTO = {
     is_public: boolean;
   };
 };
-
-const quickLinks = [
-  { label: "Explore", href: "/dashboard", icon: Compass },
-  { label: "Groups", href: "/groups", icon: Users },
-  { label: "Messages", href: "/messages", icon: MessageSquare },
-  { label: "Requests", href: "/follow-requests", icon: UserPlus },
-];
-
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -187,42 +175,13 @@ export default function ProfileEditPage() {
     }
   };
 
-  const displayName = viewer ? `${viewer.first_name} ${viewer.last_name}` : "Loading";
-  const userTag =
-    viewer?.nickname || (viewer?.email ? viewer.email.split("@")[0] : "member");
-
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900">
       <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-neutral-900 text-sm font-semibold text-white">
-                {initials(viewer?.first_name, viewer?.last_name)}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
-                <p className="text-xs text-neutral-500">@{userTag}</p>
-              </div>
-            </div>
-            <nav className="mt-5 space-y-2">
-              {quickLinks.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="flex items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </div>
+          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" />
         </aside>
 
         <section className="space-y-5">

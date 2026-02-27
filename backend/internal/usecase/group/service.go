@@ -168,6 +168,10 @@ func (s *Service) InviteToGroup(ctx context.Context, inviterID, groupID, invitee
 		return GroupInvitationDTO{}, fmt.Errorf("create invitation: %w", err)
 	}
 	if s.notifier != nil {
+		groupTitle := ""
+		if group, err := s.groupRepo.GetByID(ctx, groupID); err == nil {
+			groupTitle = group.Title
+		}
 		if _, err := s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
 			UserID:     inviteeID,
 			ActorID:    &inviterID,
@@ -176,6 +180,7 @@ func (s *Service) InviteToGroup(ctx context.Context, inviterID, groupID, invitee
 			EntityID:   inv.ID,
 			Metadata: map[string]any{
 				"group_id":   groupID,
+				"group_name": groupTitle,
 				"inviter_id": inviterID,
 			},
 		}); err != nil && s.log != nil {
@@ -264,8 +269,10 @@ func (s *Service) RequestJoin(ctx context.Context, groupID, userID int64) (Group
 		return GroupJoinRequestDTO{}, fmt.Errorf("create join request: %w", err)
 	}
 	if s.notifier != nil {
+		groupTitle := ""
 		if group, err := s.groupRepo.GetByID(ctx, groupID); err == nil {
 			creatorID := group.CreatorID
+			groupTitle = group.Title
 			if creatorID != userID {
 				if _, err := s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
 					UserID:     creatorID,
@@ -274,8 +281,9 @@ func (s *Service) RequestJoin(ctx context.Context, groupID, userID int64) (Group
 					EntityType: "group_join_request",
 					EntityID:   req.ID,
 					Metadata: map[string]any{
-						"group_id": groupID,
-						"user_id":  userID,
+						"group_id":   groupID,
+						"group_name": groupTitle,
+						"user_id":    userID,
 					},
 				}); err != nil && s.log != nil {
 					s.log.Debug("failed to notify group join request", logger.F("error", err.Error()), logger.F("creator_id", creatorID))
