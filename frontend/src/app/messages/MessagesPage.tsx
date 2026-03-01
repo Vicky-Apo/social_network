@@ -1200,10 +1200,6 @@ export default function MessagesPage() {
                   </div>
                 </div>
 
-                {typingUserIDs.length > 0 ? (
-                  <p className="mt-3 text-xs text-neutral-500">{typingLabel} typing...</p>
-                ) : null}
-
                 <div
                   ref={messageListRef}
                   onScroll={(event) => {
@@ -1331,6 +1327,10 @@ export default function MessagesPage() {
                     })
                   )}
                 </div>
+
+                {typingUserIDs.length > 0 ? (
+                  <p className="mt-3 text-xs text-neutral-500 italic">{typingLabel} typing...</p>
+                ) : null}
 
                 <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
                   <textarea
