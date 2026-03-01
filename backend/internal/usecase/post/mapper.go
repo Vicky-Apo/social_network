@@ -15,6 +15,7 @@ func mapPost(p domainpost.Post) PostDTO {
 		ID:               p.ID,
 		AuthorID:         p.AuthorID,
 		GroupID:          p.GroupID,
+		GroupTitle:       p.GroupTitle,
 		AuthorFirstName:  p.AuthorFirstName,
 		AuthorLastName:   p.AuthorLastName,
 		AuthorNickname:   p.AuthorNickname,

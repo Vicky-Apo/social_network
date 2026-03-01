@@ -28,6 +28,7 @@ func NewRepository(db *sql.DB) *Repository {
 func scanPost(scanner rowScanner) (domainpost.Post, error) {
 	var p domainpost.Post
 	var groupID sql.NullInt64
+	var groupTitle sql.NullString
 	var mediaPath sql.NullString
 	var nickname sql.NullString
 	var avatarPath sql.NullString
@@ -35,6 +36,7 @@ func scanPost(scanner rowScanner) (domainpost.Post, error) {
 		&p.ID,
 		&p.AuthorID,
 		&groupID,
+		&groupTitle,
 		&p.AuthorFirstName,
 		&p.AuthorLastName,
 		&nickname,
@@ -51,6 +53,7 @@ func scanPost(scanner rowScanner) (domainpost.Post, error) {
 		return domainpost.Post{}, err
 	}
 	p.GroupID = nullableInt64(groupID)
+	p.GroupTitle = reposhared.NullableString(groupTitle)
 	p.MediaPath = reposhared.NullableString(mediaPath)
 	p.AuthorNickname = reposhared.NullableString(nickname)
 	p.AuthorAvatarPath = reposhared.NullableString(avatarPath)
@@ -381,7 +384,7 @@ func nullableInt64(value sql.NullInt64) *int64 {
 
 func baseSelect() string {
 	return `
-		SELECT p.id, p.author_id, p.group_id, u.first_name, u.last_name, u.nickname, u.avatar_path,
+		SELECT p.id, p.author_id, p.group_id, g.title AS group_title, u.first_name, u.last_name, u.nickname, u.avatar_path,
 		       p.content, p.media_path, p.visibility, p.created_at, p.updated_at,
 		       COALESCE(cc.comment_count, 0) AS comment_count,
 		       COALESCE(rc.like_count, 0) AS like_count,
@@ -393,6 +396,7 @@ func baseFrom() string {
 	return `
 		FROM posts p
 		JOIN users u ON u.id = p.author_id
+		LEFT JOIN groups g ON g.id = p.group_id
 	`
 }
 

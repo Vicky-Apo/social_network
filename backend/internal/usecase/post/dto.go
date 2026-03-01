@@ -7,6 +7,7 @@ type PostDTO struct {
 	ID               int64     `json:"id"`
 	AuthorID         int64     `json:"author_id"`
 	GroupID          *int64    `json:"group_id,omitempty"`
+	GroupTitle       *string   `json:"group_title,omitempty"`
 	AuthorFirstName  string    `json:"author_first_name"`
 	AuthorLastName   string    `json:"author_last_name"`
 	AuthorNickname   *string   `json:"author_nickname,omitempty"`

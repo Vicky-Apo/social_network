@@ -142,7 +142,10 @@ func isValidType(t string) bool {
 	case domainnotification.FollowRequest,
 		domainnotification.GroupInvitation,
 		domainnotification.GroupJoinRequest,
-		domainnotification.EventCreated:
+		domainnotification.EventCreated,
+		domainnotification.PostReaction,
+		domainnotification.CommentReaction,
+		domainnotification.CommentOnPost:
 		return true
 	default:
 		return false
