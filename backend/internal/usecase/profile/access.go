@@ -18,11 +18,11 @@ func (s *Service) ensureAccess(ctx context.Context, user domainuser.User, viewer
 	if s.access == nil {
 		return errors.New("access service not configured")
 	}
-	ok, err := s.access.CanViewProfile(ctx, viewerID, user.ID)
+	follows, err := s.access.IsFollowing(ctx, viewerID, user.ID)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	if !follows {
 		return ErrForbidden
 	}
 	return nil

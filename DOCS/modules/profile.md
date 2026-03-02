@@ -46,6 +46,7 @@ Response (200):
 Notes:
 - If the profile is private, only followers or the profile owner can access it.
 - `date_of_birth` format is `DD/MM/YYYY`.
+- Access checks are based on `is_public`, ownership, and follower status and are computed once per request to reduce redundant DB lookups.
 
 Limited response:
 - If the profile is private and the viewer is not a follower, the API returns a limited profile with only basic fields (id, first_name, last_name, nickname, avatar_path, is_public) and `limited: true`.

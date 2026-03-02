@@ -354,34 +354,9 @@ func (s *Service) CountByGroup(ctx context.Context, groupID, viewerID int64) (in
 
 // ListByAuthor returns posts for a specific author with pagination.
 func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, limit, offset int) ([]PostDTO, error) {
-	isOwner := viewerID != 0 && viewerID == authorID
-	isFollower := false
-	if viewerID != 0 && !isOwner {
-		if s.access == nil {
-			return nil, errors.New("access service not configured")
-		}
-		var err error
-		isFollower, err = s.access.IsFollowing(ctx, viewerID, authorID)
-		if err != nil {
-			return nil, fmt.Errorf("check follow: %w", err)
-		}
-	}
-	if s.access != nil {
-		ok, err := s.access.CanViewProfile(ctx, viewerID, authorID)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			return nil, ErrForbidden
-		}
-	} else {
-		user, err := s.userRepo.GetByID(ctx, authorID)
-		if err != nil {
-			return nil, err
-		}
-		if !user.IsPublic && !isOwner && !isFollower {
-			return nil, ErrForbidden
-		}
+	isOwner, isFollower, err := s.resolveAuthorAccess(ctx, authorID, viewerID)
+	if err != nil {
+		return nil, err
 	}
 
 	posts, err := s.repo.ListByAuthor(ctx, authorID, viewerID, isFollower, isOwner, limit, offset)
@@ -395,34 +370,9 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 
 // CountByAuthor returns total posts for a specific author respecting viewer access.
 func (s *Service) CountByAuthor(ctx context.Context, authorID, viewerID int64) (int, error) {
-	isOwner := viewerID != 0 && viewerID == authorID
-	isFollower := false
-	if viewerID != 0 && !isOwner {
-		if s.access == nil {
-			return 0, errors.New("access service not configured")
-		}
-		var err error
-		isFollower, err = s.access.IsFollowing(ctx, viewerID, authorID)
-		if err != nil {
-			return 0, fmt.Errorf("check follow: %w", err)
-		}
-	}
-	if s.access != nil {
-		ok, err := s.access.CanViewProfile(ctx, viewerID, authorID)
-		if err != nil {
-			return 0, err
-		}
-		if !ok {
-			return 0, ErrForbidden
-		}
-	} else {
-		user, err := s.userRepo.GetByID(ctx, authorID)
-		if err != nil {
-			return 0, err
-		}
-		if !user.IsPublic && !isOwner && !isFollower {
-			return 0, ErrForbidden
-		}
+	isOwner, isFollower, err := s.resolveAuthorAccess(ctx, authorID, viewerID)
+	if err != nil {
+		return 0, err
 	}
 	total, err := s.repo.CountByAuthor(ctx, authorID, viewerID, isFollower, isOwner)
 	if err != nil {
@@ -434,3 +384,31 @@ func (s *Service) CountByAuthor(ctx context.Context, authorID, viewerID int64) (
 
 // ErrForbidden is returned when a viewer cannot access a post.
 var ErrForbidden = errors.New("post access forbidden")
+
+func (s *Service) resolveAuthorAccess(ctx context.Context, authorID, viewerID int64) (bool, bool, error) {
+	isOwner := viewerID != 0 && viewerID == authorID
+	if isOwner {
+		return true, false, nil
+	}
+	author, err := s.userRepo.GetByID(ctx, authorID)
+	if err != nil {
+		return false, false, err
+	}
+	if viewerID == 0 {
+		if !author.IsPublic {
+			return false, false, ErrForbidden
+		}
+		return false, false, nil
+	}
+	if s.access == nil {
+		return false, false, errors.New("access service not configured")
+	}
+	isFollower, err := s.access.IsFollowing(ctx, viewerID, authorID)
+	if err != nil {
+		return false, false, fmt.Errorf("check follow: %w", err)
+	}
+	if !author.IsPublic && !isFollower {
+		return false, false, ErrForbidden
+	}
+	return false, isFollower, nil
+}

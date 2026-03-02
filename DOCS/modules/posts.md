@@ -28,6 +28,8 @@ Notes:
 - Returns non-group posts the user can see (public/followers/private rules)
   plus group posts from groups the user is a member of.
 - If `groups_only=true`, only group posts are returned.
+- Author visibility is checked once per request using ownership/public/follower status to avoid redundant DB lookups.
+- Feed visibility is computed with a shared SQL CTE to keep logic consistent and reduce repeated joins.
 
 Error responses:
 - `400 Bad Request` - Invalid pagination parameters

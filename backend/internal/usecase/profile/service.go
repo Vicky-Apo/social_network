@@ -37,18 +37,19 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 	if err != nil {
 		return ProfileDTO{}, err
 	}
-	if err := s.ensureAccess(ctx, user, viewerID); err != nil {
-		if errors.Is(err, ErrForbidden) {
-			return ProfileDTO{
-				User:           mapProfileUserLimited(user),
-				FollowersCount: nil,
-				FollowingCount: nil,
-				IsFollowing:    false,
-				IsFollowedBy:   false,
-				Limited:        true,
-			}, nil
-		}
+	accessSnapshot, err := s.buildAccessSnapshot(ctx, user, viewerID)
+	if err != nil {
 		return ProfileDTO{}, err
+	}
+	if !accessSnapshot.CanView {
+		return ProfileDTO{
+			User:           mapProfileUserLimited(user),
+			FollowersCount: nil,
+			FollowingCount: nil,
+			IsFollowing:    false,
+			IsFollowedBy:   false,
+			Limited:        true,
+		}, nil
 	}
 
 	// TODO: Add user activity and posts once post timelines are implemented for profiles.
@@ -61,31 +62,53 @@ func (s *Service) GetProfile(ctx context.Context, profileID, viewerID int64) (Pr
 		return ProfileDTO{}, fmt.Errorf("count following: %w", err)
 	}
 
-	isFollowing := false
-	isFollowedBy := false
-	if viewerID != 0 && viewerID != user.ID {
-		if s.access == nil {
-			return ProfileDTO{}, errors.New("access service not configured")
-		}
-		if follow, err := s.access.IsFollowing(ctx, viewerID, user.ID); err != nil {
-			return ProfileDTO{}, fmt.Errorf("check follow: %w", err)
-		} else {
-			isFollowing = follow
-		}
-		if follow, err := s.access.IsFollowing(ctx, user.ID, viewerID); err != nil {
-			return ProfileDTO{}, fmt.Errorf("check follow: %w", err)
-		} else {
-			isFollowedBy = follow
-		}
-	}
-
 	return ProfileDTO{
 		User:           mapProfileUser(user),
 		FollowersCount: &followers,
 		FollowingCount: &following,
-		IsFollowing:    isFollowing,
-		IsFollowedBy:   isFollowedBy,
+		IsFollowing:    accessSnapshot.IsFollower,
+		IsFollowedBy:   accessSnapshot.IsFollowedBy,
 	}, nil
+}
+
+type accessSnapshot struct {
+	CanView      bool
+	IsOwner      bool
+	IsFollower   bool
+	IsFollowedBy bool
+	IsPublic     bool
+}
+
+func (s *Service) buildAccessSnapshot(ctx context.Context, user domainuser.User, viewerID int64) (accessSnapshot, error) {
+	snapshot := accessSnapshot{
+		IsPublic: user.IsPublic,
+		IsOwner:  viewerID != 0 && viewerID == user.ID,
+	}
+	if snapshot.IsOwner || user.IsPublic {
+		snapshot.CanView = true
+	}
+	if viewerID == 0 {
+		return snapshot, nil
+	}
+	if s.access == nil {
+		return accessSnapshot{}, errors.New("access service not configured")
+	}
+	if !snapshot.IsOwner {
+		isFollower, err := s.access.IsFollowing(ctx, viewerID, user.ID)
+		if err != nil {
+			return accessSnapshot{}, fmt.Errorf("check follow: %w", err)
+		}
+		snapshot.IsFollower = isFollower
+		if !snapshot.CanView && isFollower {
+			snapshot.CanView = true
+		}
+		isFollowedBy, err := s.access.IsFollowing(ctx, user.ID, viewerID)
+		if err != nil {
+			return accessSnapshot{}, fmt.Errorf("check follow back: %w", err)
+		}
+		snapshot.IsFollowedBy = isFollowedBy
+	}
+	return snapshot, nil
 }
 
 // ListFollowers returns profile data for followers when allowed.
