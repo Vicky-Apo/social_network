@@ -7,6 +7,7 @@ type Post struct {
 	ID               int64
 	AuthorID         int64
 	GroupID          *int64
+	GroupTitle       *string
 	AuthorFirstName  string
 	AuthorLastName   string
 	AuthorNickname   *string

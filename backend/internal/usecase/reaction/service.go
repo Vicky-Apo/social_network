@@ -241,9 +241,68 @@ func mapCommentReactions(reactions []domainreaction.CommentReaction) []ReactionD
 }
 
 func (s *Service) emitPostReactionNotification(ctx context.Context, postID, actorID int64, reaction string, action string) {
-	// Notifications limited to follow/group/event only.
+	if s.notifier == nil {
+		return
+	}
+	// Skip notification if removed
+	if action == "removed" {
+		return
+	}
+	
+	// Get post to find author
+	post, err := s.postRepo.GetByID(ctx, postID)
+	if err != nil {
+		return
+	}
+	
+	// Don't notify if reacting to own post
+	if post.AuthorID == actorID {
+		return
+	}
+	
+	// Create notification for post author
+	_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
+		UserID:     post.AuthorID,
+		ActorID:    &actorID,
+		Type:       "post_reaction",
+		EntityType: "post",
+		EntityID:   postID,
+		Metadata: map[string]any{
+			"reaction": reaction,
+		},
+	})
 }
 
 func (s *Service) emitCommentReactionNotification(ctx context.Context, commentID, actorID int64, reaction string, action string) {
-	// Notifications limited to follow/group/event only.
+	if s.notifier == nil {
+		return
+	}
+	// Skip notification if removed
+	if action == "removed" {
+		return
+	}
+	
+	// Get comment to find author and post
+	comment, err := s.commentRepo.GetByID(ctx, commentID)
+	if err != nil {
+		return
+	}
+	
+	// Don't notify if reacting to own comment
+	if comment.AuthorID == actorID {
+		return
+	}
+	
+	// Create notification for comment author
+	_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
+		UserID:     comment.AuthorID,
+		ActorID:    &actorID,
+		Type:       "comment_reaction",
+		EntityType: "comment",
+		EntityID:   commentID,
+		Metadata: map[string]any{
+			"reaction": reaction,
+			"post_id":  comment.PostID,
+		},
+	})
 }
