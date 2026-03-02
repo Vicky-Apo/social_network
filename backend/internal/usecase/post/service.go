@@ -49,6 +49,17 @@ func (s *Service) List(ctx context.Context, viewerID int64, limit, offset int) (
 	return mapPosts(posts), nil
 }
 
+// ListPublicOnly returns only public personal posts. Visible to all logged-in users.
+func (s *Service) ListPublicOnly(ctx context.Context, limit, offset int) ([]PostDTO, error) {
+	posts, err := s.repo.ListPublicOnly(ctx, limit, offset)
+	if err != nil {
+		s.log.Error("failed to list public posts", err)
+		return nil, fmt.Errorf("list public posts: %w", err)
+	}
+	s.log.Debug("public posts listed", logger.F("count", len(posts)))
+	return mapPosts(posts), nil
+}
+
 // ListGroupsOnly returns only group posts for groups the viewer is a member of.
 func (s *Service) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]PostDTO, error) {
 	posts, err := s.repo.ListGroupsOnly(ctx, viewerID, limit, offset)

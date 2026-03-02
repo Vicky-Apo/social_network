@@ -895,12 +895,20 @@ export default function MessagesPage() {
     .join(", ");
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={user ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/messages-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={user ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={user ?? undefined} activeHref="/messages" />
+          <LeftNav user={user ?? undefined} activeHref="/messages" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -909,20 +917,17 @@ export default function MessagesPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
+            className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm sm:p-5"
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Messages</h1>
-                <p className="text-sm text-neutral-600">
-                  Realtime direct and group chats in one place.
-                </p>
+                <h1 className="text-xl font-semibold tracking-tight text-white">Messages</h1>
               </div>
               <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
                   chatConnected
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-rose-100 text-rose-700"
+                    ? "bg-white/10 text-white"
+                    : "bg-rose-500/20 text-rose-400"
                 }`}
               >
                 {chatConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
@@ -932,24 +937,24 @@ export default function MessagesPage() {
           </motion.div>
 
           {isLoading ? (
-            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm">
               Loading conversations...
             </article>
           ) : error ? (
-            <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+            <article className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400 backdrop-blur-sm">
               {error}
             </article>
           ) : (
             <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <aside className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm">
+              <aside className="rounded-2xl border border-white/10 bg-white/5 p-3 backdrop-blur-sm">
                 <div className="flex items-center gap-2 px-2">
                   <button
                     type="button"
                     onClick={() => setActiveTab("private")}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    className={`rounded-xl px-3 py-1 text-xs font-semibold transition ${
                       activeTab === "private"
-                        ? "bg-neutral-900 text-white"
-                        : "border border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-400"
+                        ? "bg-white text-[#2b2929]"
+                        : "border border-white/20 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
                     }`}
                   >
                     Private
@@ -957,10 +962,10 @@ export default function MessagesPage() {
                   <button
                     type="button"
                     onClick={() => setActiveTab("groups")}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    className={`rounded-xl px-3 py-1 text-xs font-semibold transition ${
                       activeTab === "groups"
-                        ? "bg-neutral-900 text-white"
-                        : "border border-neutral-200 bg-neutral-50 text-neutral-600 hover:border-neutral-400"
+                        ? "bg-white text-[#2b2929]"
+                        : "border border-white/20 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
                     }`}
                   >
                     Groups
@@ -970,10 +975,10 @@ export default function MessagesPage() {
                 {activeTab === "private" ? (
                   <div className="mt-4 space-y-4">
                     <div>
-                      <h2 className="px-2 text-sm font-semibold text-neutral-900">Direct chats</h2>
+                      <h2 className="px-2 text-sm font-semibold text-white">Direct chats</h2>
                       <div className="mt-3 space-y-2">
                         {directConversations.length === 0 ? (
-                          <p className="px-2 text-xs text-neutral-500">No direct chats yet.</p>
+                          <p className="px-2 text-xs text-neutral-400">No direct chats yet.</p>
                         ) : (
                           directConversations.map((conversation) => {
                             const active = conversation.id === activeConversationID;
@@ -996,8 +1001,8 @@ export default function MessagesPage() {
                                 }}
                                 className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
                                   active
-                                    ? "border-neutral-900 bg-neutral-900 text-white"
-                                    : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-400"
+                                    ? "border-white/20 bg-white/10 text-white"
+                                    : "border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
@@ -1015,7 +1020,7 @@ export default function MessagesPage() {
                                     <p className="text-xs font-semibold truncate">{title}</p>
                                     <p
                                       className={`mt-1 text-[11px] ${
-                                        active ? "text-neutral-200" : "text-neutral-500"
+                                        active ? "text-neutral-300" : "text-neutral-500"
                                       } truncate`}
                                     >
                                       {preview}
@@ -1023,7 +1028,7 @@ export default function MessagesPage() {
                                   </div>
                                   <span
                                     className={`ml-auto h-2 w-2 rounded-full ${
-                                      isOnline ? "bg-emerald-400" : "bg-neutral-300"
+                                      isOnline ? "bg-emerald-400" : "bg-neutral-500"
                                     }`}
                                   />
                                 </div>
@@ -1035,12 +1040,12 @@ export default function MessagesPage() {
                     </div>
 
                     <div>
-                      <h3 className="px-2 text-sm font-semibold text-neutral-900">Contacts</h3>
+                      <h3 className="px-2 text-sm font-semibold text-white">Contacts</h3>
                       <input
                         value={directQuery}
                         onChange={(event) => setDirectQuery(event.target.value)}
                         placeholder="Search contacts..."
-                        className="mt-2 h-9 w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                        className="mt-2 h-9 w-full rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white placeholder:text-neutral-500 outline-none focus:border-white/40"
                       />
                       <div className="mt-3 space-y-2">
                         {filteredContacts.length === 0 ? (
@@ -1061,7 +1066,7 @@ export default function MessagesPage() {
                                     existing ? null : { type: "direct", userId: person.id },
                                   );
                                 }}
-                                className="flex w-full items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left transition hover:border-neutral-400"
+                                className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-neutral-300 transition hover:bg-white/10 hover:text-white"
                               >
                                 <div className="flex items-center gap-3">
                                   <Avatar
@@ -1075,7 +1080,7 @@ export default function MessagesPage() {
                                     textClassName="text-[10px]"
                                   />
                                   <div>
-                                    <p className="text-xs font-semibold text-neutral-800">
+                                    <p className="text-xs font-semibold text-white">
                                       {person.first_name} {person.last_name}
                                     </p>
                                     <p className="text-[11px] text-neutral-500">
@@ -1085,7 +1090,7 @@ export default function MessagesPage() {
                                 </div>
                                 <span
                                   className={`h-2 w-2 rounded-full ${
-                                    isOnline ? "bg-emerald-400" : "bg-neutral-300"
+                                    isOnline ? "bg-emerald-400" : "bg-neutral-500"
                                   }`}
                                 />
                               </button>
@@ -1098,7 +1103,7 @@ export default function MessagesPage() {
                 ) : (
                   <div className="mt-4 space-y-4">
                     <div>
-                      <h2 className="px-2 text-sm font-semibold text-neutral-900">Group chats</h2>
+                      <h2 className="px-2 text-sm font-semibold text-white">Group chats</h2>
                       <div className="mt-3 space-y-2">
                         {groupConversations.length === 0 ? (
                           <p className="px-2 text-xs text-neutral-500">No group chats yet.</p>
@@ -1120,19 +1125,19 @@ export default function MessagesPage() {
                                 }}
                                 className={`w-full rounded-2xl border px-3 py-2 text-left transition ${
                                   active
-                                    ? "border-neutral-900 bg-neutral-900 text-white"
-                                    : "border-neutral-200 bg-neutral-50 text-neutral-700 hover:border-neutral-400"
+                                    ? "border-white/20 bg-white/10 text-white"
+                                    : "border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-neutral-900 text-[10px] font-semibold text-white">
+                                  <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-[10px] font-semibold text-white">
                                     {initials(title)}
                                   </div>
                                   <div className="min-w-0">
                                     <p className="text-xs font-semibold truncate">{title}</p>
                                     <p
                                       className={`mt-1 text-[11px] ${
-                                        active ? "text-neutral-200" : "text-neutral-500"
+                                        active ? "text-neutral-300" : "text-neutral-500"
                                       } truncate`}
                                     >
                                       {preview}
@@ -1147,7 +1152,7 @@ export default function MessagesPage() {
                     </div>
 
                     <div>
-                      <h3 className="px-2 text-sm font-semibold text-neutral-900">Your groups</h3>
+                      <h3 className="px-2 text-sm font-semibold text-white">Your groups</h3>
                       <div className="mt-3 space-y-2">
                         {memberGroups.length === 0 ? (
                           <p className="px-2 text-xs text-neutral-500">You are not in any groups.</p>
@@ -1167,13 +1172,13 @@ export default function MessagesPage() {
                                     existing ? null : { type: "group", groupId: group.id },
                                   );
                                 }}
-                                className="flex w-full items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left transition hover:border-neutral-400"
+                                className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-neutral-300 transition hover:bg-white/10 hover:text-white"
                               >
                                 <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-semibold text-white">
                                   {title.slice(0, 2).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-neutral-800 truncate">{title}</p>
+                                  <p className="text-xs font-semibold text-white truncate">{title}</p>
                                   {group.description ? (
                                     <p className="text-[11px] text-neutral-500 truncate">
                                       {group.description}
@@ -1190,13 +1195,50 @@ export default function MessagesPage() {
                 )}
               </aside>
 
-              <article className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm min-h-[720px]">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 pb-3">
-                  <div>
-                    <h2 className="text-sm font-semibold text-neutral-900">{activeConversationTitle}</h2>
-                    <p className="text-xs text-neutral-500">
-                      {activeConversationType ? `Type: ${activeConversationType}` : "Pick a chat on the left to start."}
-                    </p>
+              <article className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm min-h-[720px]">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-3">
+                    {activeConversation?.type === "direct" && activeConversation?.other_user_id ? (
+                      <Avatar
+                        src={
+                          usersByID[activeConversation.other_user_id]?.avatar_path
+                            ? toMediaUrl(apiBaseUrl, usersByID[activeConversation.other_user_id].avatar_path!)
+                            : null
+                        }
+                        name={
+                          usersByID[activeConversation.other_user_id]
+                            ? `${usersByID[activeConversation.other_user_id].first_name} ${usersByID[activeConversation.other_user_id].last_name}`
+                            : "User"
+                        }
+                        size={40}
+                        textClassName="text-xs"
+                      />
+                    ) : pendingTarget?.type === "direct" ? (
+                      <Avatar
+                        src={
+                          (usersByID[pendingTarget.userId] || contacts.find((c) => c.id === pendingTarget.userId))?.avatar_path
+                            ? toMediaUrl(
+                                apiBaseUrl,
+                                (usersByID[pendingTarget.userId] || contacts.find((c) => c.id === pendingTarget.userId))!.avatar_path!,
+                              )
+                            : null
+                        }
+                        name={
+                          (() => {
+                            const p = usersByID[pendingTarget.userId] || contacts.find((c) => c.id === pendingTarget.userId);
+                            return p ? `${p.first_name} ${p.last_name}` : "User";
+                          })()
+                        }
+                        size={40}
+                        textClassName="text-xs"
+                      />
+                    ) : null}
+                    <div>
+                      <h2 className="text-sm font-semibold text-white">{activeConversationTitle}</h2>
+                      <p className="text-xs text-white">
+                        {activeConversationType ? `Type: ${activeConversationType}` : "Pick a chat on the left to start."}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -1219,7 +1261,7 @@ export default function MessagesPage() {
                         type="button"
                         onClick={() => void handleLoadOlder()}
                         disabled={isLoadingOlder}
-                        className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900 disabled:opacity-60"
+                        className="rounded-xl border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white disabled:opacity-60"
                       >
                         {isLoadingOlder ? "Loading..." : "Load older messages"}
                       </button>
@@ -1229,7 +1271,7 @@ export default function MessagesPage() {
                   {isMessagesLoading ? (
                     <p className="text-sm text-neutral-500">Loading messages...</p>
                   ) : messagesError ? (
-                    <p className="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                    <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-400">
                       {messagesError}
                     </p>
                   ) : messagesOldestFirst.length === 0 ? (
@@ -1253,30 +1295,20 @@ export default function MessagesPage() {
                       return (
                         <div
                           key={`${message.id}-${message.created_at}`}
-                          className={`relative max-w-[82%] overflow-visible rounded-2xl px-3 py-2 text-sm ${
+                          className={`relative max-w-[82%] overflow-visible rounded-xl px-3 py-2 text-sm ${
                             mine
-                              ? "ml-auto bg-neutral-900 text-white"
-                              : "bg-neutral-100 text-neutral-800"
+                              ? "ml-auto bg-white text-[#2b2929]"
+                              : "bg-white/10 text-white"
                           }`}
                         >
-                          <div className="flex items-center gap-2">
-                            <Avatar
-                              src={
-                                sender?.avatar_path
-                                  ? toMediaUrl(apiBaseUrl, sender.avatar_path)
-                                  : null
-                              }
-                              name={senderName}
-                              size={28}
-                              textClassName="text-[10px]"
-                            />
-                            <p className={`text-[11px] font-semibold ${mine ? "text-neutral-200" : "text-neutral-600"}`}>
+                          <div className={`flex items-center gap-2 ${mine ? "w-full justify-end" : ""}`}>
+                            <p className={`text-[11px] font-semibold ${mine ? "text-neutral-600" : "text-neutral-400"}`}>
                               {senderName}
                             </p>
                           </div>
-                          {message.content ? <p>{message.content}</p> : null}
+                          {message.content ? <p className={mine ? "text-neutral-900" : "text-white"}>{message.content}</p> : null}
                           {message.media_path ? (
-                            <div className="mt-2 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                            <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-white/5">
                               <img
                                 src={toMediaUrl(apiBaseUrl, message.media_path)}
                                 alt="Message media"
@@ -1285,7 +1317,7 @@ export default function MessagesPage() {
                             </div>
                           ) : null}
                           {!message.content && !message.media_path ? <p>(empty)</p> : null}
-                          <p className={`mt-1 text-[10px] ${mine ? "text-neutral-300" : "text-neutral-500"}`}>
+                          <p className={`mt-1 text-[10px] ${mine ? "text-neutral-500" : "text-neutral-500"}`}>
                             {shortDate(message.created_at)}
                           </p>
 
@@ -1297,8 +1329,8 @@ export default function MessagesPage() {
                                 onClick={() => void toggleMessageReaction(message.id, emoji)}
                                 className={`rounded-full border px-2 py-0.5 text-[11px] ${
                                   myEmojis.has(emoji)
-                                    ? "border-emerald-300 bg-emerald-100 text-emerald-900"
-                                    : "border-neutral-300 bg-white text-neutral-700"
+                                    ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-400"
+                                    : "border-white/20 bg-white/5 text-neutral-300"
                                 }`}
                               >
                                 {emoji} {count}
@@ -1320,7 +1352,7 @@ export default function MessagesPage() {
                                     };
                                   });
                                 }}
-                                className="inline-flex items-center justify-center rounded-full border border-neutral-300 bg-white px-2 py-0.5 text-[11px] text-neutral-700"
+                                className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[11px] text-neutral-300"
                               >
                                 <Plus className="h-3 w-3" />
                               </button>
@@ -1332,7 +1364,7 @@ export default function MessagesPage() {
                   )}
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
                   <textarea
                     value={chatDraft}
                     onChange={(event) => {
@@ -1353,10 +1385,10 @@ export default function MessagesPage() {
                     onBlur={stopTyping}
                     rows={3}
                     placeholder="Write a message (emoji supported)"
-                    className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-400"
+                    className="w-full resize-none rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40"
                   />
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <label className="inline-flex h-9 items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                    <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white">
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/gif"
@@ -1374,14 +1406,14 @@ export default function MessagesPage() {
                       type="button"
                       onClick={sendMessageToActiveConversation}
                       disabled={isSending}
-                      className="brand-gradient inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md"
+                      className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-[#2b2929] transition hover:bg-neutral-100"
                     >
                       <Send className="h-3.5 w-3.5" />
-                      {isSending ? "Sending..." : "Send to current chat"}
+                      {isSending ? "Sending..." : "Send"}
                     </button>
                   </div>
                   {chatFileName ? (
-                    <div className="mt-2 flex items-center justify-between rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+                    <div className="mt-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-neutral-400">
                       <span>Attached: {chatFileName}</span>
                       <button
                         type="button"
@@ -1389,13 +1421,13 @@ export default function MessagesPage() {
                           setChatFile(null);
                           setChatFileName("");
                         }}
-                        className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-[10px] font-semibold text-neutral-500"
+                        className="rounded-xl border border-white/20 bg-white/5 px-2 py-1 text-[10px] font-semibold text-neutral-400"
                       >
                         Remove
                       </button>
                     </div>
                   ) : null}
-                  {chatError ? <p className="mt-2 text-xs text-rose-600">{chatError}</p> : null}
+                  {chatError ? <p className="mt-2 text-xs text-rose-400">{chatError}</p> : null}
                 </div>
               </article>
             </div>
@@ -1414,7 +1446,7 @@ export default function MessagesPage() {
                 transform: "translateY(-100%)",
               }}
             >
-              <div className="w-56 rounded-2xl border border-neutral-200 bg-white p-2 shadow-2xl">
+              <div className="w-56 rounded-xl border border-white/10 bg-white/5 p-2 shadow-2xl backdrop-blur-sm">
                 <div className="grid grid-cols-5 gap-1">
                   {emojiPalette.map((emoji) => (
                     <button
@@ -1424,7 +1456,7 @@ export default function MessagesPage() {
                         void toggleMessageReaction(openReactionPicker.messageId, emoji);
                         setOpenReactionPicker(null);
                       }}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-base transition hover:border-neutral-300 hover:bg-neutral-50"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-base transition hover:border-white/20 hover:bg-white/10"
                     >
                       {emoji}
                     </button>

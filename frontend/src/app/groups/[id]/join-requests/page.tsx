@@ -182,12 +182,20 @@ export default function GroupJoinRequestsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -196,20 +204,20 @@ export default function GroupJoinRequestsPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+                <h1 className="text-xl font-semibold tracking-tight text-white">
                   Join requests
                 </h1>
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-neutral-400">
                   Review requests to join this group.
                 </p>
               </div>
               <Link
                 href={`/groups/${groupID}`}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to group
@@ -223,7 +231,7 @@ export default function GroupJoinRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-neutral-400 backdrop-blur-sm"
             >
               Loading join requests...
             </motion.div>
@@ -233,7 +241,7 @@ export default function GroupJoinRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700"
+              className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-400"
             >
               {error}
             </motion.div>
@@ -243,7 +251,7 @@ export default function GroupJoinRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-neutral-400 backdrop-blur-sm"
             >
               No join requests yet.
             </motion.div>
@@ -253,13 +261,13 @@ export default function GroupJoinRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
             >
               <div className="space-y-3">
                 {requests.map((req) => (
                   <div
                     key={req.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
                       <Avatar
@@ -273,12 +281,12 @@ export default function GroupJoinRequestsPage() {
                         textClassName="text-[11px]"
                       />
                       <div>
-                        <p className="text-sm font-semibold text-neutral-800">
+                        <p className="text-sm font-semibold text-white">
                           {requesterProfiles[req.user_id]
                             ? `${requesterProfiles[req.user_id]?.first_name} ${requesterProfiles[req.user_id]?.last_name}`
                             : "User"}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-neutral-400">
                           @{requesterProfiles[req.user_id]?.nickname || "user"} ·
                           Requested {shortDate(req.created_at)}
                         </p>
@@ -295,7 +303,7 @@ export default function GroupJoinRequestsPage() {
                       <button
                         type="button"
                         onClick={() => updateRequest(req.id, "declined")}
-                        className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
+                        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                       >
                         Decline
                       </button>
@@ -312,7 +320,7 @@ export default function GroupJoinRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+              className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-400"
             >
               {actionError}
             </motion.div>

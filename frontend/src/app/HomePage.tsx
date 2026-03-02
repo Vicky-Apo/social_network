@@ -4,12 +4,6 @@ import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
-import { Workflow } from "@/components/Workflow";
-import { Stats } from "@/components/Stats";
-import { CTA } from "@/components/CTA";
-import { Testimonials } from "@/components/Testimonials";
-import { Articles } from "@/components/Articles";
-import { Footer } from "@/components/Footer";
 
 export default function HomePage() {
   const router = useRouter();
@@ -45,17 +39,11 @@ export default function HomePage() {
   }, [apiBaseUrl, router]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="min-h-screen bg-[#2b2929] text-neutral-100">
       <Navbar />
       <main>
         <Hero />
-        <Workflow />
-        <Stats />
-        <CTA />
-        <Testimonials />
-        <Articles />
       </main>
-      <Footer />
     </div>
   );
 }

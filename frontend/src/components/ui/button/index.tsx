@@ -12,7 +12,7 @@ export default function Button({ className, children, ...rest }: Props) {
         'bg-blue-500 text-white',
         'rounded-full',
         'cursor-pointer',
-        'font-semibold tracking-wide',
+        'font-medium tracking-[0.02em]',
         'inline-flex items-center justify-center',
         'relative shadow',
         //Hover effect

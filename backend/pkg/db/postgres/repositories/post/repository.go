@@ -85,6 +85,34 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 	return posts, nil
 }
 
+// ListPublicOnly returns only public personal posts (no group posts). Visible to all users.
+func (r *Repository) ListPublicOnly(ctx context.Context, limit, offset int) ([]domainpost.Post, error) {
+	query := baseSelect() + "\n" + baseFrom() + "\n" +
+		"LEFT JOIN post_comment_counts cc ON cc.post_id = p.id\n" +
+		"LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id\n" +
+		"WHERE p.group_id IS NULL AND p.visibility = 'public'\n" +
+		"ORDER BY p.created_at DESC\n" +
+		"LIMIT $1 OFFSET $2"
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("list public posts: %w", err)
+	}
+	defer rows.Close()
+
+	var posts []domainpost.Post
+	for rows.Next() {
+		p, err := scanPost(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan post: %w", err)
+		}
+		posts = append(posts, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list public posts: %w", err)
+	}
+	return posts, nil
+}
+
 // ListGroupsOnly returns only group posts for groups the viewer is a member of.
 func (r *Repository) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +

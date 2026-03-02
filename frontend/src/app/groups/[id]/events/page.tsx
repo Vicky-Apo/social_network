@@ -187,12 +187,20 @@ export default function GroupEventsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -201,18 +209,18 @@ export default function GroupEventsPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Group events</h1>
-                <p className="text-sm text-neutral-600">
+                <h1 className="text-xl font-semibold tracking-tight text-white">Group events</h1>
+                <p className="text-sm text-neutral-400">
                   {group ? `Events for ${group.name}.` : "Plan activities for this group."}
                 </p>
               </div>
               <Link
                 href={`/groups/${groupID}`}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to group
@@ -225,9 +233,9 @@ export default function GroupEventsPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
-            <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white">
               <Calendar className="h-4 w-4" />
               Create event
             </div>
@@ -236,20 +244,20 @@ export default function GroupEventsPage() {
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Event title"
-                className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                className="h-10 w-full rounded-2xl border border-white/20 bg-white/5 px-3 text-xs text-white outline-none focus:border-white/40"
               />
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 rows={3}
                 placeholder="Description"
-                className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                className="w-full resize-none rounded-2xl border border-white/20 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:border-white/40"
               />
               <input
                 type="datetime-local"
                 value={eventTime}
                 onChange={(event) => setEventTime(event.target.value)}
-                className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                className="h-10 w-full rounded-2xl border border-white/20 bg-white/5 px-3 text-xs text-white outline-none focus:border-white/40"
               />
               <button
                 type="button"
@@ -259,7 +267,7 @@ export default function GroupEventsPage() {
               >
                 Create event
               </button>
-              {createError ? <p className="text-xs text-rose-600">{createError}</p> : null}
+              {createError ? <p className="text-xs text-rose-400">{createError}</p> : null}
             </div>
           </motion.div>
 
@@ -269,7 +277,7 @@ export default function GroupEventsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-neutral-400 backdrop-blur-sm"
             >
               Loading events...
             </motion.div>
@@ -279,7 +287,7 @@ export default function GroupEventsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700"
+              className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-400"
             >
               {error}
             </motion.div>
@@ -289,7 +297,7 @@ export default function GroupEventsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-neutral-400 backdrop-blur-sm"
             >
               No events yet.
             </motion.div>
@@ -302,24 +310,24 @@ export default function GroupEventsPage() {
                   whileInView="show"
                   viewport={viewportOnce}
                   variants={fadeUp}
-                  className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                  className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-semibold text-neutral-900">{event.title}</h2>
-                      <p className="mt-1 text-sm text-neutral-600">
+                      <h2 className="text-lg font-semibold text-white">{event.title}</h2>
+                      <p className="mt-1 text-sm text-neutral-400">
                         {event.description || "No description."}
                       </p>
                     </div>
-                    <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                    <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
                       {formatDateTime(event.event_time)}
                     </span>
                   </div>
                   <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs text-neutral-500">Event #{event.id}</span>
+                    <span className="text-xs text-neutral-400">Event #{event.id}</span>
                     <Link
                       href={`/events/${event.id}`}
-                      className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                     >
                       View details
                     </Link>
@@ -331,7 +339,7 @@ export default function GroupEventsPage() {
                   type="button"
                   onClick={loadMore}
                   disabled={isLoadingMore}
-                  className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoadingMore ? "Loading..." : "Load more"}
                 </button>

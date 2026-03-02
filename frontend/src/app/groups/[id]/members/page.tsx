@@ -285,12 +285,20 @@ export default function GroupMembersPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -299,20 +307,20 @@ export default function GroupMembersPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+                <h1 className="text-xl font-semibold tracking-tight text-white">
                   Group members
                 </h1>
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-neutral-400">
                   Manage members and invite new people.
                 </p>
               </div>
               <Link
                 href={`/groups/${groupID}`}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to group
@@ -325,9 +333,9 @@ export default function GroupMembersPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
-            <h2 className="text-sm font-semibold text-neutral-900">Invite someone</h2>
+            <h2 className="text-sm font-semibold text-white">Invite someone</h2>
             <div className="mt-3 space-y-3">
               <div className="relative">
                 <input
@@ -339,14 +347,14 @@ export default function GroupMembersPage() {
                     }
                   }}
                   placeholder="Search people by name or nickname"
-                  className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                  className="h-10 w-full rounded-2xl border border-white/20 bg-white/5 px-3 text-xs text-white outline-none focus:border-white/40"
                 />
                 {inviteQuery.trim() ? (
-                  <div className="absolute z-20 mt-2 w-full rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl">
+                  <div className="absolute z-20 mt-2 w-full rounded-2xl border border-white/20 bg-white/5 p-2 shadow-xl">
                     {inviteLoading ? (
-                      <p className="px-2 py-2 text-xs text-neutral-500">Searching...</p>
+                      <p className="px-2 py-2 text-xs text-neutral-400">Searching...</p>
                     ) : inviteResults.length === 0 ? (
-                      <p className="px-2 py-2 text-xs text-neutral-500">No users found.</p>
+                      <p className="px-2 py-2 text-xs text-neutral-400">No users found.</p>
                     ) : (
                       <div className="space-y-2">
                         {inviteResults.map((person) => (
@@ -358,7 +366,7 @@ export default function GroupMembersPage() {
                               setInviteQuery("");
                               setInviteResults([]);
                             }}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                            className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-neutral-300 transition hover:bg-white/10 hover:text-white"
                           >
                             <Avatar
                               src={
@@ -371,10 +379,10 @@ export default function GroupMembersPage() {
                               textClassName="text-[10px]"
                             />
                             <div>
-                              <p className="text-xs font-semibold text-neutral-900">
+                              <p className="text-xs font-semibold text-white">
                                 {person.first_name} {person.last_name}
                               </p>
-                              <p className="text-[11px] text-neutral-500">
+                              <p className="text-[11px] text-neutral-400">
                                 @{person.nickname || "user"}
                               </p>
                             </div>
@@ -386,19 +394,19 @@ export default function GroupMembersPage() {
                 ) : null}
               </div>
               {selectedInvitee ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-neutral-300">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">
                       {selectedInvitee.first_name} {selectedInvitee.last_name}
                     </span>
-                    <span className="text-[11px] text-neutral-500">
+                    <span className="text-[11px] text-neutral-400">
                       @{selectedInvitee.nickname || "user"}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSelectedInvitee(null)}
-                    className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                   >
                     Clear
                   </button>
@@ -413,9 +421,9 @@ export default function GroupMembersPage() {
                 Send invite
               </button>
             </div>
-            {inviteError ? <p className="mt-2 text-xs text-rose-600">{inviteError}</p> : null}
+            {inviteError ? <p className="mt-2 text-xs text-rose-400">{inviteError}</p> : null}
             {inviteSuccess ? (
-              <p className="mt-2 text-xs text-emerald-600">{inviteSuccess}</p>
+              <p className="mt-2 text-xs text-emerald-400">{inviteSuccess}</p>
             ) : null}
           </motion.div>
 
@@ -424,18 +432,18 @@ export default function GroupMembersPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-neutral-900">Sent invitations</h2>
-                <p className="text-xs text-neutral-500">
+                <h2 className="text-sm font-semibold text-white">Sent invitations</h2>
+                <p className="text-xs text-neutral-400">
                   Stored locally for this browser.
                 </p>
               </div>
               <Link
                 href="/group-invitations"
-                className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-[11px] font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 Incoming invites
               </Link>
@@ -443,14 +451,14 @@ export default function GroupMembersPage() {
 
             <div className="mt-4 space-y-2">
               {sentInvites.length === 0 ? (
-                <p className="text-xs text-neutral-500">No sent invitations yet.</p>
+                <p className="text-xs text-neutral-400">No sent invitations yet.</p>
               ) : (
                 sentInvites.map((invite) => {
                   const profile = sentProfiles[invite.id];
                   return (
                     <div
                       key={invite.id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700"
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-neutral-300"
                     >
                       <div>
                         <p className="font-semibold">
@@ -458,11 +466,11 @@ export default function GroupMembersPage() {
                             ? `${profile.first_name} ${profile.last_name}`
                             : "User"}
                         </p>
-                        <p className="text-[11px] text-neutral-500">
+                        <p className="text-[11px] text-neutral-400">
                           {profile?.nickname ? `@${profile.nickname}` : "Pending"}
                         </p>
                       </div>
-                      <span className="rounded-full border border-neutral-200 bg-white px-2 py-1 text-[10px] text-neutral-500">
+                      <span className="rounded-full border border-white/20 bg-white/5 px-2 py-1 text-[10px] text-neutral-400">
                         {new Date(invite.invited_at).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
@@ -481,7 +489,7 @@ export default function GroupMembersPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-400 shadow-sm"
             >
               Loading members...
             </motion.div>
@@ -501,13 +509,13 @@ export default function GroupMembersPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
             >
               <div className="space-y-3">
                 {members.map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                    className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                   >
                     <Avatar
                       src={
@@ -518,10 +526,10 @@ export default function GroupMembersPage() {
                       textClassName="text-xs"
                     />
                     <div>
-                      <p className="text-sm font-semibold text-neutral-900">
+                      <p className="text-sm font-semibold text-white">
                         {member.first_name} {member.last_name}
                       </p>
-                      <p className="text-xs text-neutral-500">
+                      <p className="text-xs text-neutral-400">
                         @{member.nickname || "user"}
                       </p>
                     </div>
@@ -536,12 +544,12 @@ export default function GroupMembersPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-neutral-900">Leave group</h2>
-                <p className="text-xs text-neutral-500">
+                <h2 className="text-sm font-semibold text-white">Leave group</h2>
+                <p className="text-xs text-neutral-400">
                   Group creators cannot leave their own group.
                 </p>
               </div>
@@ -553,7 +561,7 @@ export default function GroupMembersPage() {
                 Leave group
               </button>
             </div>
-            {leaveError ? <p className="mt-2 text-xs text-rose-600">{leaveError}</p> : null}
+            {leaveError ? <p className="mt-2 text-xs text-rose-400">{leaveError}</p> : null}
           </motion.div>
         </section>
       </main>

@@ -139,48 +139,57 @@ export default function NotificationsPage() {
   }, [apiBaseUrl, router]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <TopNav
         user={viewer ?? undefined}
         onLogout={() => {
           logout();
           router.replace("/login");
         }}
+        variant="dark"
       />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/notifications" />
+          <LeftNav user={viewer ?? undefined} activeHref="/notifications" variant="dark" />
         </aside>
 
         <section className="space-y-5">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+                <h1 className="text-xl font-semibold tracking-tight text-white">
                   Notifications
                 </h1>
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-neutral-400">
                   All activity that needs your attention.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={markAllRead}
-                className="rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 Mark all read
               </button>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
             {loading ? (
-              <p className="text-sm text-neutral-500">Loading notifications...</p>
+              <p className="text-sm text-neutral-400">Loading notifications...</p>
             ) : loadingViewer ? (
-              <p className="text-sm text-neutral-500">Loading account...</p>
+              <p className="text-sm text-neutral-400">Loading account...</p>
             ) : notifications.length === 0 ? (
-              <p className="text-sm text-neutral-500">No notifications yet.</p>
+              <p className="text-sm text-neutral-400">No notifications yet.</p>
             ) : (
               <div className="space-y-3">
                 {notifications.map((item) => {
@@ -197,8 +206,8 @@ export default function NotificationsPage() {
                       }}
                       className={`flex w-full flex-col rounded-2xl border px-4 py-3 text-left text-sm transition ${
                         item.is_read
-                          ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                          : "border-emerald-400 bg-emerald-50 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
+                          ? "border-white/10 bg-white/5 text-neutral-400"
+                          : "border-emerald-500/30 bg-emerald-500/20 text-emerald-400 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
                       }`}
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-wide">

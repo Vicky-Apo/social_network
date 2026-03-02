@@ -619,18 +619,29 @@ export default function ProfilePage() {
   const displayName = profile
     ? `${profile.user.first_name} ${profile.user.last_name}`
     : "Profile";
-  const userTag = profile?.user.nickname || "user";
+  const userTag =
+    profile?.user.nickname?.trim() ||
+    (profile?.user.email ? profile.user.email.split("@")[0] : null) ||
+    "user";
   const visibilityLabel = profile?.user.is_public ? "Public profile" : "Private profile";
   const privacyIcon = profile?.user.is_public ? Globe : Lock;
   const PrivacyIcon = privacyIcon;
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" />
+          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -639,12 +650,12 @@ export default function ProfilePage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
           >
             {isLoading ? (
-              <p className="text-sm text-neutral-600">Loading profile...</p>
+              <p className="text-sm text-neutral-400">Loading profile...</p>
             ) : error ? (
-              <p className="text-sm text-rose-600">{error}</p>
+              <p className="text-sm text-rose-400">{error}</p>
             ) : profile ? (
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
@@ -660,20 +671,20 @@ export default function ProfilePage() {
                   />
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">
+                      <h1 className="text-2xl font-semibold tracking-tight text-white">
                         {displayName}
                       </h1>
-                      <span className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-2 py-1 text-[11px] uppercase tracking-wide text-neutral-400">
                         <PrivacyIcon className="h-3 w-3" />
                         {visibilityLabel}
                       </span>
                       {profile.is_followed_by ? (
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">
+                        <span className="rounded-full bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold text-emerald-400">
                           Follows you
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-sm text-neutral-500">@{userTag}</p>
+                    <p className="text-sm text-neutral-400">@{userTag}</p>
                   </div>
                 </div>
 
@@ -683,7 +694,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={handleUnfollow}
-                        className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                       >
                         <UserMinus className="h-3.5 w-3.5" />
                         Unfollow
@@ -692,7 +703,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={handleCancelRequest}
-                        className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                        className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                       >
                         <UserMinus className="h-3.5 w-3.5" />
                         Cancel request
@@ -708,15 +719,15 @@ export default function ProfilePage() {
                       </button>
                     )}
                     {followState === "loading" ? (
-                      <span className="text-xs text-neutral-500">Updating...</span>
+                      <span className="text-xs text-neutral-400">Updating...</span>
                     ) : null}
-                    {followError ? <p className="text-xs text-rose-600">{followError}</p> : null}
+                    {followError ? <p className="text-xs text-rose-400">{followError}</p> : null}
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
                       href="/profile/edit"
-                      className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                     >
                       Edit profile
                     </Link>
@@ -732,27 +743,27 @@ export default function ProfilePage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="grid gap-4 rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm sm:grid-cols-3"
+              className="grid gap-4 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm sm:grid-cols-3"
             >
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 transition hover:border-neutral-400 hover:bg-white">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-white/20 hover:bg-white/10">
                 <Link href={`/profile/${profile.user.id}/followers`} className="block">
-                  <p className="text-xs uppercase tracking-wide text-neutral-500">Followers</p>
-                  <p className="mt-1 text-xl font-semibold text-neutral-900">
+                  <p className="text-xs uppercase tracking-wide text-neutral-400">Followers</p>
+                  <p className="mt-1 text-xl font-semibold text-white">
                     {profile.followers_count ?? 0}
                   </p>
                 </Link>
               </div>
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 transition hover:border-neutral-400 hover:bg-white">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-white/20 hover:bg-white/10">
                 <Link href={`/profile/${profile.user.id}/following`} className="block">
-                  <p className="text-xs uppercase tracking-wide text-neutral-500">Following</p>
-                  <p className="mt-1 text-xl font-semibold text-neutral-900">
+                  <p className="text-xs uppercase tracking-wide text-neutral-400">Following</p>
+                  <p className="mt-1 text-xl font-semibold text-white">
                     {profile.following_count ?? 0}
                   </p>
                 </Link>
               </div>
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-wide text-neutral-500">Joined</p>
-                <p className="mt-1 text-sm font-semibold text-neutral-900">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-wide text-neutral-400">Joined</p>
+                <p className="mt-1 text-sm font-semibold text-white">
                   {formatDate(profile.user.created_at)}
                 </p>
               </div>
@@ -765,20 +776,20 @@ export default function ProfilePage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
             >
-              <h2 className="text-sm font-semibold text-neutral-900">About</h2>
-              <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
+              <h2 className="text-sm font-semibold text-white">About</h2>
+              <div className="mt-3 grid gap-3 text-sm text-neutral-300 sm:grid-cols-2">
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-neutral-500">Email</p>
+                  <p className="text-xs uppercase tracking-wide text-neutral-400">Email</p>
                   <p className="mt-1">{profile.user.email ?? "Hidden"}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-wide text-neutral-500">Date of birth</p>
+                  <p className="text-xs uppercase tracking-wide text-neutral-400">Date of birth</p>
                   <p className="mt-1">{profile.user.date_of_birth ?? "Hidden"}</p>
                 </div>
                 <div className="sm:col-span-2">
-                  <p className="text-xs uppercase tracking-wide text-neutral-500">Bio</p>
+                  <p className="text-xs uppercase tracking-wide text-neutral-400">Bio</p>
                   <p className="mt-1">
                     {profile.user.about ? profile.user.about : "No bio yet."}
                   </p>
@@ -792,58 +803,58 @@ export default function ProfilePage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
           >
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-neutral-900">Posts</h2>
-              <span className="text-xs text-neutral-500">{posts.length} post(s)</span>
+              <h2 className="text-lg font-semibold text-white">Posts</h2>
+              <span className="text-xs text-neutral-400">{posts.length} post(s)</span>
             </div>
 
             {!profile ? null : profile.limited ? (
-              <p className="mt-4 text-sm text-neutral-600">
+              <p className="mt-4 text-sm text-neutral-400">
                 This profile is private. Follow to see posts and activity.
               </p>
             ) : posts.length === 0 ? (
-              <p className="mt-4 text-sm text-neutral-600">No posts yet.</p>
+              <p className="mt-4 text-sm text-neutral-400">No posts yet.</p>
             ) : (
               <div className="mt-4 space-y-4">
                 {posts.map((post) => (
                   <article
                     key={post.id}
-                    className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4"
+                    className="rounded-2xl border border-white/10 bg-white/5 p-4"
                   >
                     <header className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">
+                        <p className="text-sm font-semibold text-white">
                           {post.author_first_name} {post.author_last_name}
                         </p>
-                        <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
+                        <p className="text-xs text-neutral-400">{shortDate(post.created_at)}</p>
                       </div>
-                      <span className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
+                      <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-400">
                         {post.privacy}
                       </span>
                     </header>
 
-                    <p className="mt-3 text-sm text-neutral-700">{post.content}</p>
+                    <p className="mt-3 text-sm text-neutral-300">{post.content}</p>
 
                     {post.media_path ? (
-                      <div className="mt-3 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                      <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
                         <img
                           src={toMediaUrl(apiBaseUrl, post.media_path)}
                           alt="Post media"
-                          className="max-h-[520px] w-full object-contain bg-white"
+                          className="max-h-[520px] w-full object-contain"
                         />
                       </div>
                     ) : null}
 
-                    <footer className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
+                    <footer className="mt-3 flex items-center gap-4 text-xs text-neutral-400">
                       <button
                         type="button"
                         onClick={() => handlePostReaction(post.id, "like")}
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                           postReactionMap[post.id] === "like"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-white/5 text-neutral-400 hover:bg-white/10"
                         }`}
                       >
                         <ThumbsUp className="h-3.5 w-3.5" />
@@ -854,8 +865,8 @@ export default function ProfilePage() {
                         onClick={() => handlePostReaction(post.id, "dislike")}
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                           postReactionMap[post.id] === "dislike"
-                            ? "bg-rose-100 text-rose-800"
-                            : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                            ? "bg-rose-500/20 text-rose-400"
+                            : "bg-white/5 text-neutral-400 hover:bg-white/10"
                         }`}
                       >
                         <ThumbsDown className="h-3.5 w-3.5" />
@@ -864,7 +875,7 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => toggleComments(post.id)}
-                        className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                        className="inline-flex items-center gap-1 rounded-full bg-white/5 px-2 py-1 text-neutral-400 transition hover:bg-white/10"
                       >
                         <MessageCircle className="h-3.5 w-3.5" />
                         {post.comment_count}
@@ -872,17 +883,17 @@ export default function ProfilePage() {
                     </footer>
 
                     {commentsOpenByPost[post.id] ? (
-                      <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-3">
+                      <section className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3">
                         <div className="space-y-2">
                           {(commentsByPost[post.id] ?? []).map((comment) => (
-                            <article key={comment.id} className="rounded-xl bg-neutral-50 p-3">
-                              <p className="text-sm text-neutral-700">{comment.content}</p>
+                            <article key={comment.id} className="rounded-xl bg-white/5 p-3">
+                              <p className="text-sm text-neutral-300">{comment.content}</p>
                               {comment.media_path ? (
-                                <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                                <div className="mt-2 overflow-hidden rounded-xl border border-white/10">
                                   <img
                                     src={toMediaUrl(apiBaseUrl, comment.media_path)}
                                     alt="Comment media"
-                                    className="max-h-64 w-full object-contain bg-white"
+                                    className="max-h-64 w-full object-contain"
                                   />
                                 </div>
                               ) : null}
@@ -894,8 +905,8 @@ export default function ProfilePage() {
                                   }
                                   className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                     commentReactionMap[comment.id] === "like"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : "bg-neutral-100 text-neutral-600"
+                                      ? "bg-emerald-500/20 text-emerald-400"
+                                      : "bg-white/5 text-neutral-400"
                                   }`}
                                 >
                                   <ThumbsUp className="h-3 w-3" />
@@ -908,8 +919,8 @@ export default function ProfilePage() {
                                   }
                                   className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                     commentReactionMap[comment.id] === "dislike"
-                                      ? "bg-rose-100 text-rose-800"
-                                      : "bg-neutral-100 text-neutral-600"
+                                      ? "bg-rose-500/20 text-rose-400"
+                                      : "bg-white/5 text-neutral-400"
                                   }`}
                                 >
                                   <ThumbsDown className="h-3 w-3" />
@@ -920,10 +931,10 @@ export default function ProfilePage() {
                           ))}
 
                           {commentsLoadingByPost[post.id] ? (
-                            <p className="text-xs text-neutral-500">Loading comments...</p>
+                            <p className="text-xs text-neutral-400">Loading comments...</p>
                           ) : null}
                           {commentErrorByPost[post.id] ? (
-                            <p className="text-xs text-rose-600">{commentErrorByPost[post.id]}</p>
+                            <p className="text-xs text-rose-400">{commentErrorByPost[post.id]}</p>
                           ) : null}
                         </div>
 
@@ -937,9 +948,9 @@ export default function ProfilePage() {
                               }))
                             }
                             placeholder="Write a comment..."
-                            className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                            className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                           />
-                          <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                          <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white">
                             <input
                               type="file"
                               accept="image/png,image/jpeg,image/gif"
@@ -958,13 +969,13 @@ export default function ProfilePage() {
                           <button
                             type="button"
                             onClick={() => handleCreateComment(post.id)}
-                            className="rounded-xl bg-neutral-900 px-3 text-xs font-semibold text-white"
+                            className="rounded-xl bg-white/10 px-3 text-xs font-semibold text-white transition hover:bg-white/20"
                           >
                             Comment
                           </button>
                         </div>
                         {commentFileNameByPost[post.id] ? (
-                          <p className="mt-2 text-[11px] text-neutral-500">
+                          <p className="mt-2 text-[11px] text-neutral-400">
                             Attached: {commentFileNameByPost[post.id]}
                           </p>
                         ) : null}
@@ -980,7 +991,7 @@ export default function ProfilePage() {
                   type="button"
                   onClick={loadMorePosts}
                   disabled={isLoadingMore}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {isLoadingMore ? "Loading..." : "Load more posts"}
                 </button>
@@ -988,37 +999,6 @@ export default function ProfilePage() {
             ) : null}
           </motion.div>
         </section>
-
-        <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-neutral-900">Profile status</h3>
-            <p className="mt-2 text-xs text-neutral-500">
-              {profile?.user.is_public
-                ? "Public profiles are visible to all members."
-                : "Private profiles require approval to view posts."}
-            </p>
-            <div className="mt-4 space-y-2 text-xs text-neutral-600">
-              <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
-                <span>Visibility</span>
-                <span className="font-semibold text-neutral-800">
-                  {profile?.user.is_public ? "Public" : "Private"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
-                <span>Followers</span>
-                <span className="font-semibold text-neutral-800">
-                  {profile?.followers_count ?? 0}
-                </span>
-              </div>
-              <div className="flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2">
-                <span>Following</span>
-                <span className="font-semibold text-neutral-800">
-                  {profile?.following_count ?? 0}
-                </span>
-              </div>
-            </div>
-          </div>
-        </aside>
       </main>
     </div>
   );

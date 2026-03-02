@@ -219,12 +219,20 @@ export default function FollowRequestsPage() {
 
   const resolveUser = (id: number) => usersByID[id];
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/requests-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/follow-requests" />
+          <LeftNav user={viewer ?? undefined} activeHref="/follow-requests" variant="dark" />
         </aside>
 
         <section className="space-y-6">
@@ -233,18 +241,18 @@ export default function FollowRequestsPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+                <h1 className="text-xl font-semibold tracking-tight text-white">
                   Follow requests
                 </h1>
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-white">
                   Manage incoming and sent follow requests.
                 </p>
               </div>
-              <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+              <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
                 {incoming.length + sent.length} total
               </span>
             </div>
@@ -256,7 +264,7 @@ export default function FollowRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-5 text-sm text-white backdrop-blur-sm"
             >
               Loading requests...
             </motion.div>
@@ -266,7 +274,7 @@ export default function FollowRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700"
+              className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-400"
             >
               {error}
             </motion.div>
@@ -277,11 +285,11 @@ export default function FollowRequestsPage() {
                 whileInView="show"
                 viewport={viewportOnce}
                 variants={fadeUp}
-                className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
               >
-                <h2 className="text-sm font-semibold text-neutral-900">Incoming requests</h2>
+                <h2 className="text-sm font-semibold text-white">Incoming requests</h2>
                 {incoming.length === 0 ? (
-                  <p className="mt-3 text-sm text-neutral-600">
+                  <p className="mt-3 text-sm text-white">
                     No incoming requests right now.
                   </p>
                 ) : (
@@ -291,15 +299,15 @@ export default function FollowRequestsPage() {
                       return (
                         <div
                           key={req.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                         >
                           <div>
-                            <p className="text-sm font-semibold text-neutral-800">
+                            <p className="text-sm font-semibold text-white">
                               {requester
                                 ? `${requester.first_name} ${requester.last_name}`
                                 : "User"}
                             </p>
-                            <p className="text-xs text-neutral-500">
+                            <p className="text-xs text-neutral-400">
                               @{requester?.nickname || "user"} ·{" "}
                               {shortDate(req.created_at)}
                             </p>
@@ -316,7 +324,7 @@ export default function FollowRequestsPage() {
                             <button
                               type="button"
                               onClick={() => updateRequest(req.id, "declined")}
-                              className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
+                              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                             >
                               <UserMinus className="h-3.5 w-3.5" />
                               Decline
@@ -334,11 +342,11 @@ export default function FollowRequestsPage() {
                 whileInView="show"
                 viewport={viewportOnce}
                 variants={fadeUp}
-                className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
               >
-                <h2 className="text-sm font-semibold text-neutral-900">Sent requests</h2>
+                <h2 className="text-sm font-semibold text-white">Sent requests</h2>
                 {sent.length === 0 ? (
-                  <p className="mt-3 text-sm text-neutral-600">No sent requests.</p>
+                  <p className="mt-3 text-sm text-white">No sent requests.</p>
                 ) : (
                   <div className="mt-4 space-y-3">
                     {sent.map((req) => {
@@ -346,15 +354,15 @@ export default function FollowRequestsPage() {
                       return (
                         <div
                           key={req.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                         >
                           <div>
-                            <p className="text-sm font-semibold text-neutral-800">
+                            <p className="text-sm font-semibold text-white">
                               {target
                                 ? `${target.first_name} ${target.last_name}`
                                 : "User"}
                             </p>
-                            <p className="text-xs text-neutral-500">
+                            <p className="text-xs text-neutral-400">
                               @{target?.nickname || "user"} ·{" "}
                               {shortDate(req.created_at)}
                             </p>
@@ -362,7 +370,7 @@ export default function FollowRequestsPage() {
                           <button
                             type="button"
                             onClick={() => updateRequest(req.id, "canceled")}
-                            className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
+                            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                           >
                             <UserMinus className="h-3.5 w-3.5" />
                             Cancel
@@ -374,83 +382,6 @@ export default function FollowRequestsPage() {
                 )}
               </motion.div>
 
-              <motion.div
-                initial="hidden"
-                whileInView="show"
-                viewport={viewportOnce}
-                variants={fadeUp}
-                className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
-              >
-                <h2 className="text-sm font-semibold text-neutral-900">Followers</h2>
-                {followers.length === 0 ? (
-                  <p className="mt-3 text-sm text-neutral-600">No followers yet.</p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {followers.map((follower) => (
-                      <div
-                        key={follower.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-neutral-800">
-                            {follower.first_name} {follower.last_name}
-                          </p>
-                          <p className="text-xs text-neutral-500">
-                            @{follower.nickname || "user"}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeFollower(follower.id)}
-                          className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-
-              <motion.div
-                initial="hidden"
-                whileInView="show"
-                viewport={viewportOnce}
-                variants={fadeUp}
-                className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
-              >
-                <h2 className="text-sm font-semibold text-neutral-900">Following</h2>
-                {following.length === 0 ? (
-                  <p className="mt-3 text-sm text-neutral-600">Not following anyone.</p>
-                ) : (
-                  <div className="mt-4 space-y-3">
-                    {following.map((target) => (
-                      <div
-                        key={target.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-neutral-800">
-                            {target.first_name} {target.last_name}
-                          </p>
-                          <p className="text-xs text-neutral-500">
-                            @{target.nickname || "user"}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => unfollowUser(target.id)}
-                          className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
-                        >
-                          <UserMinus className="h-3.5 w-3.5" />
-                          Unfollow
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
             </>
           )}
 
@@ -460,21 +391,91 @@ export default function FollowRequestsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+              className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-400"
             >
               {actionError}
             </motion.div>
           ) : null}
         </section>
 
-        <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-neutral-900">Tips</h3>
-            <p className="mt-2 text-xs text-neutral-500">
-              Accept requests to allow private profiles to connect. Declined requests
-              can be re-sent by the other user later.
-            </p>
-          </div>
+        <aside className="hidden space-y-4 lg:block">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={viewportOnce}
+            variants={fadeUp}
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
+          >
+            <h2 className="text-sm font-semibold text-white">Followers</h2>
+            {followers.length === 0 ? (
+              <p className="mt-3 text-sm text-white">No followers yet.</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {followers.map((follower) => (
+                  <div
+                    key={follower.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {follower.first_name} {follower.last_name}
+                      </p>
+                      <p className="text-xs text-neutral-400">
+                        @{follower.nickname || "user"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFollower(follower.id)}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                    >
+                      <UserMinus className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={viewportOnce}
+            variants={fadeUp}
+            className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
+          >
+            <h2 className="text-sm font-semibold text-white">Following</h2>
+            {following.length === 0 ? (
+              <p className="mt-3 text-sm text-white">Not following anyone.</p>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {following.map((target) => (
+                  <div
+                    key={target.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {target.first_name} {target.last_name}
+                      </p>
+                      <p className="text-xs text-neutral-400">
+                        @{target.nickname || "user"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => unfollowUser(target.id)}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                    >
+                      <UserMinus className="h-3.5 w-3.5" />
+                      Unfollow
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
         </aside>
       </main>
     </div>

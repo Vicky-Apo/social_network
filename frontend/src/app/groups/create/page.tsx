@@ -94,12 +94,20 @@ export default function CreateGroupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
-      <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -108,20 +116,20 @@ export default function CreateGroupPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+                <h1 className="text-xl font-semibold tracking-tight text-white">
                   Create a group
                 </h1>
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-neutral-400">
                   Start a new space for your community.
                 </p>
               </div>
               <Link
                 href="/groups"
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 Back to groups
@@ -129,35 +137,35 @@ export default function CreateGroupPage() {
             </div>
 
             <div className="mt-5 space-y-4">
-              <label className="block text-xs font-semibold text-neutral-600">
+              <label className="block text-xs font-semibold text-neutral-400">
                 Group title
                 <input
                   value={title}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="e.g., Go Builders"
-                  className="mt-2 h-11 w-full rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 outline-none transition focus:border-neutral-400"
+                  className="mt-2 h-11 w-full rounded-xl border border-white/20 bg-white/5 px-4 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40"
                 />
               </label>
-              <label className="block text-xs font-semibold text-neutral-600">
+              <label className="block text-xs font-semibold text-neutral-400">
                 Description
                 <textarea
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   rows={4}
                   placeholder="What is this group about?"
-                  className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 outline-none transition focus:border-neutral-400"
+                  className="mt-2 w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40"
                 />
               </label>
             </div>
 
-            {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
-            {success ? <p className="mt-3 text-xs text-emerald-600">{success}</p> : null}
+            {error ? <p className="mt-3 text-xs text-rose-400">{error}</p> : null}
+            {success ? <p className="mt-3 text-xs text-emerald-400">{success}</p> : null}
 
             <button
               type="button"
               onClick={handleCreate}
               disabled={isSaving}
-              className="mt-5 rounded-full bg-neutral-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-70"
+              className="mt-5 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-[#2b2929] transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isSaving ? "Creating..." : "Create group"}
             </button>

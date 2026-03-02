@@ -176,12 +176,20 @@ export default function ProfileEditPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" />
+          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -190,10 +198,10 @@ export default function ProfileEditPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
           >
-            <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Edit profile</h1>
-            <p className="text-sm text-neutral-600">
+            <h1 className="text-xl font-semibold tracking-tight text-white">Edit profile</h1>
+            <p className="text-sm text-neutral-400">
               Update your profile details and visibility.
             </p>
           </motion.div>
@@ -204,7 +212,7 @@ export default function ProfileEditPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm"
             >
               Loading profile...
             </motion.div>
@@ -214,7 +222,7 @@ export default function ProfileEditPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700"
+              className="rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400"
             >
               {error}
             </motion.div>
@@ -224,22 +232,22 @@ export default function ProfileEditPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-neutral-700">Nickname</label>
+                  <label className="text-sm font-semibold text-white">Nickname</label>
                   <input
                     value={nickname}
                     onChange={(event) => setNickname(event.target.value)}
                     placeholder="Nickname"
-                    className="h-12 w-full rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                    className="h-12 w-full rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-black placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold text-neutral-700">Avatar</label>
+                  <label className="text-sm font-semibold text-white">Avatar</label>
                   <div className="flex flex-wrap items-center gap-3">
-                    <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                    <label className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white">
                       <input
                         type="file"
                         accept="image/png,image/jpeg,image/gif"
@@ -253,7 +261,7 @@ export default function ProfileEditPage() {
                       />
                       Choose file
                     </label>
-                    <span className="text-xs text-neutral-500">
+                    <span className="text-xs text-neutral-400">
                       {avatarFile ? avatarFile.name : avatarPath || "No file selected"}
                     </span>
                   </div>
@@ -261,30 +269,30 @@ export default function ProfileEditPage() {
               </div>
 
               <div className="mt-4 space-y-2">
-                <label className="text-sm font-semibold text-neutral-700">About</label>
+                <label className="text-sm font-semibold text-white">About</label>
                 <textarea
                   value={about}
                   onChange={(event) => setAbout(event.target.value)}
                   rows={4}
                   placeholder="Tell people about yourself"
-                  className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                  className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-black placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none"
                 />
               </div>
 
-              <div className="mt-4 flex items-center justify-between rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3">
+              <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-neutral-900">Profile visibility</p>
-                  <p className="text-xs text-neutral-500">
+                  <p className="text-sm font-semibold text-white">Profile visibility</p>
+                  <p className="text-xs text-neutral-400">
                     {isPublic ? "Public profile" : "Private profile"}
                   </p>
                 </div>
-                <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
+                <label className="inline-flex items-center gap-2 text-xs text-neutral-300">
                   Public
                   <input
                     type="checkbox"
                     checked={isPublic}
                     onChange={(event) => setIsPublic(event.target.checked)}
-                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                    className="h-4 w-4 rounded border-neutral-400 text-neutral-900 focus:ring-neutral-900"
                   />
                 </label>
               </div>
@@ -300,24 +308,16 @@ export default function ProfileEditPage() {
                 </button>
                 <Link
                   href={`/profile/${viewer?.id ?? ""}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                  className="inline-flex items-center gap-2 rounded-full border-2 border-white bg-white px-3 py-2 text-xs font-semibold transition hover:bg-neutral-100"
+                  style={{ color: "#000" }}
                 >
                   Back to profile
                 </Link>
-                {success ? <span className="text-xs text-emerald-600">{success}</span> : null}
+                {success ? <span className="text-xs text-emerald-400">{success}</span> : null}
               </div>
             </motion.div>
           )}
         </section>
-
-        <aside className="hidden lg:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-neutral-900">Profile tips</h3>
-            <p className="mt-2 text-xs text-neutral-500">
-              Use a friendly nickname and a short bio to help others recognize you.
-            </p>
-          </div>
-        </aside>
       </main>
     </div>
   );

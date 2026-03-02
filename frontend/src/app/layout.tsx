@@ -1,25 +1,33 @@
 import type { Metadata } from "next";
-import { Manrope } from "next/font/google";
+import { Space_Grotesk, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthContext";
 import { NotificationsProvider } from "@/components/NotificationsContext";
 import { MessagesProvider } from "@/components/MessagesContext";
+import { Footer } from "@/components/Footer";
 import { landingData } from "@/lib/data";
 
-const manrope = Manrope({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-sans",
+  variable: "--font-heading-family",
+  display: "swap",
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-body-family",
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: `${landingData.productName} | Community Platform`,
+  title: `${landingData.productName} | Social Network`,
   description: landingData.heroSubtext,
 };
 
 const bodyClassName = [
-  manrope.variable,
-  "bg-neutral-50 text-neutral-900 antialiased",
+  spaceGrotesk.variable,
+  plusJakartaSans.variable,
+  "font-body text-neutral-100 antialiased",
 ].join(" ");
 
 export default function RootLayout({
@@ -32,7 +40,10 @@ export default function RootLayout({
       <body className={bodyClassName}>
         <AuthProvider>
           <NotificationsProvider>
-            <MessagesProvider>{children}</MessagesProvider>
+            <MessagesProvider>
+              {children}
+              <Footer />
+            </MessagesProvider>
           </NotificationsProvider>
         </AuthProvider>
       </body>
