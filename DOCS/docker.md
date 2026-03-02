@@ -119,7 +119,7 @@ The frontend also uses a **multi-stage build**:
 2. **Production Stage** (`node:20-alpine`)
    - Copies standalone server
    - Copies static assets
-   - Installs only production dependencies
+   - Installs only runtime dependencies
    - No development packages
 
 ### Configuration
@@ -159,7 +159,7 @@ This prevents build errors when pages use:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `NEXT_PUBLIC_API_URL` | Backend API URL | `http://localhost:8080` |
-| `NODE_ENV` | Node environment | `production` |
+| `NODE_ENV` | Node environment | `runtime` |
 | `NEXT_TELEMETRY_DISABLED` | Disable Next.js telemetry | `1` |
 
 ## Database Container
@@ -472,7 +472,7 @@ docker-compose down -v
 ### Build Time Optimization
 
 - **Layer caching** - Dependencies changed less frequently than code
-- **Multi-stage builds** - Build tools not in production image
+- **Multi-stage builds** - Build tools not in runtime image
 - **`.dockerignore`** - Reduces build context transfer time
 
 ### Runtime Optimization
@@ -489,27 +489,6 @@ docker-compose down -v
 docker-compose up -d
 # Hot reload not supported, rebuild after changes
 docker-compose up -d --build
-```
-
-### Staging/Production
-
-Use environment-specific compose files:
-
-```bash
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-**`docker-compose.prod.yml`:**
-```yaml
-services:
-  backend:
-    environment:
-      - DEBUG=false
-      - RATE_LIMIT_REQUESTS_PER_MINUTE=100
-  
-  postgres:
-    volumes:
-      - /data/postgres:/var/lib/postgresql/data
 ```
 
 ## Monitoring

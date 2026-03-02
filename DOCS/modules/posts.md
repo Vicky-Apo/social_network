@@ -18,10 +18,11 @@ Listing and creating posts require a valid session cookie. Use `credentials: "in
 `GET /posts`
 
 Query parameters:
-- `limit` (optional, default 20, max 100)
+- `limit` (optional, default 10, max 100)
 - `offset` (optional, default 0)
 - `groups_only` (optional, `true`/`false`): return only group posts from groups the user belongs to
 - `author_id` (optional): list posts by a specific user (see "List posts by user")
+- Response header: `X-Total-Count` (total number of posts for pagination)
 
 Notes:
 - Returns non-group posts the user can see (public/followers/private rules)
@@ -58,6 +59,9 @@ Response (200):
   ]
 }
 ```
+
+Headers:
+- `X-Total-Count`: total posts available for the current query.
 
 ### Create post
 
@@ -195,7 +199,7 @@ Error responses:
 
 ### List posts by user
 
-`GET /posts?author_id={id}&limit=20&offset=0`
+`GET /posts?author_id={id}&limit=10&offset=0`
 
 Notes:
 - Results respect the author's profile privacy and post visibility.
@@ -234,7 +238,7 @@ Response (200):
 
 ### List posts by group
 
-`GET /groups/{id}/posts?limit=20&offset=0`
+`GET /groups/{id}/posts?limit=10&offset=0`
 
 Notes:
 - Only group members can access group posts.

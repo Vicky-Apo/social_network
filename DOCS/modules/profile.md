@@ -78,14 +78,14 @@ Error responses:
 
 ### Get full profile (profile + posts + activity)
 
-`GET /profiles/{id}/full?limit=20&offset=0&activity_limit=5`
+`GET /profiles/{id}/full?limit=10&offset=0&activity_limit=5`
 
 Notes:
 - Returns the same `profile` payload as `GET /profiles/{id}` plus:
   - `posts`: paginated list of posts by the user (same shape as `GET /posts?author_id=...`)
   - `activity.recent_posts`: most recent posts (default 5)
 - Respects profile privacy rules. If the profile is private and the viewer is not allowed, it will return the limited profile and **empty** `posts`/`activity`.
-- `limit`/`offset` control the `posts` list (default limit 20, max 100).
+- `limit`/`offset` control the `posts` list (default limit 10, max 100).
 - `activity_limit` controls the size of `activity.recent_posts` (default 5, max 100). Use `activity_limit=0` to omit recent posts.
 
 Response (200):

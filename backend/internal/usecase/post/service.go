@@ -49,6 +49,16 @@ func (s *Service) List(ctx context.Context, viewerID int64, limit, offset int) (
 	return mapPosts(posts), nil
 }
 
+// Count returns total posts visible in the feed for a viewer.
+func (s *Service) Count(ctx context.Context, viewerID int64) (int, error) {
+	total, err := s.repo.Count(ctx, viewerID)
+	if err != nil {
+		s.log.Error("failed to count posts", err)
+		return 0, fmt.Errorf("count posts: %w", err)
+	}
+	return total, nil
+}
+
 // ListPublicOnly returns only public personal posts. Visible to all logged-in users.
 func (s *Service) ListPublicOnly(ctx context.Context, limit, offset int) ([]PostDTO, error) {
 	posts, err := s.repo.ListPublicOnly(ctx, limit, offset)
@@ -60,6 +70,16 @@ func (s *Service) ListPublicOnly(ctx context.Context, limit, offset int) ([]Post
 	return mapPosts(posts), nil
 }
 
+// CountPublicOnly returns total public personal posts.
+func (s *Service) CountPublicOnly(ctx context.Context) (int, error) {
+	total, err := s.repo.CountPublicOnly(ctx)
+	if err != nil {
+		s.log.Error("failed to count public posts", err)
+		return 0, fmt.Errorf("count public posts: %w", err)
+	}
+	return total, nil
+}
+
 // ListGroupsOnly returns only group posts for groups the viewer is a member of.
 func (s *Service) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]PostDTO, error) {
 	posts, err := s.repo.ListGroupsOnly(ctx, viewerID, limit, offset)
@@ -69,6 +89,16 @@ func (s *Service) ListGroupsOnly(ctx context.Context, viewerID int64, limit, off
 	}
 	s.log.Debug("group posts listed", logger.F("count", len(posts)))
 	return mapPosts(posts), nil
+}
+
+// CountGroupsOnly returns total group posts for groups the viewer is a member of.
+func (s *Service) CountGroupsOnly(ctx context.Context, viewerID int64) (int, error) {
+	total, err := s.repo.CountGroupsOnly(ctx, viewerID)
+	if err != nil {
+		s.log.Error("failed to count group posts", err)
+		return 0, fmt.Errorf("count group posts: %w", err)
+	}
+	return total, nil
 }
 
 // Create creates a new post.
@@ -302,6 +332,26 @@ func (s *Service) ListByGroup(ctx context.Context, groupID, viewerID int64, limi
 	return mapPosts(posts), nil
 }
 
+// CountByGroup returns total posts for a group (members only).
+func (s *Service) CountByGroup(ctx context.Context, groupID, viewerID int64) (int, error) {
+	if s.access == nil {
+		return 0, errors.New("access service not configured")
+	}
+	canView, err := s.access.CanViewGroup(ctx, viewerID, groupID)
+	if err != nil {
+		return 0, fmt.Errorf("check group access: %w", err)
+	}
+	if !canView {
+		return 0, ErrForbidden
+	}
+	total, err := s.repo.CountByGroup(ctx, groupID)
+	if err != nil {
+		s.log.Error("failed to count posts by group", err, logger.F("group_id", groupID))
+		return 0, fmt.Errorf("count posts by group: %w", err)
+	}
+	return total, nil
+}
+
 // ListByAuthor returns posts for a specific author with pagination.
 func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, limit, offset int) ([]PostDTO, error) {
 	isOwner := viewerID != 0 && viewerID == authorID
@@ -341,6 +391,45 @@ func (s *Service) ListByAuthor(ctx context.Context, authorID, viewerID int64, li
 	}
 	s.log.Debug("posts listed by author", logger.F("author_id", authorID), logger.F("count", len(posts)))
 	return mapPosts(posts), nil
+}
+
+// CountByAuthor returns total posts for a specific author respecting viewer access.
+func (s *Service) CountByAuthor(ctx context.Context, authorID, viewerID int64) (int, error) {
+	isOwner := viewerID != 0 && viewerID == authorID
+	isFollower := false
+	if viewerID != 0 && !isOwner {
+		if s.access == nil {
+			return 0, errors.New("access service not configured")
+		}
+		var err error
+		isFollower, err = s.access.IsFollowing(ctx, viewerID, authorID)
+		if err != nil {
+			return 0, fmt.Errorf("check follow: %w", err)
+		}
+	}
+	if s.access != nil {
+		ok, err := s.access.CanViewProfile(ctx, viewerID, authorID)
+		if err != nil {
+			return 0, err
+		}
+		if !ok {
+			return 0, ErrForbidden
+		}
+	} else {
+		user, err := s.userRepo.GetByID(ctx, authorID)
+		if err != nil {
+			return 0, err
+		}
+		if !user.IsPublic && !isOwner && !isFollower {
+			return 0, ErrForbidden
+		}
+	}
+	total, err := s.repo.CountByAuthor(ctx, authorID, viewerID, isFollower, isOwner)
+	if err != nil {
+		s.log.Error("failed to count posts by author", err, logger.F("author_id", authorID))
+		return 0, fmt.Errorf("count posts by author: %w", err)
+	}
+	return total, nil
 }
 
 // ErrForbidden is returned when a viewer cannot access a post.

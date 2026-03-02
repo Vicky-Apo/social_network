@@ -29,6 +29,7 @@ func CORS(cfg config.CORSConfig) func(http.Handler) http.Handler {
 
 				w.Header().Set("Access-Control-Allow-Methods", cfg.AllowedMethods)
 				w.Header().Set("Access-Control-Allow-Headers", cfg.AllowedHeaders)
+				w.Header().Set("Access-Control-Expose-Headers", "X-Total-Count")
 
 				if cfg.MaxAge > 0 {
 					w.Header().Set("Access-Control-Max-Age", intToString(cfg.MaxAge))

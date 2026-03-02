@@ -117,6 +117,19 @@ func (h *CommentHandler) GetByPostID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	total, err := h.service.CountByPostID(r.Context(), postID, viewerID)
+	if err != nil {
+		if errors.Is(err, usecasecomment.ErrForbidden) {
+			logForbidden(h.log, "comments.list", logger.F("post_id", postID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		logServerError(h.log, "comments.list", err, logger.F("post_id", postID))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		return
+	}
+
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
 	utils.RespondWithSuccess(w, http.StatusOK, comments)
 }
 

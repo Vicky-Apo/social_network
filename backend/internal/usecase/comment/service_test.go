@@ -22,6 +22,9 @@ func (r *fakeCommentRepo) Create(ctx context.Context, c domaincomment.Comment) (
 func (r *fakeCommentRepo) GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]domaincomment.Comment, error) {
 	return nil, nil
 }
+func (r *fakeCommentRepo) CountByPostID(ctx context.Context, postID int64) (int, error) {
+	return 0, nil
+}
 
 func (r *fakeCommentRepo) GetByID(ctx context.Context, id int64) (domaincomment.Comment, error) {
 	return domaincomment.Comment{}, domaincomment.ErrNotFound
@@ -84,12 +87,15 @@ func (r *fakePostRepo) IsUserAllowed(ctx context.Context, postID, userID int64) 
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) Count(ctx context.Context, viewerID int64) (int, error) { return 0, nil }
 func (r *fakePostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountGroupsOnly(ctx context.Context, viewerID int64) (int, error) { return 0, nil }
 func (r *fakePostRepo) ListPublicOnly(ctx context.Context, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountPublicOnly(ctx context.Context) (int, error) { return 0, nil }
 
 func (r *fakePostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
@@ -102,7 +108,11 @@ func (r *fakePostRepo) Delete(ctx context.Context, id int64) error { return nil 
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool) (int, error) {
+	return 0, nil
+}
 
 func (r *fakePostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountByGroup(ctx context.Context, groupID int64) (int, error) { return 0, nil }

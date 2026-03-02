@@ -19,6 +19,7 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
+import Pagination from "@/components/Pagination";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 import { formatApiError } from "@/lib/formatApiError";
 
@@ -205,9 +206,11 @@ export default function GroupDetailsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [postsError, setPostsError] = useState<string | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMorePosts, setHasMorePosts] = useState(true);
-  const [pageSize] = useState(8);
+  const [totalPosts, setTotalPosts] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const totalPages = Math.max(1, Math.ceil(totalPosts / pageSize));
+  const commentLimit = 10;
   const [composerText, setComposerText] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [composerFile, setComposerFile] = useState<File | null>(null);
@@ -223,6 +226,8 @@ export default function GroupDetailsPage() {
   const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
   const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
+  const [commentPageByPost, setCommentPageByPost] = useState<Record<number, number>>({});
+  const [commentTotalByPost, setCommentTotalByPost] = useState<Record<number, number>>({});
   const [editingPostID, setEditingPostID] = useState<number | null>(null);
   const [editPostText, setEditPostText] = useState("");
   const [editPostFile, setEditPostFile] = useState<File | null>(null);
@@ -264,6 +269,10 @@ export default function GroupDetailsPage() {
   );
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [groupIDNumber]);
+
+  useEffect(() => {
     if (!Number.isFinite(groupIDNumber) || groupIDNumber <= 0) {
       setError("Invalid group id.");
       setIsLoading(false);
@@ -277,7 +286,6 @@ export default function GroupDetailsPage() {
       setError(null);
       setPostsLoading(true);
       setPostsError(null);
-      setHasMorePosts(true);
 
       try {
         const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
@@ -296,11 +304,12 @@ export default function GroupDetailsPage() {
           setUserID(typeof meUser?.id === "number" ? meUser.id : null);
         }
 
+        const offset = (currentPage - 1) * pageSize;
         const [groupResponse, postsResponse] = await Promise.all([
           fetch(`${apiBaseUrl}/groups/${groupIDNumber}`, {
             credentials: "include",
           }),
-          fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=0`, {
+          fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=${offset}`, {
             credentials: "include",
           }),
         ]);
@@ -344,7 +353,9 @@ export default function GroupDetailsPage() {
         } else if (!cancelled) {
           const nextPosts = postsResult.data ?? [];
           setPosts(nextPosts);
-          setHasMorePosts(nextPosts.length >= pageSize);
+          const totalHeader = postsResponse.headers.get("X-Total-Count");
+          const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+          setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : nextPosts.length);
 
           const currentUserID = typeof meUser?.id === "number" ? meUser.id : null;
           if (currentUserID && nextPosts.length > 0) {
@@ -392,7 +403,6 @@ export default function GroupDetailsPage() {
           setGroup(null);
           setPostsError("Network error while loading group posts.");
           setPosts([]);
-          setHasMorePosts(false);
           setIsMember(false);
         }
       } finally {
@@ -407,7 +417,7 @@ export default function GroupDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, groupIDNumber, pageSize, router]);
+  }, [apiBaseUrl, groupIDNumber, pageSize, router, currentPage]);
 
   useEffect(() => {
     const creatorID = group?.creatorID;
@@ -504,52 +514,6 @@ export default function GroupDetailsPage() {
       void loadEvents(0, false);
     }
   }, [activeTab, events.length, eventsLoading, isMember, members.length, membersLoading]);
-
-  const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMorePosts) return;
-    setIsLoadingMore(true);
-    setPostsError(null);
-    try {
-      const offset = posts.length;
-      const response = await fetch(
-        `${apiBaseUrl}/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=${offset}`,
-        { credentials: "include" },
-      );
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (!response.ok || !result?.success) {
-        setPostsError(result?.error || "Could not load more posts.");
-        return;
-      }
-      const nextPosts = result.data ?? [];
-      setPosts((prev) => [...prev, ...nextPosts]);
-      setHasMorePosts(nextPosts.length >= pageSize);
-
-      if (userID && nextPosts.length > 0) {
-        const entries = await Promise.all(
-          nextPosts.map(async (post) => {
-            try {
-              const reactionRes = await fetch(`${apiBaseUrl}/posts/${post.id}/reactions`, {
-                credentials: "include",
-              });
-              const reactionJson = (await reactionRes.json().catch(() => null)) as
-                | ApiResponse<Reaction[]>
-                | null;
-              if (!reactionRes.ok || !reactionJson?.success) {
-                return [post.id, null] as const;
-              }
-              const mine = (reactionJson.data ?? []).find((item) => item.user_id === userID);
-              return [post.id, mine?.reaction ?? null] as const;
-            } catch {
-              return [post.id, null] as const;
-            }
-          }),
-        );
-        setPostReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      }
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
 
   const requestToJoin = async () => {
     setJoinError(null);
@@ -790,14 +754,16 @@ export default function GroupDetailsPage() {
     }
   };
 
-  const loadCommentsForPost = async (postID: number) => {
+  const loadCommentsForPost = async (postID: number, page: number) => {
     setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: true }));
     setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
-        credentials: "include",
-      });
+      const offset = (page - 1) * commentLimit;
+      const response = await fetch(
+        `${apiBaseUrl}/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
+        { credentials: "include" },
+      );
       const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
 
       if (!response.ok || !result?.success) {
@@ -810,6 +776,13 @@ export default function GroupDetailsPage() {
 
       const comments = result.data ?? [];
       setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
+      setCommentPageByPost((prev) => ({ ...prev, [postID]: page }));
+      const totalHeader = response.headers.get("X-Total-Count");
+      const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Number.isFinite(parsedTotal) ? parsedTotal : comments.length,
+      }));
 
       if (userID && comments.length > 0) {
         const entries = await Promise.all(
@@ -843,8 +816,9 @@ export default function GroupDetailsPage() {
     const isOpen = commentsOpenByPost[postID] ?? false;
     const nextOpen = !isOpen;
     setCommentsOpenByPost((prev) => ({ ...prev, [postID]: nextOpen }));
-    if (nextOpen && !commentsByPost[postID]) {
-      void loadCommentsForPost(postID);
+    if (nextOpen) {
+      const page = commentPageByPost[postID] ?? 1;
+      void loadCommentsForPost(postID, page);
     }
   };
 
@@ -889,10 +863,7 @@ export default function GroupDetailsPage() {
         return;
       }
 
-      setCommentsByPost((prev) => ({
-        ...prev,
-        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
-      }));
+      const nextPage = commentPageByPost[postID] ?? 1;
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
       setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
@@ -903,6 +874,11 @@ export default function GroupDetailsPage() {
         ),
       );
       setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? 0) + 1,
+      }));
+      await loadCommentsForPost(postID, nextPage);
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -1057,6 +1033,12 @@ export default function GroupDetailsPage() {
           post.id === postID ? { ...post, comment_count: Math.max(0, post.comment_count - 1) } : post,
         ),
       );
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Math.max(0, (prev[postID] ?? 0) - 1),
+      }));
+      const page = commentPageByPost[postID] ?? 1;
+      await loadCommentsForPost(postID, page);
     } catch {
       // ignore
     }
@@ -1527,6 +1509,14 @@ export default function GroupDetailsPage() {
                       <ThumbsDown className="h-3.5 w-3.5" />
                       {post.dislike_count}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleComments(post.id)}
+                      className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-neutral-300 transition hover:bg-white/20"
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" />
+                      {post.comment_count}
+                    </button>
                     {userID === post.author_id ? (
                       <>
                         <button
@@ -1688,6 +1678,19 @@ export default function GroupDetailsPage() {
                           <p className="text-xs text-rose-600">{commentErrorByPost[post.id]}</p>
                         ) : null}
                       </div>
+
+                      <Pagination
+                        currentPage={commentPageByPost[post.id] ?? 1}
+                        totalPages={Math.max(
+                          1,
+                          Math.ceil(
+                            (commentTotalByPost[post.id] ??
+                              (commentsByPost[post.id]?.length ?? 0)) / commentLimit,
+                          ),
+                        )}
+                        onPageChange={(page) => loadCommentsForPost(post.id, page)}
+                        className="mt-3"
+                      />
 
                       <div className="mt-3 flex gap-2">
                         <input
@@ -1975,18 +1978,12 @@ export default function GroupDetailsPage() {
             </div>
           ) : null}
 
-          {hasMorePosts && !postsLoading && !postsError ? (
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={loadMorePosts}
-                disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isLoadingMore ? "Loading..." : "Load more posts"}
-              </button>
-            </div>
-          ) : null}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-5"
+          />
         </motion.section>
         </section>
       </main>

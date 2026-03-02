@@ -100,6 +100,25 @@ func (s *Service) GetByPostID(ctx context.Context, postID, viewerID int64, limit
 	return mapComments(comments), nil
 }
 
+// CountByPostID returns total comments for a post (respecting access).
+func (s *Service) CountByPostID(ctx context.Context, postID, viewerID int64) (int, error) {
+	if s.access == nil {
+		return 0, errors.New("access service not configured")
+	}
+	ok, err := s.access.CanViewPost(ctx, viewerID, postID)
+	if err != nil {
+		return 0, err
+	}
+	if !ok {
+		return 0, ErrForbidden
+	}
+	total, err := s.repo.CountByPostID(ctx, postID)
+	if err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
 // Update updates an existing comment. Only the author can update.
 func (s *Service) Update(ctx context.Context, commentID, authorID int64, req UpdateCommentRequest) (CommentDTO, error) {
 	existing, err := s.repo.GetByID(ctx, commentID)

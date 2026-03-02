@@ -10,6 +10,7 @@ import { useAuth } from "@/components/AuthContext";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Pagination from "@/components/Pagination";
 import { useNotifications } from "@/components/NotificationsContext";
 
 type ApiResponse<T> = {
@@ -187,6 +188,8 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
   const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
   const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
+  const [commentPageByPost, setCommentPageByPost] = useState<Record<number, number>>({});
+  const [commentTotalByPost, setCommentTotalByPost] = useState<Record<number, number>>({});
   const [followers, setFollowers] = useState<UserListItem[]>([]);
   const [followersLoading, setFollowersLoading] = useState(false);
   const [editingPostID, setEditingPostID] = useState<number | null>(null);
@@ -203,9 +206,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
   const [editCommentFileName, setEditCommentFileName] = useState("");
   const [editCommentClearMedia, setEditCommentClearMedia] = useState(false);
   const [editCommentError, setEditCommentError] = useState<string | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMorePosts, setHasMorePosts] = useState(true);
-  const feedLimit = 20;
+  const [totalPosts, setTotalPosts] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const feedLimit = 10;
+  const totalPages = Math.max(1, Math.ceil(totalPosts / feedLimit));
+  const commentLimit = 10;
 
   const apiBaseUrl = useMemo(
     () =>
@@ -220,6 +225,10 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
   const markAllNotificationsRead =
     notificationsContext?.markAllRead ?? (async () => Promise.resolve());
 
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [isExplore, groupsOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -260,16 +269,18 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
           setFollowersLoading(false);
         }
 
+        const offset = (currentPage - 1) * feedLimit;
         const feedPath = isExplore
-          ? `/posts?public_only=true&limit=${feedLimit}&offset=0`
+          ? `/posts?public_only=true&limit=${feedLimit}&offset=${offset}`
           : groupsOnly
-            ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
-            : `/posts?author_id=${me.result.data?.id ?? 0}&limit=${feedLimit}&offset=0`;
+            ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
+            : `/posts?limit=${feedLimit}&offset=${offset}`;
         const feed = await fetchJson<Post[]>(feedPath);
         if (!feed.response.ok || !feed.result?.success) {
           if (!cancelled) {
             setFeedError(feed.result?.error || "Unable to load your feed.");
             setPosts([]);
+            setTotalPosts(0);
           }
           return;
         }
@@ -277,7 +288,9 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         if (!cancelled) {
           const nextPosts = feed.result.data ?? [];
           setPosts(nextPosts);
-          setHasMorePosts(nextPosts.length >= feedLimit);
+          const totalHeader = feed.response.headers.get("X-Total-Count");
+          const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+          setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : nextPosts.length);
 
           const currentUserID = me.result.data?.id;
           if (currentUserID) {
@@ -322,36 +335,14 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, router, groupsOnly, isExplore]);
+  }, [apiBaseUrl, router, groupsOnly, isExplore, currentPage, feedLimit]);
 
   const getFeedPath = (offset: number) =>
     isExplore
       ? `/posts?public_only=true&limit=${feedLimit}&offset=${offset}`
       : groupsOnly
         ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
-        : `/posts?author_id=${user?.id ?? 0}&limit=${feedLimit}&offset=${offset}`;
-
-  const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMorePosts) return;
-    setIsLoadingMore(true);
-    setFeedError(null);
-    try {
-      const offset = posts.length;
-      const response = await fetch(`${apiBaseUrl}${getFeedPath(offset)}`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (!response.ok || !result?.success) {
-        setFeedError(result?.error || "Could not load more posts.");
-        return;
-      }
-      const nextPosts = result.data ?? [];
-      setPosts((prev) => [...prev, ...nextPosts]);
-      setHasMorePosts(nextPosts.length >= feedLimit);
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
+        : `/posts?limit=${feedLimit}&offset=${offset}`;
 
   useEffect(() => {
     if (!user?.id) {
@@ -359,7 +350,8 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     }
 
     const intervalID = window.setInterval(async () => {
-      const response = await fetch(`${apiBaseUrl}${getFeedPath(0)}`, {
+      const offset = (currentPage - 1) * feedLimit;
+      const response = await fetch(`${apiBaseUrl}${getFeedPath(offset)}`, {
         credentials: "include",
       }).catch(() => null);
       if (!response?.ok) {
@@ -374,7 +366,7 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     return () => {
       window.clearInterval(intervalID);
     };
-  }, [apiBaseUrl, groupsOnly, isExplore, user?.id]);
+  }, [apiBaseUrl, groupsOnly, isExplore, user?.id, currentPage, feedLimit]);
 
   const handleLogout = async () => {
     try {
@@ -479,7 +471,8 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     setIsLoading(true);
     setFeedError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}${getFeedPath(0)}`, {
+      const offset = (currentPage - 1) * feedLimit;
+      const response = await fetch(`${apiBaseUrl}${getFeedPath(offset)}`, {
         credentials: "include",
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
@@ -488,7 +481,9 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         return;
       }
       setPosts(result.data ?? []);
-      setHasMorePosts((result.data ?? []).length >= feedLimit);
+      const totalHeader = response.headers.get("X-Total-Count");
+      const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+      setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : (result.data ?? []).length);
     } catch {
       setFeedError("Network error. Please try again.");
     } finally {
@@ -496,14 +491,16 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     }
   };
 
-  const loadCommentsForPost = async (postID: number) => {
+  const loadCommentsForPost = async (postID: number, page: number) => {
     setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: true }));
     setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
-        credentials: "include",
-      });
+      const offset = (page - 1) * commentLimit;
+      const response = await fetch(
+        `${apiBaseUrl}/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
+        { credentials: "include" },
+      );
       const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
 
       if (!response.ok || !result?.success) {
@@ -516,6 +513,13 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
 
       const comments = result.data ?? [];
       setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
+      setCommentPageByPost((prev) => ({ ...prev, [postID]: page }));
+      const totalHeader = response.headers.get("X-Total-Count");
+      const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Number.isFinite(parsedTotal) ? parsedTotal : comments.length,
+      }));
 
       if (user?.id && comments.length > 0) {
         const entries = await Promise.all(
@@ -550,8 +554,9 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     const isOpen = commentsOpenByPost[postID] ?? false;
     const nextOpen = !isOpen;
     setCommentsOpenByPost((prev) => ({ ...prev, [postID]: nextOpen }));
-    if (nextOpen && !commentsByPost[postID]) {
-      void loadCommentsForPost(postID);
+    if (nextOpen) {
+      const page = commentPageByPost[postID] ?? 1;
+      void loadCommentsForPost(postID, page);
     }
   };
 
@@ -606,10 +611,7 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         return;
       }
 
-      setCommentsByPost((prev) => ({
-        ...prev,
-        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
-      }));
+      const nextPage = commentPageByPost[postID] ?? 1;
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
       setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
@@ -620,6 +622,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         ),
       );
       setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? 0) + 1,
+      }));
+      await loadCommentsForPost(postID, nextPage);
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -786,6 +793,12 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
           post.id === postID ? { ...post, comment_count: Math.max(0, post.comment_count - 1) } : post,
         ),
       );
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Math.max(0, (prev[postID] ?? 0) - 1),
+      }));
+      const page = commentPageByPost[postID] ?? 1;
+      await loadCommentsForPost(postID, page);
     } catch {
       // ignore
     }
@@ -1425,6 +1438,19 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
                         ) : null}
                       </div>
 
+                      <Pagination
+                        currentPage={commentPageByPost[post.id] ?? 1}
+                        totalPages={Math.max(
+                          1,
+                          Math.ceil(
+                            (commentTotalByPost[post.id] ??
+                              (commentsByPost[post.id]?.length ?? 0)) / commentLimit,
+                          ),
+                        )}
+                        onPageChange={(page) => loadCommentsForPost(post.id, page)}
+                        className="mt-3"
+                      />
+
                       <div className="mt-3 flex gap-2">
                         <input
                           value={commentDraftByPost[post.id] ?? ""}
@@ -1472,18 +1498,12 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
               ))
             )}
           </div>
-          {hasMorePosts && !isLoading && !feedError ? (
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={loadMorePosts}
-                disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isLoadingMore ? "Loading..." : "Load more posts"}
-              </button>
-            </div>
-          ) : null}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-5"
+          />
         </section>
       </main>
 

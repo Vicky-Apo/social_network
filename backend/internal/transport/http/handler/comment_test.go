@@ -36,6 +36,9 @@ func (r *fakeCommentRepo) Create(ctx context.Context, comment domaincomment.Comm
 func (r *fakeCommentRepo) GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]domaincomment.Comment, error) {
 	return []domaincomment.Comment{{ID: 1, PostID: postID, AuthorID: 2, Content: "c"}}, nil
 }
+func (r *fakeCommentRepo) CountByPostID(ctx context.Context, postID int64) (int, error) {
+	return 1, nil
+}
 func (r *fakeCommentRepo) GetByID(ctx context.Context, id int64) (domaincomment.Comment, error) {
 	return domaincomment.Comment{}, nil
 }

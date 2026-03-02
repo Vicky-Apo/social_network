@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
+import Pagination from "@/components/Pagination";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 
 type ApiResponse<T> = {
@@ -159,8 +160,10 @@ export default function ProfilePage() {
   const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
   const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMorePosts, setHasMorePosts] = useState(true);
+  const [commentPageByPost, setCommentPageByPost] = useState<Record<number, number>>({});
+  const [commentTotalByPost, setCommentTotalByPost] = useState<Record<number, number>>({});
+  const [totalPosts, setTotalPosts] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [followState, setFollowState] = useState<FollowState>("none");
@@ -174,6 +177,8 @@ export default function ProfilePage() {
     [],
   );
   const feedLimit = 10;
+  const totalPages = Math.max(1, Math.ceil(totalPosts / feedLimit));
+  const commentLimit = 10;
 
   const uploadMedia = async (file: File, kind: "comment") => {
     const formData = new FormData();
@@ -240,7 +245,6 @@ export default function ProfilePage() {
       const nextProfile = profileResult.data.profile;
       setProfile(nextProfile);
       setPosts([]);
-      setHasMorePosts(true);
 
       const sentRequests = sentResponse.ok && sentResult?.success ? sentResult.data ?? [] : [];
       const pendingRequest = sentRequests.find((req) => req.target_id === profileID);
@@ -266,7 +270,12 @@ export default function ProfilePage() {
     void loadProfile();
   }, [loadProfile]);
 
-  const fetchPostsPage = async (offset: number, append: boolean) => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [profileID]);
+
+  const fetchPostsPage = async (page: number) => {
+    const offset = (page - 1) * feedLimit;
     const response = await fetch(
       `${apiBaseUrl}/posts?author_id=${profileID}&limit=${feedLimit}&offset=${offset}`,
       { credentials: "include" },
@@ -276,18 +285,19 @@ export default function ProfilePage() {
       throw new Error(result?.error || "Could not load posts.");
     }
     const nextPosts = result.data ?? [];
-    setPosts((prev) => (append ? [...prev, ...nextPosts] : nextPosts));
-    setHasMorePosts(nextPosts.length >= feedLimit);
+    const totalHeader = response.headers.get("X-Total-Count");
+    const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+    setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : nextPosts.length);
+    setPosts(nextPosts);
   };
 
   useEffect(() => {
     if (!profile || profile.limited) {
       setPosts([]);
-      setHasMorePosts(false);
       return;
     }
-    void fetchPostsPage(0, false);
-  }, [apiBaseUrl, profile, profileID]);
+    void fetchPostsPage(currentPage);
+  }, [apiBaseUrl, profile, profileID, currentPage]);
 
   useEffect(() => {
     if (!viewer?.id || posts.length === 0) {
@@ -386,26 +396,16 @@ export default function ProfilePage() {
     }
   };
 
-  const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMorePosts) return;
-    setIsLoadingMore(true);
-    try {
-      await fetchPostsPage(posts.length, true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load more posts.");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  };
-
-  const loadCommentsForPost = async (postID: number) => {
+  const loadCommentsForPost = async (postID: number, page: number) => {
     setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: true }));
     setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
-        credentials: "include",
-      });
+      const offset = (page - 1) * commentLimit;
+      const response = await fetch(
+        `${apiBaseUrl}/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
+        { credentials: "include" },
+      );
       const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
 
       if (!response.ok || !result?.success) {
@@ -418,6 +418,13 @@ export default function ProfilePage() {
 
       const comments = result.data ?? [];
       setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
+      setCommentPageByPost((prev) => ({ ...prev, [postID]: page }));
+      const totalHeader = response.headers.get("X-Total-Count");
+      const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Number.isFinite(parsedTotal) ? parsedTotal : comments.length,
+      }));
 
       if (viewer?.id && comments.length > 0) {
         const entries = await Promise.all(
@@ -456,8 +463,9 @@ export default function ProfilePage() {
     const isOpen = commentsOpenByPost[postID] ?? false;
     const nextOpen = !isOpen;
     setCommentsOpenByPost((prev) => ({ ...prev, [postID]: nextOpen }));
-    if (nextOpen && !commentsByPost[postID]) {
-      void loadCommentsForPost(postID);
+    if (nextOpen) {
+      const page = commentPageByPost[postID] ?? 1;
+      void loadCommentsForPost(postID, page);
     }
   };
 
@@ -502,10 +510,7 @@ export default function ProfilePage() {
         return;
       }
 
-      setCommentsByPost((prev) => ({
-        ...prev,
-        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
-      }));
+      const nextPage = commentPageByPost[postID] ?? 1;
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
       setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
@@ -516,6 +521,11 @@ export default function ProfilePage() {
         ),
       );
       setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? 0) + 1,
+      }));
+      await loadCommentsForPost(postID, nextPage);
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -938,6 +948,19 @@ export default function ProfilePage() {
                           ) : null}
                         </div>
 
+                        <Pagination
+                          currentPage={commentPageByPost[post.id] ?? 1}
+                          totalPages={Math.max(
+                            1,
+                            Math.ceil(
+                              (commentTotalByPost[post.id] ??
+                                (commentsByPost[post.id]?.length ?? 0)) / commentLimit,
+                            ),
+                          )}
+                          onPageChange={(page) => loadCommentsForPost(post.id, page)}
+                          className="mt-3"
+                        />
+
                         <div className="mt-3 flex gap-2">
                           <input
                             value={commentDraftByPost[post.id] ?? ""}
@@ -985,17 +1008,13 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-            {hasMorePosts && !profile?.limited ? (
-              <div className="mt-5">
-                <button
-                  type="button"
-                  onClick={loadMorePosts}
-                  disabled={isLoadingMore}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {isLoadingMore ? "Loading..." : "Load more posts"}
-                </button>
-              </div>
+            {!profile?.limited ? (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                className="mt-5"
+              />
             ) : null}
           </motion.div>
         </section>

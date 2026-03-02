@@ -69,7 +69,7 @@ Creates a new comment on a post.
 
 ### Get Post Comments
 
-`GET /posts/{id}/comments?limit=20&offset=0`
+`GET /posts/{id}/comments?limit=10&offset=0`
 
 Retrieves all comments for a specific post.
 
@@ -77,8 +77,10 @@ Retrieves all comments for a specific post.
 - `id` - The post ID (integer)
 
 **Query Parameters:**
-- `limit` (optional, default 20, max 100)
+- `limit` (optional, default 10, max 100)
 - `offset` (optional, default 0)
+**Response Headers:**
+- `X-Total-Count`: total number of comments (for pagination)
 
 **Response (200):**
 
@@ -111,6 +113,9 @@ Retrieves all comments for a specific post.
   ]
 }
 ```
+
+Headers:
+- `X-Total-Count`: total comments available for the current post.
 
 **Notes:**
 - Returns an empty array `[]` if the post has no comments

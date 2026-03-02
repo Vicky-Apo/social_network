@@ -1,5 +1,10 @@
-.env
+.git
+.gitignore
+.vscode
+node_modules
+frontend
+docker
 *.log
-tmp/
-vendor/
-.git/
+tmp
+.env
+.env.*

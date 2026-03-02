@@ -20,14 +20,14 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ../backend
       dockerfile: Dockerfile
     container_name: social-network-backend
     environment:
       - SERVER_ADDR=0.0.0.0:8080
       - DATABASE_URL=postgres://social-network-role:123456@postgres:5432/social-network-db?sslmode=disable
-      - MIGRATIONS_PATH=/root/pkg/db/migrations/postgres
-      - UPLOAD_DIR=/root/uploads
+      - MIGRATIONS_PATH=/app/pkg/db/migrations/postgres
+      - UPLOAD_DIR=/app/uploads
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
     ports:
       - "8080:8080"
@@ -37,15 +37,15 @@ services:
     networks:
       - social-network
     volumes:
-      - backend-uploads:/root/uploads
+      - backend-uploads:/app/uploads
 
   frontend:
     build:
-      context: ./frontend
+      context: ../frontend
       dockerfile: Dockerfile
     container_name: social-network-frontend
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - NEXT_PUBLIC_API_BASE_URL=http://backend:8080
     ports:
       - "3000:3000"
     depends_on:
