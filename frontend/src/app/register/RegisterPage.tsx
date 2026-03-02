@@ -158,28 +158,32 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-neutral-50 text-neutral-900">
-      <div className="pointer-events-none absolute -left-24 top-8 h-72 w-72 rounded-full bg-indigo-200/35 blur-3xl" />
-      <div className="pointer-events-none absolute -right-32 top-16 h-80 w-80 rounded-full bg-emerald-200/35 blur-3xl" />
-
+    <div
+      className="relative min-h-screen overflow-hidden bg-[#2b2929] text-neutral-100"
+      style={{
+        backgroundImage: "url(/register-bg.png)",
+        backgroundSize: "100%",
+        backgroundPosition: "center",
+      }}
+    >
       <main className="mx-auto w-full max-w-3xl px-4 py-20 sm:px-6">
         <motion.section
           variants={staggerContainer}
           initial="hidden"
           animate="show"
-          className="rounded-[2rem] border border-neutral-200 bg-white p-6 shadow-[0_35px_80px_-50px_rgba(2,6,23,0.45)] sm:p-8"
+          className="rounded-2xl border border-white/10 bg-[#2b2929]/80 p-6 shadow-2xl backdrop-blur-xl sm:p-8"
         >
           <motion.p
             variants={fadeUp}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-600"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-neutral-400"
           >
             <Sparkles className="h-3.5 w-3.5" />
             Create account
           </motion.p>
-          <motion.h1 variants={fadeUp} className="mt-4 text-3xl font-semibold tracking-tight text-neutral-900">
+          <motion.h1 variants={fadeUp} className="mt-4 text-3xl font-semibold tracking-tight text-white">
             Join {landingData.productName}
           </motion.h1>
-          <motion.p variants={fadeUp} className="mt-2 text-sm text-neutral-600">
+          <motion.p variants={fadeUp} className="mt-2 text-sm text-neutral-400">
             Set up your profile and start participating in high-quality discussions.
           </motion.p>
 
@@ -256,7 +260,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="about" className="text-sm font-semibold text-neutral-700">
+              <label htmlFor="about" className="text-sm font-semibold text-neutral-300">
                 About (optional)
               </label>
               <textarea
@@ -265,13 +269,13 @@ export default function RegisterPage() {
                 onChange={handleInputChange}
                 rows={3}
                 placeholder="Tell the community about your interests..."
-                className="w-full resize-none rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/30"
+                className="w-full resize-none rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 focus:border-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
               />
             </div>
 
             <button
               type="submit"
-              className="brand-gradient group inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+              className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:bg-neutral-100 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929] disabled:cursor-not-allowed disabled:opacity-70"
               disabled={isSubmitting}
             >
               <span>{isSubmitting ? "Creating account..." : "Create account"}</span>
@@ -279,20 +283,20 @@ export default function RegisterPage() {
             </button>
 
             {errors.submit ? (
-              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+              <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
                 {errors.submit}
               </p>
             ) : null}
             {isSuccess ? (
-              <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-400">
                 Account created successfully. Redirecting to login...
               </p>
             ) : null}
           </motion.form>
 
-          <motion.p variants={fadeUp} className="mt-6 text-center text-sm text-neutral-600">
+          <motion.p variants={fadeUp} className="mt-6 text-center text-sm text-neutral-400">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-neutral-900 hover:underline">
+            <Link href="/login" className="font-semibold text-white hover:underline">
               Sign in
             </Link>
           </motion.p>
@@ -323,7 +327,7 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
-      <label htmlFor={id} className="text-sm font-semibold text-neutral-700">
+      <label htmlFor={id} className="text-sm font-semibold text-neutral-300">
         {label}
       </label>
       <input
@@ -333,9 +337,9 @@ function Field({
         onChange={onChange}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className="h-12 w-full rounded-2xl border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/30"
+        className="h-12 w-full rounded-xl border border-white/20 bg-white/5 px-4 text-sm text-white placeholder:text-neutral-500 focus:border-white/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
       />
-      {error ? <p className="text-xs text-rose-600">{error}</p> : null}
+      {error ? <p className="text-xs text-rose-400">{error}</p> : null}
     </div>
   );
 }

@@ -66,6 +66,7 @@ type Props = {
   onNotificationsChange?: (items: TopNavNotification[]) => void;
   onNotificationCountChange?: (count: number) => void;
   onLogout?: () => void;
+  variant?: "light" | "dark";
 };
 
 function formatNotificationTitle(item: TopNavNotification) {
@@ -157,6 +158,7 @@ export default function TopNav({
   onNotificationsChange,
   onNotificationCountChange,
   onLogout,
+  variant = "light",
 }: Props) {
   const router = useRouter();
   const { logout } = useAuth();
@@ -422,23 +424,34 @@ export default function TopNav({
     };
   }, [apiBaseUrl, currentSearchValue, searchMode]);
 
+  const isDark = variant === "dark";
+
   return (
-    <header className="sticky top-0 z-[70] overflow-visible border-b border-neutral-200/80 bg-white/85 backdrop-blur-md">
+    <header
+      className={
+        isDark
+          ? "sticky top-0 z-[70] overflow-visible border-b border-white/10 bg-[#2b2929]/95 backdrop-blur-md"
+          : "sticky top-0 z-[70] overflow-visible border-b border-neutral-200/80 bg-white/85 backdrop-blur-md"
+      }
+    >
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3 sm:px-6">
         <Link href="/dashboard" className="inline-flex items-center gap-2">
           <Image
             src="/vybez-logo.png"
             alt={`${landingData.productName} logo`}
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-full border border-neutral-200 object-cover shadow-sm"
+            width={110}
+            height={40}
+            className="h-8 w-auto object-contain"
             priority
           />
-          <span className="hidden text-sm font-semibold sm:inline">{landingData.productName}</span>
         </Link>
 
         <div ref={searchWrapRef} className="relative ml-2 hidden flex-1 sm:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <Search
+            className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${
+              isDark ? "text-neutral-500" : "text-neutral-400"
+            }`}
+          />
           <input
             type="search"
             value={currentSearchValue}
@@ -451,17 +464,35 @@ export default function TopNav({
               }
             }}
             placeholder={searchPlaceholder}
-            className="h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-24 text-sm outline-none transition focus:border-neutral-400"
+            className={
+              isDark
+                ? "h-11 w-full rounded-2xl border border-white/20 bg-white/5 pl-9 pr-24 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40"
+                : "h-11 w-full rounded-2xl border border-neutral-200 bg-neutral-50 pl-9 pr-24 text-sm outline-none transition focus:border-neutral-400"
+            }
           />
-          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full border border-neutral-200 bg-white p-1 text-[11px] font-semibold text-neutral-600">
+          <div
+            className={`absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-full p-1 text-[11px] font-semibold ${
+              isDark
+                ? "border border-white/20 bg-white/5"
+                : "border border-neutral-200 bg-white text-neutral-600"
+            }`}
+          >
             <button
               type="button"
               onClick={() => setSearchMode("users")}
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
-                searchMode === "users"
-                  ? "bg-neutral-900 text-white"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }`}
+              className={
+                isDark
+                  ? `inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                      searchMode === "users"
+                        ? "bg-white text-[#2b2929]"
+                        : "text-neutral-400 hover:text-white"
+                    }`
+                  : `inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                      searchMode === "users"
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-600 hover:text-neutral-900"
+                    }`
+              }
             >
               <User className="h-3 w-3" />
               Users
@@ -469,11 +500,19 @@ export default function TopNav({
             <button
               type="button"
               onClick={() => setSearchMode("groups")}
-              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
-                searchMode === "groups"
-                  ? "bg-neutral-900 text-white"
-                  : "text-neutral-600 hover:text-neutral-900"
-              }`}
+              className={
+                isDark
+                  ? `inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                      searchMode === "groups"
+                        ? "bg-white text-[#2b2929]"
+                        : "text-neutral-400 hover:text-white"
+                    }`
+                  : `inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                      searchMode === "groups"
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-600 hover:text-neutral-900"
+                    }`
+              }
             >
               <Users className="h-3 w-3" />
               Groups
@@ -484,12 +523,20 @@ export default function TopNav({
             ? createPortal(
                 <div
                   style={dropdownStyle}
-                  className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-2xl"
+                  className={
+                    isDark
+                      ? "rounded-2xl border border-white/10 bg-[#2b2929] p-3 shadow-2xl"
+                      : "rounded-3xl border border-neutral-200 bg-white p-3 shadow-2xl"
+                  }
                 >
                   {searchLoading ? (
-                    <p className="text-xs text-neutral-500">Searching...</p>
+                    <p className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+                      Searching...
+                    </p>
                   ) : searchResults.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No results found.</p>
+                    <p className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+                      No results found.
+                    </p>
                   ) : (
                     <div className="space-y-2">
                       {searchResults.map((result) => {
@@ -500,7 +547,11 @@ export default function TopNav({
                               key={`user-${item.id}`}
                               type="button"
                               onClick={() => router.push(`/profile/${item.id}`)}
-                              className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                              className={
+                                isDark
+                                  ? "flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                                  : "flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                              }
                             >
                               <Avatar
                                 src={item.avatar_path ? toMediaUrl(apiBaseUrl, item.avatar_path) : null}
@@ -509,10 +560,20 @@ export default function TopNav({
                                 textClassName="text-[10px]"
                               />
                               <div>
-                                <p className="text-xs font-semibold text-neutral-900">
+                                <p
+                                  className={
+                                    isDark
+                                      ? "text-xs font-semibold text-white"
+                                      : "text-xs font-semibold text-neutral-900"
+                                  }
+                                >
                                   {item.first_name} {item.last_name}
                                 </p>
-                                <p className="text-[11px] text-neutral-500">
+                                <p
+                                  className={
+                                    isDark ? "text-[11px] text-neutral-400" : "text-[11px] text-neutral-500"
+                                  }
+                                >
                                   @{item.nickname || `user-${item.id}`}
                                 </p>
                               </div>
@@ -526,15 +587,33 @@ export default function TopNav({
                             key={`group-${group.id}`}
                             type="button"
                             onClick={() => router.push(`/groups/${group.id}`)}
-                            className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                            className={
+                              isDark
+                                ? "flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                                : "flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                            }
                           >
                             <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-[10px] font-semibold text-white">
                               {title.slice(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-neutral-900">{title}</p>
+                              <p
+                                className={
+                                  isDark
+                                    ? "text-xs font-semibold text-white"
+                                    : "text-xs font-semibold text-neutral-900"
+                                }
+                              >
+                                {title}
+                              </p>
                               {group.description ? (
-                                <p className="text-[11px] text-neutral-500">
+                                <p
+                                  className={
+                                    isDark
+                                      ? "text-[11px] text-neutral-400"
+                                      : "text-[11px] text-neutral-500"
+                                  }
+                                >
                                   {group.description}
                                 </p>
                               ) : null}
@@ -561,10 +640,18 @@ export default function TopNav({
               void messagesContext.refreshUnreadCounts();
             }
           }}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+          className={
+            isDark
+              ? "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-neutral-400 transition hover:bg-white/10 hover:text-white"
+              : "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+          }
         >
           <MessageSquare className="h-4 w-4" />
-          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
+          <span
+            className={`absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+              isDark ? "bg-white text-[#2b2929]" : "bg-neutral-900 text-white"
+            }`}
+          >
             {messageCount}
           </span>
         </button>
@@ -583,10 +670,18 @@ export default function TopNav({
               }
             }
           }}
-          className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+          className={
+            isDark
+              ? "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 text-neutral-400 transition hover:bg-white/10 hover:text-white"
+              : "relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 transition hover:text-neutral-900"
+          }
         >
           <Bell className="h-4 w-4" />
-          <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-neutral-900 px-1 text-[10px] font-semibold text-white">
+          <span
+            className={`absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+              isDark ? "bg-white text-[#2b2929]" : "bg-neutral-900 text-white"
+            }`}
+          >
             {resolvedCount}
           </span>
         </button>
@@ -594,7 +689,11 @@ export default function TopNav({
         {user ? (
           <Link
             href={`/profile/${user.id}`}
-            className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+            className={
+              isDark
+                ? "inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                : "inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+            }
           >
             <User className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">My profile</span>
@@ -604,7 +703,11 @@ export default function TopNav({
         <button
           type="button"
           onClick={handleLogout}
-          className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+          className={
+            isDark
+              ? "inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+              : "inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+          }
         >
           <LogOut className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Log out</span>
@@ -612,22 +715,42 @@ export default function TopNav({
       </div>
 
       {notificationsOpen ? (
-        <div className="absolute right-88 top-16 z-50 w-80 rounded-3xl border border-neutral-200 bg-white p-4 shadow-xl">
+        <div
+          className={
+            isDark
+              ? "absolute right-88 top-16 z-50 w-80 rounded-2xl border border-white/10 bg-[#2b2929] p-4 shadow-xl"
+              : "absolute right-88 top-16 z-50 w-80 rounded-3xl border border-neutral-200 bg-white p-4 shadow-xl"
+          }
+        >
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-neutral-900">Notifications</p>
+            <p
+              className={
+                isDark ? "text-sm font-semibold text-white" : "text-sm font-semibold text-neutral-900"
+              }
+            >
+              Notifications
+            </p>
             <button
               type="button"
               onClick={markAllRead}
-              className="text-xs font-semibold text-neutral-600 transition hover:text-neutral-900"
+              className={
+                isDark
+                  ? "text-xs font-semibold text-neutral-400 transition hover:text-white"
+                  : "text-xs font-semibold text-neutral-600 transition hover:text-neutral-900"
+              }
             >
               Mark all read
             </button>
           </div>
           <div className="mt-3 space-y-2">
             {resolvedLoading ? (
-              <p className="text-xs text-neutral-500">Loading notifications...</p>
+              <p className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+                Loading notifications...
+              </p>
             ) : resolvedNotifications.length === 0 ? (
-              <p className="text-xs text-neutral-500">No notifications yet.</p>
+              <p className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+                No notifications yet.
+              </p>
             ) : (
               resolvedNotifications
                 .filter((item) => allowedNotificationTypes.has(item.type))
@@ -645,16 +768,26 @@ export default function TopNav({
                           setNotificationsOpen(false);
                         }
                       }}
-                      className={`flex w-full flex-col rounded-2xl border px-3 py-2 text-left text-xs transition ${
-                        item.is_read
-                          ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                          : "border-emerald-400 bg-emerald-50 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
-                      }`}
+                      className={
+                        isDark
+                          ? `flex w-full flex-col rounded-xl border px-3 py-2 text-left text-xs transition ${
+                              item.is_read
+                                ? "border-white/10 bg-white/5 text-neutral-400"
+                                : "border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                            }`
+                          : `flex w-full flex-col rounded-2xl border px-3 py-2 text-left text-xs transition ${
+                              item.is_read
+                                ? "border-neutral-200 bg-neutral-50 text-neutral-500"
+                                : "border-emerald-400 bg-emerald-50 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
+                            }`
+                      }
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-wide">
                         {formatNotificationTitle(item)}
                       </span>
-                      <span className="mt-1 text-[11px] text-neutral-500">
+                      <span
+                        className={`mt-1 text-[11px] ${isDark ? "text-neutral-400" : "text-neutral-500"}`}
+                      >
                         {getNotificationBody(item)}
                       </span>
                     </button>
@@ -668,7 +801,11 @@ export default function TopNav({
               setNotificationsOpen(false);
               router.push("/notifications");
             }}
-            className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+            className={
+              isDark
+                ? "mt-3 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                : "mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+            }
           >
             View all notifications
           </button>
@@ -676,22 +813,42 @@ export default function TopNav({
       ) : null}
 
       {messagesOpen ? (
-        <div className="absolute right-48 top-16 z-50 w-80 rounded-3xl border border-neutral-200 bg-white p-4 shadow-xl">
+        <div
+          className={
+            isDark
+              ? "absolute right-48 top-16 z-50 w-80 rounded-2xl border border-white/10 bg-[#2b2929] p-4 shadow-xl"
+              : "absolute right-48 top-16 z-50 w-80 rounded-3xl border border-neutral-200 bg-white p-4 shadow-xl"
+          }
+        >
           <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-neutral-900">Messages</p>
+            <p
+              className={
+                isDark ? "text-sm font-semibold text-white" : "text-sm font-semibold text-neutral-900"
+              }
+            >
+              Messages
+            </p>
             <button
               type="button"
               onClick={() => messagesContext?.markAllRead()}
-              className="text-xs font-semibold text-neutral-600 transition hover:text-neutral-900"
+              className={
+                isDark
+                  ? "text-xs font-semibold text-neutral-400 transition hover:text-white"
+                  : "text-xs font-semibold text-neutral-600 transition hover:text-neutral-900"
+              }
             >
               Mark all read
             </button>
           </div>
           <div className="mt-3 space-y-2">
             {messageLoading ? (
-              <p className="text-xs text-neutral-500">Loading messages...</p>
+              <p className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+                Loading messages...
+              </p>
             ) : unreadMessageConversations.length === 0 ? (
-              <p className="text-xs text-neutral-500">No new messages.</p>
+              <p className={`text-xs ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+                No new messages.
+              </p>
             ) : (
               unreadMessageConversations.map((conv) => {
                 const otherUser = conv.other_user_id ? usersByID[conv.other_user_id] : null;
@@ -716,12 +873,18 @@ export default function TopNav({
                       setMessagesOpen(false);
                       router.push(`/messages?conversation=${conv.id}`);
                     }}
-                    className="flex w-full flex-col rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-left text-xs text-emerald-900 transition"
+                    className={
+                      isDark
+                        ? "flex w-full flex-col rounded-xl border border-emerald-500/30 bg-emerald-500/20 px-3 py-2 text-left text-xs text-emerald-300 transition"
+                        : "flex w-full flex-col rounded-2xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-left text-xs text-emerald-900 transition"
+                    }
                   >
                     <span className="text-[11px] font-semibold uppercase tracking-wide">
                       {title}
                     </span>
-                    <span className="mt-1 text-[11px] text-emerald-800">
+                    <span
+                      className={`mt-1 text-[11px] ${isDark ? "text-emerald-400" : "text-emerald-800"}`}
+                    >
                       {preview}
                     </span>
                   </button>
@@ -735,7 +898,11 @@ export default function TopNav({
               setMessagesOpen(false);
               router.push("/messages");
             }}
-            className="mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+            className={
+              isDark
+                ? "mt-3 w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
+                : "mt-3 w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+            }
           >
             View all messages
           </button>

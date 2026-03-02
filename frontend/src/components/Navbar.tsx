@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ArrowRight } from "lucide-react";
@@ -11,9 +11,7 @@ import { landingData } from "@/lib/data";
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [activeSection, setActiveSection] = useState("");
   const reducedMotion = useReducedMotion();
-  const navItems = useMemo(() => landingData.navItems, []);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 8);
@@ -23,32 +21,8 @@ export function Navbar() {
   }, []);
 
   useEffect(() => {
-    const sections = navItems
-      .map((item) => document.querySelector(item.href))
-      .filter((node): node is HTMLElement => Boolean(node));
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-        if (visible[0]?.target.id) {
-          setActiveSection(`#${visible[0].target.id}`);
-        }
-      },
-      { rootMargin: "-30% 0px -55% 0px", threshold: [0.15, 0.4, 0.7] },
-    );
-
-    sections.forEach((section) => observer.observe(section));
-    return () => observer.disconnect();
-  }, [navItems]);
-
-  useEffect(() => {
     const closeOnResize = () => {
-      if (window.innerWidth >= 768) {
-        setIsOpen(false);
-      }
+      if (window.innerWidth >= 768) setIsOpen(false);
     };
     window.addEventListener("resize", closeOnResize);
     return () => window.removeEventListener("resize", closeOnResize);
@@ -57,61 +31,46 @@ export function Navbar() {
   return (
     <header
       className={clsx(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-        isScrolled ? "border-b border-neutral-200/80 bg-white/80 backdrop-blur-md" : "bg-transparent",
+        "fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] transition-all duration-300 ease-out",
+        isScrolled
+          ? "bg-[#2b2929]/90 shadow-[0_1px_0_0_rgba(255,255,255,0.03)_inset] backdrop-blur-xl"
+          : "bg-transparent",
       )}
     >
-      <div className="mx-auto flex h-20 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="#top" className="group inline-flex items-center gap-2 rounded-full p-1">
+      <div className="mx-auto flex h-[72px] w-full max-w-6xl items-center justify-between px-5 sm:px-8">
+        <Link
+          href="/"
+          className="group relative inline-flex items-center p-2 -m-2 transition-opacity hover:opacity-90"
+        >
           <Image
             src="/vybez-logo.png"
             alt={`${landingData.productName} logo`}
-            width={40}
+            width={110}
             height={40}
-            className="h-10 w-10 rounded-full border border-neutral-200 object-cover shadow-sm"
+            className="h-10 w-auto object-contain"
             priority
           />
-          <span className="text-sm font-semibold tracking-tight text-neutral-900">
-            {landingData.productName}
-          </span>
         </Link>
 
-        <nav className="hidden items-center gap-2 md:flex" aria-label="Primary navigation">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                "rounded-full px-4 py-2 text-sm font-medium transition",
-                activeSection === item.href
-                  ? "brand-gradient text-white"
-                  : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900",
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="hidden items-center gap-2 md:flex">
+        <nav className="hidden items-center gap-3 md:flex">
           <Link
             href="/login"
-            className="inline-flex items-center rounded-full border border-neutral-300 bg-white px-4 py-2.5 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+            className="rounded-xl px-5 py-2.5 text-sm font-medium text-neutral-300 transition-colors hover:bg-white/[0.04] hover:text-white"
           >
-            Login
+            Sign in
           </Link>
           <Link
             href="/register"
-            className="brand-gradient group inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+            className="group inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-medium text-black transition-all hover:bg-neutral-100 hover:shadow-lg hover:shadow-white/5"
           >
-            <span>Register</span>
-            <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            <span className="text-black">Get started</span>
+            <ArrowRight className="h-4 w-4 text-black transition-transform duration-200 group-hover:translate-x-0.5" />
           </Link>
-        </div>
+        </nav>
 
         <button
           type="button"
-          className="inline-flex items-center justify-center rounded-full border border-neutral-200 p-2.5 text-neutral-700 transition hover:border-neutral-300 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2 md:hidden"
+          className="inline-flex items-center justify-center rounded-xl p-2.5 text-neutral-300 transition-colors hover:bg-white/[0.04] hover:text-white md:hidden"
           onClick={() => setIsOpen((value) => !value)}
           aria-expanded={isOpen}
           aria-controls="mobile-menu"
@@ -128,39 +87,24 @@ export function Navbar() {
             initial={reducedMotion ? false : { opacity: 0, y: -8 }}
             animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
             exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
-            transition={{ duration: reducedMotion ? 0.01 : 0.25 }}
-            className="border-b border-neutral-200 bg-white/95 px-4 pb-5 pt-2 backdrop-blur md:hidden"
+            transition={{ duration: reducedMotion ? 0.01 : 0.2 }}
+            className="border-t border-white/[0.06] bg-[#2b2929] px-5 pb-6 pt-4 md:hidden"
           >
-            <nav className="mx-auto flex w-full max-w-6xl flex-col gap-2" aria-label="Mobile navigation">
-              {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setIsOpen(false)}
-                  className={clsx(
-                    "rounded-xl px-4 py-3 text-sm font-medium transition",
-                    activeSection === item.href
-                      ? "brand-gradient text-white"
-                      : "bg-neutral-100/70 text-neutral-700 hover:bg-neutral-200 hover:text-neutral-900",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              ))}
+            <nav className="flex flex-col gap-2" aria-label="Mobile navigation">
               <Link
                 href="/login"
                 onClick={() => setIsOpen(false)}
-                className="mt-2 inline-flex items-center justify-center rounded-xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+                className="rounded-xl px-4 py-3 text-sm font-medium text-neutral-300 transition-colors hover:bg-white/[0.04] hover:text-white"
               >
-                Login
+                Sign in
               </Link>
               <Link
                 href="/register"
                 onClick={() => setIsOpen(false)}
-                className="brand-gradient inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/70 focus-visible:ring-offset-2"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-medium text-black transition-colors hover:bg-neutral-100"
               >
-                <span>Register</span>
-                <ArrowRight className="h-4 w-4" />
+                <span className="text-black">Get started</span>
+                <ArrowRight className="h-4 w-4 text-black" />
               </Link>
             </nav>
           </motion.div>

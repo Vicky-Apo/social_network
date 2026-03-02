@@ -50,6 +50,7 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	groupsOnly := false
+	publicOnly := false
 	if raw := r.URL.Query().Get("groups_only"); raw != "" {
 		switch strings.ToLower(raw) {
 		case "true", "1", "yes":
@@ -62,11 +63,26 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if raw := r.URL.Query().Get("public_only"); raw != "" {
+		switch strings.ToLower(raw) {
+		case "true", "1", "yes":
+			publicOnly = true
+		case "false", "0", "no":
+			publicOnly = false
+		default:
+			logBadRequest(h.log, "posts.list", logger.F("public_only", raw))
+			utils.RespondWithError(w, http.StatusBadRequest, "invalid public_only value")
+			return
+		}
+	}
 
 	var posts []usecasepost.PostDTO
-	if groupsOnly {
+	switch {
+	case publicOnly:
+		posts, err = h.service.ListPublicOnly(r.Context(), limit, offset)
+	case groupsOnly:
 		posts, err = h.service.ListGroupsOnly(r.Context(), viewerID, limit, offset)
-	} else {
+	default:
 		posts, err = h.service.List(r.Context(), viewerID, limit, offset)
 	}
 	if err != nil {

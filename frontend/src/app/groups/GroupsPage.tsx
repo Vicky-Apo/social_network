@@ -41,12 +41,6 @@ type GroupItem = {
   memberCount: number;
 };
 
-const trends = [
-  { title: "Design systems", posts: "276 group discussions" },
-  { title: "Career growth", posts: "241 group discussions" },
-  { title: "JavaScript patterns", posts: "198 group discussions" },
-];
-
 function extractRawGroups(data: unknown): GroupApiItem[] {
   if (Array.isArray(data)) {
     return data as GroupApiItem[];
@@ -154,18 +148,27 @@ export default function GroupsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <TopNav
         user={user ?? undefined}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search groups..."
         onLogout={() => router.replace("/login")}
+        variant="dark"
       />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)_240px]">
         <aside className="hidden lg:block">
-          <LeftNav user={user ?? undefined} activeHref="/groups" />
+          <LeftNav user={user ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -174,32 +177,32 @@ export default function GroupsPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
+            className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm sm:p-5"
           >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Groups</h1>
-                <p className="text-sm text-neutral-600">
+                <h1 className="text-xl font-semibold tracking-tight text-white">Groups</h1>
+                <p className="text-sm text-neutral-400">
                   Browse all available groups and enter the one you want to join.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Link
                   href="/groups/create"
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                 >
                   Create group
                 </Link>
                 <Link
                   href="/group-invitations"
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                 >
                   Invitations
                 </Link>
-                <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
                   Total groups: {groups.length}
                 </span>
-                <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                <span className="rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
                   Members tracked: {totalMembers}
                 </span>
               </div>
@@ -207,15 +210,15 @@ export default function GroupsPage() {
           </motion.div>
 
           {isLoading ? (
-            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm">
               Loading groups...
             </article>
           ) : groupsError ? (
-            <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+            <article className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400 backdrop-blur-sm">
               {groupsError}
             </article>
           ) : filteredGroups.length === 0 ? (
-            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm">
               No groups found for this search.
             </article>
           ) : (
@@ -224,30 +227,31 @@ export default function GroupsPage() {
                 return (
                   <article
                     key={group.id}
-                    className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                    className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <h2 className="text-lg font-semibold tracking-tight text-neutral-900">
+                        <h2 className="text-lg font-semibold tracking-tight text-white">
                           {group.name}
                         </h2>
-                        <p className="mt-1 text-sm leading-relaxed text-neutral-600">
+                        <p className="mt-1 text-sm leading-relaxed text-neutral-400">
                           {group.description}
                         </p>
                       </div>
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                      <span className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-1 text-xs text-neutral-400">
                         <Users className="h-3.5 w-3.5" />
                         {group.memberCount} members
                       </span>
                       <Link
                         href={`/groups/${group.id}`}
-                        className="brand-gradient group inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md"
+                        className="group inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold transition hover:bg-neutral-100"
+                        style={{ color: "#000" }}
                       >
-                        <span>Enter group</span>
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
+                        <span style={{ color: "#000" }}>Enter group</span>
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5" style={{ color: "#000" }} />
                       </Link>
                     </div>
                   </article>
@@ -257,32 +261,21 @@ export default function GroupsPage() {
           )}
         </section>
 
-        <aside className="hidden space-y-5 md:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Groups overview</h2>
+        <aside className="hidden space-y-4 md:block">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+            <h2 className="text-sm font-semibold text-white">Groups overview</h2>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                <p className="text-lg font-semibold text-neutral-900">{groups.length}</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-lg font-semibold text-white">{groups.length}</p>
                 <p className="text-xs text-neutral-500">Total groups</p>
               </div>
-              <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                <p className="text-lg font-semibold text-neutral-900">{totalMembers}</p>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                <p className="text-lg font-semibold text-white">{totalMembers}</p>
                 <p className="text-xs text-neutral-500">Member slots</p>
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Trending in groups</h2>
-            <div className="mt-4 space-y-3">
-              {trends.map((item) => (
-                <article key={item.title} className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                  <p className="mt-1 text-xs text-neutral-600">{item.posts}</p>
-                </article>
-              ))}
-            </div>
-          </div>
         </aside>
       </main>
     </div>

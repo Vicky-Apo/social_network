@@ -158,12 +158,20 @@ export default function GroupInvitationsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section className="space-y-5">
@@ -172,20 +180,20 @@ export default function GroupInvitationsPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+            className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">
+                <h1 className="text-xl font-semibold tracking-tight text-white">
                   Group invitations
                 </h1>
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-neutral-400">
                   Accept or decline invitations you have received.
                 </p>
               </div>
               <Link
                 href="/groups"
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 Back to groups
               </Link>
@@ -198,7 +206,7 @@ export default function GroupInvitationsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-neutral-400 backdrop-blur-sm"
             >
               Loading invitations...
             </motion.div>
@@ -208,7 +216,7 @@ export default function GroupInvitationsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700"
+              className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-5 text-sm text-rose-400 backdrop-blur-sm"
             >
               {error}
             </motion.div>
@@ -218,7 +226,7 @@ export default function GroupInvitationsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 text-sm text-neutral-400 backdrop-blur-sm"
             >
               No invitations right now.
             </motion.div>
@@ -228,16 +236,16 @@ export default function GroupInvitationsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
             >
               <div className="space-y-3">
                 {invites.map((invite) => (
                   <div
                     key={invite.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-neutral-800">
+                      <p className="text-sm font-semibold text-white">
                         {groupsByID[invite.group_id]?.title ||
                           groupsByID[invite.group_id]?.name ||
                           "Group"}
@@ -250,14 +258,14 @@ export default function GroupInvitationsPage() {
                       <button
                         type="button"
                         onClick={() => updateInvite(invite.id, "accepted")}
-                        className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                        className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-[#2b2929] transition hover:bg-neutral-100"
                       >
                         Accept
                       </button>
                       <button
                         type="button"
                         onClick={() => updateInvite(invite.id, "declined")}
-                        className="inline-flex items-center gap-2 rounded-full border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
+                        className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                       >
                         Decline
                       </button>
@@ -274,7 +282,7 @@ export default function GroupInvitationsPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700"
+              className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-400"
             >
               {actionError}
             </motion.div>

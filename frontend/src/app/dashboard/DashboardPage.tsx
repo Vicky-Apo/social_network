@@ -1,10 +1,10 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageCircle, User, ThumbsDown, ThumbsUp, Plus, Send, Wifi, WifiOff } from "lucide-react";
+import { MessageCircle, ThumbsDown, ThumbsUp, Plus, Send, Pencil, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/components/AuthContext";
 import { fadeUp, viewportOnce } from "@/components/Motion";
@@ -60,10 +60,6 @@ type Reaction = {
 
 type ReactionKind = "like" | "dislike";
 type ReactionMap = Record<number, ReactionKind | null>;
-type WsMessage = {
-  type: string;
-  payload: unknown;
-};
 
 type NotificationItem = {
   id: number;
@@ -78,15 +74,6 @@ type NotificationItem = {
   created_at: string;
 };
 
-type ChatMessage = {
-  id: number;
-  conversation_id: number;
-  sender_id: number;
-  content?: string;
-  media_path?: string;
-  created_at: string;
-};
-
 type UserListItem = {
   id: number;
   first_name: string;
@@ -96,12 +83,6 @@ type UserListItem = {
 };
 
 type PostPrivacy = "public" | "followers" | "private";
-
-const trends = [
-  { title: "Product Feedback", posts: "1.2k posts this week" },
-  { title: "Community Showcase", posts: "840 posts this week" },
-  { title: "Growth Ideas", posts: "512 posts this week" },
-];
 
 function initials(first?: string, last?: string) {
   const left = first?.trim().charAt(0) ?? "";
@@ -173,8 +154,15 @@ function notificationBody(item: NotificationItem) {
   }
 }
 
-export default function DashboardPage() {
+type FeedType = "dashboard" | "explore";
+
+type Props = {
+  feedType?: FeedType;
+};
+
+export default function DashboardPage({ feedType = "dashboard" }: Props) {
   const router = useRouter();
+  const isExplore = feedType === "explore";
   const { logout } = useAuth();
   const notificationsContext = useNotifications();
 
@@ -199,12 +187,6 @@ export default function DashboardPage() {
   const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
   const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
-  const [chatRecipientID, setChatRecipientID] = useState("");
-  const [chatDraft, setChatDraft] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatError, setChatError] = useState<string | null>(null);
-  const [chatConnected, setChatConnected] = useState(false);
-  const [chatUnreadMap, setChatUnreadMap] = useState<Record<number, number>>({});
   const [followers, setFollowers] = useState<UserListItem[]>([]);
   const [followersLoading, setFollowersLoading] = useState(false);
   const [editingPostID, setEditingPostID] = useState<number | null>(null);
@@ -223,7 +205,6 @@ export default function DashboardPage() {
   const [editCommentError, setEditCommentError] = useState<string | null>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMorePosts, setHasMorePosts] = useState(true);
-  const wsRef = useRef<WebSocket | null>(null);
   const feedLimit = 20;
 
   const apiBaseUrl = useMemo(
@@ -232,12 +213,6 @@ export default function DashboardPage() {
       "http://localhost:8080",
     [],
   );
-  const wsBaseUrl = useMemo(() => {
-    if (apiBaseUrl.startsWith("https://")) return apiBaseUrl.replace("https://", "wss://");
-    if (apiBaseUrl.startsWith("http://")) return apiBaseUrl.replace("http://", "ws://");
-    return apiBaseUrl;
-  }, [apiBaseUrl]);
-
   const notifications = notificationsContext?.notifications ?? [];
   const notificationsLoading = notificationsContext?.loading ?? false;
   const markNotificationRead =
@@ -285,9 +260,11 @@ export default function DashboardPage() {
           setFollowersLoading(false);
         }
 
-        const feedPath = groupsOnly
-          ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
-          : `/posts?limit=${feedLimit}&offset=0`;
+        const feedPath = isExplore
+          ? `/posts?public_only=true&limit=${feedLimit}&offset=0`
+          : groupsOnly
+            ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
+            : `/posts?author_id=${me.result.data?.id ?? 0}&limit=${feedLimit}&offset=0`;
         const feed = await fetchJson<Post[]>(feedPath);
         if (!feed.response.ok || !feed.result?.success) {
           if (!cancelled) {
@@ -345,7 +322,14 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, router, groupsOnly]);
+  }, [apiBaseUrl, router, groupsOnly, isExplore]);
+
+  const getFeedPath = (offset: number) =>
+    isExplore
+      ? `/posts?public_only=true&limit=${feedLimit}&offset=${offset}`
+      : groupsOnly
+        ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
+        : `/posts?author_id=${user?.id ?? 0}&limit=${feedLimit}&offset=${offset}`;
 
   const loadMorePosts = async () => {
     if (isLoadingMore || !hasMorePosts) return;
@@ -353,10 +337,7 @@ export default function DashboardPage() {
     setFeedError(null);
     try {
       const offset = posts.length;
-      const feedPath = groupsOnly
-        ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
-        : `/posts?limit=${feedLimit}&offset=${offset}`;
-      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
+      const response = await fetch(`${apiBaseUrl}${getFeedPath(offset)}`, {
         credentials: "include",
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
@@ -378,10 +359,7 @@ export default function DashboardPage() {
     }
 
     const intervalID = window.setInterval(async () => {
-      const feedPath = groupsOnly
-        ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
-        : `/posts?limit=${feedLimit}&offset=0`;
-      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
+      const response = await fetch(`${apiBaseUrl}${getFeedPath(0)}`, {
         credentials: "include",
       }).catch(() => null);
       if (!response?.ok) {
@@ -396,66 +374,7 @@ export default function DashboardPage() {
     return () => {
       window.clearInterval(intervalID);
     };
-  }, [apiBaseUrl, groupsOnly, user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
-
-    const ws = new WebSocket(`${wsBaseUrl}/ws`);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setChatConnected(true);
-      setChatError(null);
-    };
-
-    ws.onmessage = (event) => {
-      const chunks = String(event.data).split("\n").filter(Boolean);
-      chunks.forEach((raw) => {
-        try {
-          const msg = JSON.parse(raw) as WsMessage;
-          if (msg.type === "chat_message") {
-            const payload = msg.payload as ChatMessage;
-            setChatMessages((prev) => [payload, ...prev].slice(0, 50));
-          } else if (msg.type === "notification") {
-            if (notificationsContext) {
-              void notificationsContext.refreshNotifications();
-              void notificationsContext.refreshUnreadCount();
-            }
-          } else if (msg.type === "unread_counts") {
-            const payload = msg.payload as Array<{ conversation_id: number; unread_count: number }>;
-            setChatUnreadMap((prev) => {
-              const next = { ...prev };
-              payload.forEach((item) => {
-                next[item.conversation_id] = item.unread_count;
-              });
-              return next;
-            });
-          } else if (msg.type === "error") {
-            const payload = msg.payload as { message?: string };
-            setChatError(payload.message || "Chat error.");
-          }
-        } catch {
-          // Ignore malformed websocket payload chunks.
-        }
-      });
-    };
-
-    ws.onclose = () => {
-      setChatConnected(false);
-    };
-
-    ws.onerror = () => {
-      setChatError("Could not connect to realtime chat.");
-    };
-
-    return () => {
-      ws.close();
-      wsRef.current = null;
-    };
-  }, [user?.id, wsBaseUrl]);
+  }, [apiBaseUrl, groupsOnly, isExplore, user?.id]);
 
   const handleLogout = async () => {
     try {
@@ -556,38 +475,11 @@ export default function DashboardPage() {
     return uploadJson.data.path;
   };
 
-  const sendChatMessage = () => {
-    const ws = wsRef.current;
-    const recipient = Number(chatRecipientID);
-    const content = chatDraft.trim();
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setChatError("Chat is not connected.");
-      return;
-    }
-    if (!recipient || !content) {
-      setChatError("Pick a recipient and write a message.");
-      return;
-    }
-
-    const payload = {
-      type: "chat_message",
-      payload: {
-        recipient_id: recipient,
-        content,
-      },
-    };
-    ws.send(JSON.stringify(payload));
-    setChatDraft("");
-  };
-
   const refreshFeed = async () => {
     setIsLoading(true);
     setFeedError(null);
     try {
-      const feedPath = groupsOnly
-        ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
-        : `/posts?limit=${feedLimit}&offset=0`;
-      const response = await fetch(`${apiBaseUrl}${feedPath}`, {
+      const response = await fetch(`${apiBaseUrl}${getFeedPath(0)}`, {
         credentials: "include",
       });
       const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
@@ -996,44 +888,61 @@ export default function DashboardPage() {
     user?.nickname || (user?.email ? user.email.split("@")[0] : "community-member");
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: isExplore ? "url('/explore-bg.png')" : "url('/dashboard-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
       <TopNav
         user={user ?? undefined}
         onLogout={handleLogout}
+        variant="dark"
       />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={user ?? undefined} activeHref="/dashboard" />
+          <LeftNav user={user ?? undefined} activeHref={isExplore ? "/explore" : "/dashboard"} variant="dark" />
         </aside>
 
-        <section className="space-y-5">
+        <section className="space-y-4">
           <motion.div
             initial="hidden"
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
+            className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
           >
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Dashboard</h1>
-                <p className="text-sm text-neutral-600">Create updates and follow your community feed.</p>
+                <h1 className="text-lg font-semibold tracking-tight text-white">
+                  {isExplore ? "Explore" : "Dashboard"}
+                </h1>
+                <p className="text-sm text-neutral-400">
+                  {isExplore
+                    ? "Discover public posts from across the network."
+                    : "Create updates and manage your own posts."}
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="inline-flex items-center gap-2 text-xs text-neutral-600">
-                  Groups only
-                  <input
-                    type="checkbox"
-                    checked={groupsOnly}
-                    onChange={(event) => setGroupsOnly(event.target.checked)}
-                    className="h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                  />
-                </label>
+              <div className="flex items-center gap-3">
+                {!isExplore ? (
+                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-neutral-400">
+                    <input
+                      type="checkbox"
+                      checked={groupsOnly}
+                      onChange={(event) => setGroupsOnly(event.target.checked)}
+                      className="h-3.5 w-3.5 rounded border-white/30 bg-white/5 text-white focus:ring-white/30"
+                    />
+                    Groups only
+                  </label>
+                ) : null}
                 <button
                   type="button"
                   onClick={refreshFeed}
-                  className="rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                  className="rounded-xl border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white"
                 >
                   Refresh feed
                 </button>
@@ -1041,41 +950,24 @@ export default function DashboardPage() {
             </div>
           </motion.div>
 
+          {!isExplore ? (
           <motion.div
             initial="hidden"
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm sm:p-5"
+            className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm sm:p-5"
           >
             <textarea
               value={composerText}
               onChange={(event) => setComposerText(event.target.value)}
-              rows={4}
-              placeholder="Share an update with Vybez..."
-              className="w-full resize-none rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+              rows={3}
+              placeholder="What's on your mind?"
+              className="w-full resize-none rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40 focus:ring-2 focus:ring-white/10"
             />
             <div className="mt-3 flex flex-wrap items-center gap-3">
-              <label className="text-xs font-semibold text-neutral-600">
-                Privacy
-                <select
-                  value={composerPrivacy}
-                  onChange={(event) => {
-                    const next = event.target.value as PostPrivacy;
-                    setComposerPrivacy(next);
-                    if (next !== "private") {
-                      setComposerAllowedIDs([]);
-                    }
-                  }}
-                  className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-neutral-700 outline-none focus:border-neutral-400 sm:w-48"
-                >
-                  <option value="public">Public</option>
-                  <option value="followers">Followers</option>
-                  <option value="private">Private (select followers)</option>
-                </select>
-              </label>
               {composerPrivacy === "private" ? (
-                <div className="flex flex-1 flex-wrap gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+                <div className="flex flex-1 flex-wrap gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs text-neutral-400">
                   {followersLoading ? (
                     <span className="text-xs text-neutral-500">Loading followers...</span>
                   ) : followers.length === 0 ? (
@@ -1107,20 +999,37 @@ export default function DashboardPage() {
               ) : null}
             </div>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-              <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/gif"
-                  className="hidden"
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs font-medium text-neutral-300 transition hover:bg-white/10 hover:text-white">
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0] ?? null;
+                      setComposerFile(file);
+                      setComposerFileName(file?.name ?? "");
+                    }}
+                  />
+                  <Plus className="h-3.5 w-3.5" />
+                  {composerFileName ? "Change" : "Add media"}
+                </label>
+                <select
+                  value={composerPrivacy}
                   onChange={(event) => {
-                    const file = event.target.files?.[0] ?? null;
-                    setComposerFile(file);
-                    setComposerFileName(file?.name ?? "");
+                    const next = event.target.value as PostPrivacy;
+                    setComposerPrivacy(next);
+                    if (next !== "private") {
+                      setComposerAllowedIDs([]);
+                    }
                   }}
-                />
-                <Plus className="h-3.5 w-3.5" />
-                {composerFileName ? "Change media" : "Add media"}
-              </label>
+                  className="h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs text-white outline-none focus:border-white/40 sm:w-40"
+                >
+                  <option value="public">Public</option>
+                  <option value="followers">Followers</option>
+                  <option value="private">Private</option>
+                </select>
+              </div>
               {composerFileName ? (
                 <span className="text-xs text-neutral-500">{composerFileName}</span>
               ) : null}
@@ -1128,96 +1037,57 @@ export default function DashboardPage() {
                 type="button"
                 onClick={handleCreatePost}
                 disabled={isPosting}
-                className="brand-gradient inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-semibold text-[#2b2929] transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 <Send className="h-3.5 w-3.5" />
                 {isPosting ? "Posting..." : "Publish"}
               </button>
             </div>
-            {composerError ? <p className="mt-3 text-xs text-rose-600">{composerError}</p> : null}
+            {composerError ? <p className="mt-3 text-xs text-rose-400">{composerError}</p> : null}
           </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm lg:hidden"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                  chatConnected
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-rose-100 text-rose-700"
-                }`}
-              >
-                {chatConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {chatConnected ? "Connected" : "Offline"}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-col gap-2">
-              <input
-                type="number"
-                value={chatRecipientID}
-                onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient"
-                className="h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-              />
-              <div className="flex gap-2">
-                <input
-                  value={chatDraft}
-                  onChange={(event) => setChatDraft(event.target.value)}
-                  placeholder="Write a direct message..."
-                  className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-                />
-                <button
-                  type="button"
-                  onClick={sendChatMessage}
-                  className="brand-gradient rounded-xl px-3 text-xs font-semibold text-white"
-                >
-                  Send
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          ) : null}
 
           <div className="space-y-4">
-            <div className="rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs text-neutral-600">
-              Feed status: {isLoading ? "loading" : `${posts.length} post(s)`}
-            </div>
+            <p className="text-xs text-neutral-500">
+              {isLoading
+                ? "Loading..."
+                : isExplore
+                  ? `${posts.length} public post${posts.length !== 1 ? "s" : ""}`
+                  : `${posts.length} of your post${posts.length !== 1 ? "s" : ""}`}
+            </p>
           {isLoading ? (
-            <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400">
               Loading your feed...
             </article>
           ) : feedError ? (
-              <article className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+              <article className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400">
                 {feedError}
               </article>
             ) : posts.length === 0 ? (
-              <article className="rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm">
-                No posts yet. Be the first to share an update.
+              <article className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400">
+                {isExplore
+                  ? "No public posts yet. Share something public from your Dashboard to see it here."
+                  : "No posts yet. Create your first post above."}
               </article>
             ) : (
               posts.map((post) => (
                 <article
                   key={post.id}
-                  className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                  className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-xs font-semibold text-white">
                         {initials(post.author_first_name, post.author_last_name)}
                       </span>
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">
+                        <p className="text-sm font-semibold text-white">
                           {post.author_first_name} {post.author_last_name}
                         </p>
                         <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
                       </div>
                     </div>
-                    <span className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-600">
+                    <span className="rounded-lg border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-neutral-400">
                       {post.privacy}
                     </span>
                   </header>
@@ -1228,7 +1098,7 @@ export default function DashboardPage() {
                         value={editPostText}
                         onChange={(event) => setEditPostText(event.target.value)}
                         rows={3}
-                        className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none focus:border-neutral-400"
+                        className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                       />
                       {post.group_id == null ? (
                         <div className="flex flex-wrap items-start gap-3">
@@ -1243,7 +1113,7 @@ export default function DashboardPage() {
                                   setEditPostAllowedIDs([]);
                                 }
                               }}
-                              className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-neutral-700 outline-none focus:border-neutral-400 sm:w-48"
+                              className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500 sm:w-48"
                             >
                               <option value="public">Public</option>
                               <option value="followers">Followers</option>
@@ -1251,7 +1121,7 @@ export default function DashboardPage() {
                             </select>
                           </label>
                           {editPostPrivacy === "private" ? (
-                            <div className="flex flex-1 flex-wrap gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600">
+                            <div className="flex flex-1 flex-wrap gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-black">
                               {followersLoading ? (
                                 <span className="text-xs text-neutral-500">
                                   Loading followers...
@@ -1347,27 +1217,27 @@ export default function DashboardPage() {
                       {editPostError ? <p className="text-xs text-rose-600">{editPostError}</p> : null}
                     </div>
                   ) : (
-                    <p className="mt-4 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                    <p className="mt-4 text-sm leading-relaxed text-neutral-200">{post.content}</p>
                   )}
 
                   {post.media_path ? (
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200">
+                    <div className="mt-4 overflow-hidden rounded-xl border border-white/10">
                       <img
                         src={toMediaUrl(apiBaseUrl, post.media_path)}
                         alt="Post media"
-                        className="max-h-[520px] w-full object-contain bg-white"
+                        className="max-h-[520px] w-full object-contain bg-white/5"
                       />
                     </div>
                   ) : null}
 
-                  <footer className="mt-4 flex items-center gap-4 text-xs text-neutral-500">
+                  <footer className="mt-4 flex items-center gap-3 text-xs">
                     <button
                       type="button"
                       onClick={() => handlePostReaction(post.id, "like")}
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                      className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 transition ${
                         postReactionMap[post.id] === "like"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white"
                       }`}
                     >
                       <ThumbsUp className="h-3.5 w-3.5" />
@@ -1376,10 +1246,10 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => handlePostReaction(post.id, "dislike")}
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
+                      className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 transition ${
                         postReactionMap[post.id] === "dislike"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                          ? "bg-rose-500/20 text-rose-400"
+                          : "bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white"
                       }`}
                     >
                       <ThumbsDown className="h-3.5 w-3.5" />
@@ -1388,7 +1258,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => toggleComments(post.id)}
-                      className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                      className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-neutral-400 transition hover:bg-white/20 hover:text-white"
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
                       {post.comment_count}
@@ -1398,33 +1268,33 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           onClick={() => startEditPost(post)}
-                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-neutral-300 transition hover:bg-white/20 hover:text-white"
                         >
-                          Edit
+                          <Pencil className="h-3 w-3" /> Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => deletePost(post.id)}
-                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                          className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-xs text-neutral-300 transition hover:bg-rose-500/20 hover:text-rose-400"
                         >
-                          Delete
+                          <Trash2 className="h-3 w-3" /> Delete
                         </button>
                       </>
                     ) : null}
                   </footer>
 
                   {commentsOpenByPost[post.id] ? (
-                    <section className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
+                    <section className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
                       <div className="space-y-2">
                         {(commentsByPost[post.id] ?? []).map((comment) => (
-                          <article key={comment.id} className="rounded-xl bg-white p-3">
+                          <article key={comment.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
                             {editingCommentID === comment.id ? (
                               <div className="space-y-2">
                                 <textarea
                                   value={editCommentText}
                                   onChange={(event) => setEditCommentText(event.target.value)}
                                   rows={2}
-                                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                                  className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                                 />
                                 <div className="flex flex-wrap items-center gap-2">
                                   <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
@@ -1484,7 +1354,7 @@ export default function DashboardPage() {
                               </div>
                             ) : (
                               <>
-                                <p className="text-sm text-neutral-700">{comment.content}</p>
+                                <p className="text-sm text-white">{comment.content}</p>
                                 {comment.media_path ? (
                                   <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200 bg-white">
                                     <img
@@ -1530,16 +1400,16 @@ export default function DashboardPage() {
                                   <button
                                     type="button"
                                     onClick={() => startEditComment(comment)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600"
+                                    className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-neutral-400 hover:text-white"
                                   >
-                                    Edit
+                                    <Pencil className="h-3 w-3" /> Edit
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => deleteComment(post.id, comment.id)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600"
+                                    className="inline-flex items-center gap-1 rounded-lg bg-white/10 px-2 py-1 text-neutral-400 hover:text-rose-400"
                                   >
-                                    Delete
+                                    <Trash2 className="h-3 w-3" /> Delete
                                   </button>
                                 </>
                               ) : null}
@@ -1565,7 +1435,7 @@ export default function DashboardPage() {
                             }))
                           }
                           placeholder="Write a comment..."
-                          className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                          className="h-9 flex-1 rounded-xl border border-neutral-200 bg-white px-3 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                         />
                         <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
                           <input
@@ -1615,122 +1485,6 @@ export default function DashboardPage() {
             </div>
           ) : null}
         </section>
-
-        <aside className="hidden space-y-5 md:block">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">Notifications</h2>
-              <button
-                type="button"
-                onClick={markAllNotificationsRead}
-                className="text-xs font-semibold text-neutral-600 hover:text-neutral-900"
-              >
-                Mark all read
-              </button>
-            </div>
-            <div className="mt-3 space-y-2">
-              {notificationsLoading ? (
-                <p className="text-xs text-neutral-500">Loading notifications...</p>
-              ) : notifications.length === 0 ? (
-                <p className="text-xs text-neutral-500">No notifications yet.</p>
-              ) : (
-                notifications.slice(0, 5).map((item) => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    onClick={() => markNotificationRead(item.id)}
-                    className={`w-full rounded-2xl border px-3 py-2 text-left text-xs transition ${
-                      item.is_read
-                        ? "border-neutral-200 bg-neutral-50 text-neutral-500"
-                        : "border-emerald-400 bg-emerald-50 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]"
-                    }`}
-                  >
-                    <p className="font-semibold">{notificationTitle(item)}</p>
-                    <p className="mt-0.5 text-[11px]">{notificationBody(item)}</p>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-neutral-900">Live chat</h2>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold ${
-                  chatConnected
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-rose-100 text-rose-700"
-                }`}
-              >
-                {chatConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-                {chatConnected ? "Connected" : "Offline"}
-              </span>
-            </div>
-            <div className="mt-3 space-y-2">
-              <input
-                type="number"
-                value={chatRecipientID}
-                onChange={(event) => setChatRecipientID(event.target.value)}
-                placeholder="Recipient"
-                className="h-9 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-              />
-              <div className="flex gap-2">
-                <input
-                  value={chatDraft}
-                  onChange={(event) => setChatDraft(event.target.value)}
-                  placeholder="Write a direct message..."
-                  className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
-                />
-                <button
-                  type="button"
-                  onClick={sendChatMessage}
-                  className="brand-gradient rounded-xl px-3 text-xs font-semibold text-white"
-                >
-                  Send
-                </button>
-              </div>
-              {chatError ? <p className="text-xs text-rose-600">{chatError}</p> : null}
-              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-2">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-                  Recent chat messages
-                </p>
-                <div className="max-h-36 space-y-1 overflow-y-auto">
-                  {chatMessages.length === 0 ? (
-                    <p className="text-xs text-neutral-500">No chat messages yet.</p>
-                  ) : (
-                    chatMessages.slice(0, 8).map((msg) => (
-                      <div key={`${msg.id}-${msg.created_at}`} className="rounded-lg bg-white px-2 py-1">
-                        <p className="text-[10px] font-semibold text-neutral-700">
-                          User {msg.sender_id} · Conv {msg.conversation_id}
-                        </p>
-                        <p className="text-xs text-neutral-600">{msg.content || "(media)"}</p>
-                        <p className="text-[10px] text-neutral-400">{shortDate(msg.created_at)}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-              {Object.keys(chatUnreadMap).length > 0 ? (
-                <p className="text-[11px] text-neutral-500">
-                  Unread conversations: {Object.values(chatUnreadMap).reduce((a, b) => a + b, 0)}
-                </p>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h2 className="text-sm font-semibold text-neutral-900">Trending topics</h2>
-            <div className="mt-4 space-y-3">
-              {trends.map((item) => (
-                <article key={item.title} className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-sm font-semibold text-neutral-900">{item.title}</p>
-                  <p className="mt-1 text-xs text-neutral-600">{item.posts}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </aside>
       </main>
 
     </div>

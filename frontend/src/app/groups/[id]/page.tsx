@@ -20,6 +20,7 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
+import { formatApiError } from "@/lib/formatApiError";
 
 type ApiResponse<T> = {
   success?: boolean;
@@ -1137,11 +1138,19 @@ export default function GroupDetailsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section>
@@ -1150,17 +1159,17 @@ export default function GroupDetailsPage() {
           whileInView="show"
           viewport={viewportOnce}
           variants={fadeUp}
-          className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+          className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs font-semibold text-neutral-600">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-white">
               <Users className="h-3.5 w-3.5" />
               {group?.name || "Group"}
             </span>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
@@ -1168,63 +1177,63 @@ export default function GroupDetailsPage() {
           </div>
 
           {isLoading ? (
-            <p className="mt-4 text-sm text-neutral-600">Loading group details...</p>
+            <p className="mt-4 text-sm text-neutral-400">Loading group details...</p>
           ) : error ? (
-            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+            <p className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+              {formatApiError(error)}
             </p>
           ) : group ? (
             <>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight text-neutral-900">{group.name}</h1>
-              <p className="mt-2 text-sm text-neutral-600">{group.description}</p>
+              <h1 className="mt-3 text-2xl font-semibold tracking-tight text-white">{group.name}</h1>
+              <p className="mt-2 text-sm text-neutral-400">{group.description}</p>
 
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-neutral-500">Members</p>
-                  <p className="mt-1 text-sm font-semibold text-neutral-800">{group.memberCount}</p>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-neutral-400">Members</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{group.memberCount}</p>
                 </div>
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-neutral-500">Creator</p>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-neutral-400">Creator</p>
                   {group.creatorID ? (
                     <Link
                       href={`/profile/${group.creatorID}`}
-                      className="mt-1 inline-flex text-sm font-semibold text-neutral-800 transition hover:text-neutral-900"
+                      className="mt-1 inline-flex text-sm font-semibold text-white transition hover:text-neutral-300"
                     >
                       {creatorProfile
                         ? `${creatorProfile.first_name} ${creatorProfile.last_name}`
                         : "Group creator"}
                     </Link>
                   ) : (
-                    <p className="mt-1 text-sm font-semibold text-neutral-800">N/A</p>
+                    <p className="mt-1 text-sm font-semibold text-white">N/A</p>
                   )}
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-neutral-500">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-neutral-400">
                     <Calendar className="h-3.5 w-3.5" />
                     Created
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-neutral-800">{formatDate(group.createdAt)}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{formatDate(group.createdAt)}</p>
                 </div>
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3">
-                  <p className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-neutral-500">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <p className="inline-flex items-center gap-1 text-[11px] uppercase tracking-wide text-neutral-400">
                     <Calendar className="h-3.5 w-3.5" />
                     Updated
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-neutral-800">{formatDate(group.updatedAt)}</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{formatDate(group.updatedAt)}</p>
                 </div>
               </div>
             </>
           ) : (
-            <p className="mt-4 text-sm text-neutral-600">Group details are not available.</p>
+            <p className="mt-4 text-sm text-neutral-400">Group details are not available.</p>
           )}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/groups"
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to groups
@@ -1244,29 +1253,29 @@ export default function GroupDetailsPage() {
           whileInView="show"
           viewport={viewportOnce}
           variants={fadeUp}
-          className="mt-6 rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+          className="mt-6 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-900">Group posts</h2>
-              <p className="text-sm text-neutral-600">
+              <h2 className="text-lg font-semibold text-white">Group posts</h2>
+              <p className="text-sm text-neutral-400">
                 Latest posts shared with this group.
               </p>
             </div>
-            <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+            <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
               {posts.length} post(s)
             </span>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-neutral-200 bg-white p-1 text-[11px] font-semibold text-neutral-600">
+            <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 p-1 text-[11px] font-semibold text-neutral-300">
               <button
                 type="button"
                 onClick={() => setActiveTab("posts")}
                 className={`rounded-full px-3 py-1 transition ${
                   activeTab === "posts"
                     ? "bg-neutral-900 text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
+                    : "text-neutral-400 hover:text-white"
                 }`}
               >
                 Posts
@@ -1277,7 +1286,7 @@ export default function GroupDetailsPage() {
                 className={`rounded-full px-3 py-1 transition ${
                   activeTab === "events"
                     ? "bg-neutral-900 text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
+                    : "text-neutral-400 hover:text-white"
                 }`}
               >
                 Events
@@ -1288,7 +1297,7 @@ export default function GroupDetailsPage() {
                 className={`rounded-full px-3 py-1 transition ${
                   activeTab === "members"
                     ? "bg-neutral-900 text-white"
-                    : "text-neutral-600 hover:text-neutral-900"
+                    : "text-neutral-400 hover:text-white"
                 }`}
               >
                 Members
@@ -1297,7 +1306,7 @@ export default function GroupDetailsPage() {
             {group?.creatorID && userID === group.creatorID ? (
               <Link
                 href={`/groups/${groupIDNumber}/join-requests`}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 Join requests
               </Link>
@@ -1319,7 +1328,7 @@ export default function GroupDetailsPage() {
               <button
                 type="button"
                 onClick={leaveGroup}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
               >
                 Leave group
               </button>
@@ -1330,21 +1339,21 @@ export default function GroupDetailsPage() {
               </span>
             ) : null}
           </div>
-          {joinError ? <p className="mt-2 text-xs text-rose-600">{joinError}</p> : null}
-          {leaveError ? <p className="mt-2 text-xs text-rose-600">{leaveError}</p> : null}
+          {joinError ? <p className="mt-2 text-xs text-rose-600">{formatApiError(joinError)}</p> : null}
+          {leaveError ? <p className="mt-2 text-xs text-rose-600">{formatApiError(leaveError)}</p> : null}
 
           {activeTab === "posts" ? (
             <>
-              <div className="mt-5 rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
+              <div className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
                 <textarea
                   value={composerText}
                   onChange={(event) => setComposerText(event.target.value)}
                   rows={4}
                   placeholder="Share an update with this group..."
-                  className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+                  className="w-full resize-none rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40"
                 />
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                  <label className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white">
                     <input
                       type="file"
                       accept="image/png,image/jpeg,image/gif"
@@ -1358,13 +1367,13 @@ export default function GroupDetailsPage() {
                     Add media
                   </label>
                   {composerFileName ? (
-                    <span className="text-xs text-neutral-500">{composerFileName}</span>
+                    <span className="text-xs text-neutral-400">{composerFileName}</span>
                   ) : null}
                   <input
                     value={mediaUrl}
                     onChange={(event) => setMediaUrl(event.target.value)}
                     placeholder="Or paste media URL"
-                    className="h-10 flex-1 rounded-2xl border border-neutral-200 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-400 outline-none transition focus:border-neutral-400"
+                    className="h-10 flex-1 rounded-2xl border border-white/20 bg-white/5 px-4 text-sm text-white placeholder:text-neutral-500 outline-none transition focus:border-white/40"
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -1379,18 +1388,18 @@ export default function GroupDetailsPage() {
                   </button>
                 </div>
                 {composerError ? (
-                  <p className="mt-3 text-xs text-rose-600">{composerError}</p>
+                  <p className="mt-3 text-xs text-rose-600">{formatApiError(composerError)}</p>
                 ) : null}
               </div>
 
               {postsLoading ? (
-                <p className="mt-4 text-sm text-neutral-600">Loading group posts...</p>
+                <p className="mt-4 text-sm text-neutral-400">Loading group posts...</p>
               ) : postsError ? (
-                <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {postsError}
+                <p className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+                  {formatApiError(postsError)}
                 </p>
               ) : posts.length === 0 ? (
-                <p className="mt-4 text-sm text-neutral-600">
+                <p className="mt-4 text-sm text-neutral-400">
                   No posts yet. Be the first to share something.
                 </p>
               ) : (
@@ -1398,19 +1407,19 @@ export default function GroupDetailsPage() {
                   {posts.map((post) => (
                     <article
                       key={post.id}
-                      className="rounded-3xl border border-neutral-200 bg-neutral-50 p-5"
+                      className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
                     >
                   <header className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-neutral-900">
+                      <p className="text-sm font-semibold text-white">
                         {post.author_first_name} {post.author_last_name}
                       </p>
-                      <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
+                      <p className="text-xs text-neutral-400">{shortDate(post.created_at)}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => toggleComments(post.id)}
-                      className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] text-neutral-500"
+                      className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-[11px] text-neutral-400"
                     >
                       <MessageCircle className="h-3.5 w-3.5" />
                       {post.comment_count} comments
@@ -1423,10 +1432,10 @@ export default function GroupDetailsPage() {
                         value={editPostText}
                         onChange={(event) => setEditPostText(event.target.value)}
                         rows={3}
-                        className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-neutral-400"
+                        className="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-3 text-sm outline-none focus:border-neutral-400"
                       />
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                          <label className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white">
                             <input
                               type="file"
                               accept="image/png,image/jpeg,image/gif"
@@ -1441,7 +1450,7 @@ export default function GroupDetailsPage() {
                             Change media
                           </label>
                           {editPostFileName ? (
-                            <span className="text-xs text-neutral-500">{editPostFileName}</span>
+                            <span className="text-xs text-neutral-400">{editPostFileName}</span>
                           ) : null}
                           {post.media_path ? (
                             <button
@@ -1454,7 +1463,7 @@ export default function GroupDetailsPage() {
                               className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
                                 editPostClearMedia
                                   ? "border-rose-200 bg-rose-50 text-rose-700"
-                                  : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                                  : "border-white/20 bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
                               }`}
                             >
                               {editPostClearMedia ? "Media removed" : "Remove media"}
@@ -1470,21 +1479,21 @@ export default function GroupDetailsPage() {
                         <button
                           type="button"
                           onClick={cancelEditPost}
-                          className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700"
+                          className="rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300"
                         >
                           Cancel
                         </button>
                       </div>
                       {editPostError ? (
-                        <p className="text-xs text-rose-600">{editPostError}</p>
+                        <p className="text-xs text-rose-600">{formatApiError(editPostError)}</p>
                       ) : null}
                     </div>
                   ) : (
-                    <p className="mt-3 text-sm leading-relaxed text-neutral-700">{post.content}</p>
+                    <p className="mt-3 text-sm leading-relaxed text-neutral-300">{post.content}</p>
                   )}
 
                   {post.media_path ? (
-                    <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-white/20 bg-white/5">
                       <img
                         src={toMediaUrl(apiBaseUrl, post.media_path)}
                         alt="Post media"
@@ -1493,14 +1502,14 @@ export default function GroupDetailsPage() {
                     </div>
                   ) : null}
 
-                  <footer className="mt-4 flex items-center gap-3 text-xs text-neutral-500">
+                  <footer className="mt-4 flex items-center gap-3 text-xs text-neutral-400">
                     <button
                       type="button"
                       onClick={() => handlePostReaction(post.id, "like")}
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                         postReactionMap[post.id] === "like"
                           ? "bg-emerald-100 text-emerald-800"
-                          : "bg-white text-neutral-600 hover:bg-neutral-100"
+                          : "bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white"
                       }`}
                     >
                       <ThumbsUp className="h-3.5 w-3.5" />
@@ -1512,7 +1521,7 @@ export default function GroupDetailsPage() {
                       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 transition ${
                         postReactionMap[post.id] === "dislike"
                           ? "bg-rose-100 text-rose-800"
-                          : "bg-white text-neutral-600 hover:bg-neutral-100"
+                          : "bg-white/10 text-neutral-400 hover:bg-white/20 hover:text-white"
                       }`}
                     >
                       <ThumbsDown className="h-3.5 w-3.5" />
@@ -1523,14 +1532,14 @@ export default function GroupDetailsPage() {
                         <button
                           type="button"
                           onClick={() => startEditPost(post)}
-                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                          className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-neutral-300 transition hover:bg-white/20"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => deletePost(post.id)}
-                          className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                          className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-neutral-300 transition hover:bg-white/20"
                         >
                           Delete
                         </button>
@@ -1539,20 +1548,20 @@ export default function GroupDetailsPage() {
                   </footer>
 
                   {commentsOpenByPost[post.id] ? (
-                    <section className="mt-4 rounded-2xl border border-neutral-200 bg-white p-3">
+                    <section className="mt-4 rounded-2xl border border-white/20 bg-white/5 p-3">
                       <div className="space-y-2">
                         {(commentsByPost[post.id] ?? []).map((comment) => (
-                          <article key={comment.id} className="rounded-xl bg-neutral-50 p-3">
+                          <article key={comment.id} className="rounded-xl bg-white/5 p-3">
                             {editingCommentID === comment.id ? (
                               <div className="space-y-2">
                                 <textarea
                                   value={editCommentText}
                                   onChange={(event) => setEditCommentText(event.target.value)}
                                   rows={2}
-                                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                                  className="w-full rounded-xl border border-white/20 bg-white/5 px-3 py-2 text-xs outline-none focus:border-neutral-400"
                                 />
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <label className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                                  <label className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white">
                                     <input
                                       type="file"
                                       accept="image/png,image/jpeg,image/gif"
@@ -1567,7 +1576,7 @@ export default function GroupDetailsPage() {
                                     Change media
                                   </label>
                                   {editCommentFileName ? (
-                                    <span className="text-[11px] text-neutral-500">
+                                    <span className="text-[11px] text-neutral-400">
                                       {editCommentFileName}
                                     </span>
                                   ) : null}
@@ -1582,7 +1591,7 @@ export default function GroupDetailsPage() {
                                       className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
                                         editCommentClearMedia
                                           ? "border-rose-200 bg-rose-50 text-rose-700"
-                                          : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
+                                          : "border-white/20 bg-white/5 text-neutral-300 hover:bg-white/10 hover:text-white"
                                       }`}
                                     >
                                       {editCommentClearMedia ? "Media removed" : "Remove media"}
@@ -1598,20 +1607,20 @@ export default function GroupDetailsPage() {
                                   <button
                                     type="button"
                                     onClick={cancelEditComment}
-                                    className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-700"
+                                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-neutral-300"
                                   >
                                     Cancel
                                   </button>
                                 </div>
                                 {editCommentError ? (
-                                  <p className="text-[11px] text-rose-600">{editCommentError}</p>
+                                  <p className="text-[11px] text-rose-600">{formatApiError(editCommentError)}</p>
                                 ) : null}
                               </div>
                             ) : (
                               <>
-                                <p className="text-sm text-neutral-700">{comment.content}</p>
+                                <p className="text-sm text-neutral-300">{comment.content}</p>
                                 {comment.media_path ? (
-                                  <div className="mt-2 overflow-hidden rounded-xl border border-neutral-200 bg-white">
+                                  <div className="mt-2 overflow-hidden rounded-xl border border-white/20 bg-white/5">
                                     <img
                                       src={toMediaUrl(apiBaseUrl, comment.media_path)}
                                       alt="Comment media"
@@ -1630,7 +1639,7 @@ export default function GroupDetailsPage() {
                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                   commentReactionMap[comment.id] === "like"
                                     ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-white text-neutral-600"
+                                    : "bg-white/10 text-neutral-400 hover:text-white"
                                 }`}
                               >
                                 <ThumbsUp className="h-3 w-3" />
@@ -1644,7 +1653,7 @@ export default function GroupDetailsPage() {
                                 className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
                                   commentReactionMap[comment.id] === "dislike"
                                     ? "bg-rose-100 text-rose-800"
-                                    : "bg-white text-neutral-600"
+                                    : "bg-white/10 text-neutral-400 hover:text-white"
                                 }`}
                               >
                                 <ThumbsDown className="h-3 w-3" />
@@ -1655,14 +1664,14 @@ export default function GroupDetailsPage() {
                                   <button
                                     type="button"
                                     onClick={() => startEditComment(comment)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-neutral-300 transition hover:bg-white/20"
                                   >
                                     Edit
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => deleteComment(post.id, comment.id)}
-                                    className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-1 text-neutral-600 transition hover:bg-neutral-200"
+                                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 text-neutral-300 transition hover:bg-white/20"
                                   >
                                     Delete
                                   </button>
@@ -1673,7 +1682,7 @@ export default function GroupDetailsPage() {
                         ))}
 
                         {commentsLoadingByPost[post.id] ? (
-                          <p className="text-xs text-neutral-500">Loading comments...</p>
+                          <p className="text-xs text-neutral-400">Loading comments...</p>
                         ) : null}
                         {commentErrorByPost[post.id] ? (
                           <p className="text-xs text-rose-600">{commentErrorByPost[post.id]}</p>
@@ -1690,9 +1699,9 @@ export default function GroupDetailsPage() {
                             }))
                           }
                           placeholder="Write a comment..."
-                          className="h-9 flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-xs outline-none focus:border-neutral-400"
+                          className="h-9 flex-1 rounded-xl border border-white/20 bg-white/5 px-3 text-xs text-white outline-none focus:border-white/40"
                         />
-                        <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900">
+                        <label className="inline-flex h-9 items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-3 text-xs font-semibold text-neutral-700 transition hover:bg-white/10 hover:text-white">
                           <input
                             type="file"
                             accept="image/png,image/jpeg,image/gif"
@@ -1717,7 +1726,7 @@ export default function GroupDetailsPage() {
                         </button>
                       </div>
                       {commentFileNameByPost[post.id] ? (
-                        <p className="mt-2 text-[11px] text-neutral-500">
+                        <p className="mt-2 text-[11px] text-neutral-400">
                           Attached: {commentFileNameByPost[post.id]}
                         </p>
                       ) : null}
@@ -1738,27 +1747,27 @@ export default function GroupDetailsPage() {
 
           {activeTab === "events" && isMember ? (
             <div className="mt-5 space-y-4">
-              <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
-                <h3 className="text-sm font-semibold text-neutral-900">Create event</h3>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+                <h3 className="text-sm font-semibold text-white">Create event</h3>
                 <div className="mt-3 grid gap-3">
                   <input
                     value={eventTitle}
                     onChange={(event) => setEventTitle(event.target.value)}
                     placeholder="Event title"
-                    className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                    className="h-10 w-full rounded-2xl border border-white/20 bg-white/5 px-3 text-xs outline-none focus:border-neutral-400"
                   />
                   <textarea
                     value={eventDescription}
                     onChange={(event) => setEventDescription(event.target.value)}
                     rows={3}
                     placeholder="Description"
-                    className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                    className="w-full resize-none rounded-2xl border border-white/20 bg-white/5 px-3 py-2 text-xs outline-none focus:border-neutral-400"
                   />
                   <input
                     type="datetime-local"
                     value={eventTime}
                     onChange={(event) => setEventTime(event.target.value)}
-                    className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                    className="h-10 w-full rounded-2xl border border-white/20 bg-white/5 px-3 text-xs outline-none focus:border-neutral-400"
                   />
                   <button
                     type="button"
@@ -1769,44 +1778,44 @@ export default function GroupDetailsPage() {
                     Create event
                   </button>
                   {eventCreateError ? (
-                    <p className="text-xs text-rose-600">{eventCreateError}</p>
+                    <p className="text-xs text-rose-600">{formatApiError(eventCreateError)}</p>
                   ) : null}
                 </div>
               </div>
 
               {eventsLoading ? (
-                <p className="text-sm text-neutral-600">Loading events...</p>
+                <p className="text-sm text-neutral-400">Loading events...</p>
               ) : eventsError ? (
-                <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {eventsError}
+                <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+                  {formatApiError(eventsError)}
                 </p>
               ) : events.length === 0 ? (
-                <p className="text-sm text-neutral-600">No events yet.</p>
+                <p className="text-sm text-neutral-400">No events yet.</p>
               ) : (
                 <div className="space-y-3">
                   {events.map((event) => (
                     <article
                       key={event.id}
-                      className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"
+                      className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <h4 className="text-base font-semibold text-neutral-900">
+                          <h4 className="text-base font-semibold text-white">
                             {event.title}
                           </h4>
-                          <p className="mt-1 text-sm text-neutral-600">
+                          <p className="mt-1 text-sm text-neutral-400">
                             {event.description || "No description."}
                           </p>
                         </div>
-                        <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                        <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
                           {formatDateTime(event.event_time)}
                         </span>
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-2">
-                        <span className="text-xs text-neutral-500">Event</span>
+                        <span className="text-xs text-neutral-400">Event</span>
                         <Link
                           href={`/events/${event.id}`}
-                          className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                          className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                         >
                           View details
                         </Link>
@@ -1818,7 +1827,7 @@ export default function GroupDetailsPage() {
                       type="button"
                       onClick={() => loadEvents(events.length, true)}
                       disabled={eventsLoadingMore}
-                      className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-2xl border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {eventsLoadingMore ? "Loading..." : "Load more"}
                     </button>
@@ -1831,9 +1840,9 @@ export default function GroupDetailsPage() {
           {activeTab === "members" && isMember ? (
             <div className="mt-5 space-y-4">
               {group?.creatorID && userID === group.creatorID ? (
-                <div className="rounded-3xl border border-neutral-200 bg-neutral-50 p-4">
-                  <h3 className="text-sm font-semibold text-neutral-900">Invite members</h3>
-                  <p className="mt-1 text-xs text-neutral-500">
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+                  <h3 className="text-sm font-semibold text-white">Invite members</h3>
+                  <p className="mt-1 text-xs text-neutral-400">
                     Search users and send an invitation to join this group.
                   </p>
                   <div className="mt-3 space-y-3">
@@ -1847,14 +1856,14 @@ export default function GroupDetailsPage() {
                           }
                         }}
                         placeholder="Search by name or nickname"
-                        className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                        className="h-10 w-full rounded-2xl border border-white/20 bg-white/5 px-3 text-xs outline-none focus:border-neutral-400"
                       />
                       {inviteQuery.trim() ? (
-                        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl">
+                        <div className="absolute z-20 mt-2 w-full rounded-2xl border border-white/20 bg-white/5 p-2 shadow-xl">
                           {inviteLoading ? (
-                            <p className="px-2 py-2 text-xs text-neutral-500">Searching...</p>
+                            <p className="px-2 py-2 text-xs text-neutral-400">Searching...</p>
                           ) : inviteResults.length === 0 ? (
-                            <p className="px-2 py-2 text-xs text-neutral-500">No users found.</p>
+                            <p className="px-2 py-2 text-xs text-neutral-400">No users found.</p>
                           ) : (
                             <div className="space-y-2">
                               {inviteResults.map((person) => (
@@ -1866,7 +1875,7 @@ export default function GroupDetailsPage() {
                                     setInviteQuery("");
                                     setInviteResults([]);
                                   }}
-                                  className="flex w-full items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs text-neutral-700 transition hover:border-neutral-400 hover:bg-white"
+                                  className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-left text-xs text-neutral-300 transition hover:bg-white/10 hover:text-white"
                                 >
                                   <Avatar
                                     src={
@@ -1879,10 +1888,10 @@ export default function GroupDetailsPage() {
                                     textClassName="text-[10px]"
                                   />
                                   <div>
-                                    <p className="text-xs font-semibold text-neutral-900">
+                                    <p className="text-xs font-semibold text-white">
                                       {person.first_name} {person.last_name}
                                     </p>
-                                    <p className="text-[11px] text-neutral-500">
+                                    <p className="text-[11px] text-neutral-400">
                                       @{person.nickname || "user"}
                                     </p>
                                   </div>
@@ -1894,19 +1903,19 @@ export default function GroupDetailsPage() {
                       ) : null}
                     </div>
                     {selectedInvitee ? (
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/20 bg-white/5 px-3 py-2 text-xs text-neutral-300">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold">
                             {selectedInvitee.first_name} {selectedInvitee.last_name}
                           </span>
-                          <span className="text-[11px] text-neutral-500">
+                          <span className="text-[11px] text-neutral-400">
                             @{selectedInvitee.nickname || "user"}
                           </span>
                         </div>
                         <button
                           type="button"
                           onClick={() => setSelectedInvitee(null)}
-                          className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:border-neutral-400 hover:text-neutral-900"
+                          className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-[11px] font-semibold text-neutral-600 transition hover:bg-white/10 hover:text-white"
                         >
                           Clear
                         </button>
@@ -1921,7 +1930,7 @@ export default function GroupDetailsPage() {
                       Send invitation
                     </button>
                   </div>
-                  {inviteError ? <p className="mt-2 text-xs text-rose-600">{inviteError}</p> : null}
+                  {inviteError ? <p className="mt-2 text-xs text-rose-600">{formatApiError(inviteError)}</p> : null}
                   {inviteSuccess ? (
                     <p className="mt-2 text-xs text-emerald-600">{inviteSuccess}</p>
                   ) : null}
@@ -1929,19 +1938,19 @@ export default function GroupDetailsPage() {
               ) : null}
 
               {membersLoading ? (
-                <p className="text-sm text-neutral-600">Loading members...</p>
+                <p className="text-sm text-neutral-400">Loading members...</p>
               ) : membersError ? (
-                <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {membersError}
+                <p className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
+                  {formatApiError(membersError)}
                 </p>
               ) : members.length === 0 ? (
-                <p className="text-sm text-neutral-600">No members found.</p>
+                <p className="text-sm text-neutral-400">No members found.</p>
               ) : (
                 <div className="space-y-2">
                   {members.map((member, index) => (
                     <div
                       key={`${member.id}-${index}`}
-                      className="flex items-center gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3"
+                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                     >
                       <Avatar
                         src={
@@ -1952,10 +1961,10 @@ export default function GroupDetailsPage() {
                         textClassName="text-xs"
                       />
                       <div>
-                        <p className="text-sm font-semibold text-neutral-900">
+                        <p className="text-sm font-semibold text-white">
                           {member.first_name} {member.last_name}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-neutral-400">
                           @{member.nickname || "user"}
                         </p>
                       </div>
@@ -1972,7 +1981,7 @@ export default function GroupDetailsPage() {
                 type="button"
                 onClick={loadMorePosts}
                 disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isLoadingMore ? "Loading..." : "Load more posts"}
               </button>

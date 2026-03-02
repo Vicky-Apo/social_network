@@ -243,12 +243,20 @@ export default function EventDetailPage() {
   const isCreator = Boolean(event && viewer && event.creator_id === viewer.id);
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
-      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 md:grid-cols-[1fr_280px] lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/groups" />
+          <LeftNav user={viewer ?? undefined} activeHref="/groups" variant="dark" />
         </aside>
 
         <section>
@@ -257,19 +265,19 @@ export default function EventDetailPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+            className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight text-neutral-900">Event details</h1>
-                <p className="text-sm text-neutral-600">
+                <h1 className="text-xl font-semibold tracking-tight text-white">Event details</h1>
+                <p className="text-sm text-neutral-400">
                   View event info and RSVP {groupName ? `· ${groupName}` : ""}.
                 </p>
               </div>
               {event ? (
                 <Link
                   href={`/groups/${event.group_id}/events`}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
                   Back to events
@@ -284,7 +292,7 @@ export default function EventDetailPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="mt-5 rounded-3xl border border-neutral-200 bg-white p-6 text-sm text-neutral-600 shadow-sm"
+            className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm"
           >
             Loading event...
           </motion.div>
@@ -294,7 +302,7 @@ export default function EventDetailPage() {
             whileInView="show"
             viewport={viewportOnce}
             variants={fadeUp}
-            className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700"
+            className="mt-5 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400"
           >
             {error}
           </motion.div>
@@ -305,16 +313,16 @@ export default function EventDetailPage() {
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-neutral-900">{event.title}</h2>
-                  <p className="mt-1 text-sm text-neutral-600">
+                  <h2 className="text-lg font-semibold text-white">{event.title}</h2>
+                  <p className="mt-1 text-sm text-neutral-400">
                     {event.description || "No description."}
                   </p>
                 </div>
-                <span className="rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+                <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
                   {formatDateTime(event.event_time)}
                 </span>
               </div>
@@ -330,13 +338,13 @@ export default function EventDetailPage() {
                 <button
                   type="button"
                   onClick={() => handleRespond("not_going")}
-                  className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                 >
                   <ThumbsDown className="h-3.5 w-3.5" />
                   Not going
                 </button>
                 {responseAction ? (
-                  <span className="text-xs text-rose-600">{responseAction}</span>
+                  <span className="text-xs text-rose-400">{responseAction}</span>
                 ) : null}
               </div>
             </motion.div>
@@ -347,18 +355,18 @@ export default function EventDetailPage() {
                 whileInView="show"
                 viewport={viewportOnce}
                 variants={fadeUp}
-                className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+                className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold text-neutral-900">Manage event</h3>
-                    <p className="text-xs text-neutral-500">Only the creator can edit or delete.</p>
+                    <h3 className="text-sm font-semibold text-white">Manage event</h3>
+                    <p className="text-xs text-neutral-400">Only the creator can edit or delete.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setIsEditing((prev) => !prev)}
-                      className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:bg-white/10 hover:text-white"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                       {isEditing ? "Cancel" : "Edit"}
@@ -366,7 +374,7 @@ export default function EventDetailPage() {
                     <button
                       type="button"
                       onClick={handleDelete}
-                      className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:border-rose-300"
+                      className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs font-semibold text-rose-400 transition hover:bg-rose-500/20"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       Delete
@@ -379,19 +387,19 @@ export default function EventDetailPage() {
                     <input
                       value={editTitle}
                       onChange={(event) => setEditTitle(event.target.value)}
-                      className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                      className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                     />
                     <textarea
                       value={editDescription}
                       onChange={(event) => setEditDescription(event.target.value)}
                       rows={3}
-                      className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs outline-none focus:border-neutral-400"
+                      className="w-full resize-none rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                     />
                     <input
                       type="datetime-local"
                       value={editTime}
                       onChange={(event) => setEditTime(event.target.value)}
-                      className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs outline-none focus:border-neutral-400"
+                      className="h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500"
                     />
                     <button
                       type="button"
@@ -402,34 +410,95 @@ export default function EventDetailPage() {
                       <Check className="h-3.5 w-3.5" />
                       Save changes
                     </button>
-                    {editError ? <p className="text-xs text-rose-600">{editError}</p> : null}
+                    {editError ? <p className="text-xs text-rose-400">{editError}</p> : null}
                   </div>
                 ) : null}
-                {deleteError ? <p className="mt-2 text-xs text-rose-600">{deleteError}</p> : null}
+                {deleteError ? <p className="mt-2 text-xs text-rose-400">{deleteError}</p> : null}
               </motion.div>
             ) : null}
 
+            {/* Responses - mobile only (md+ shows in right sidebar) */}
+            {event ? (
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+                variants={fadeUp}
+                className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm md:hidden"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                  <Calendar className="h-4 w-4" />
+                  Responses
+                </div>
+                {responsesError ? (
+                  <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
+                ) : responses.length === 0 ? (
+                  <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {responses.map((resp) => (
+                      <div
+                        key={`${resp.user_id}-${resp.response}`}
+                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            src={resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null}
+                            name={`${resp.first_name} ${resp.last_name}`}
+                            size={36}
+                            textClassName="text-[11px]"
+                          />
+                          <div>
+                            <p className="text-xs font-semibold text-white">
+                              {resp.first_name} {resp.last_name}
+                            </p>
+                            <p className="text-[11px] text-neutral-400">
+                              @{resp.nickname || "user"}
+                            </p>
+                          </div>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
+                            resp.response === "going"
+                              ? "bg-emerald-500/20 text-emerald-400"
+                              : "bg-white/10 text-neutral-400"
+                          }`}
+                        >
+                          {resp.response === "going" ? "Going" : "Not going"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            ) : null}
+          </div>
+        ) : null}
+        </section>
+
+        {event && !isLoading && !error ? (
+          <aside className="hidden space-y-4 md:block md:col-start-2 lg:col-start-3">
             <motion.div
               initial="hidden"
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm"
+              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
             >
-              <div className="flex items-center gap-2 text-sm font-semibold text-neutral-900">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white">
                 <Calendar className="h-4 w-4" />
                 Responses
               </div>
               {responsesError ? (
-                <p className="mt-2 text-xs text-rose-600">{responsesError}</p>
+                <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
               ) : responses.length === 0 ? (
-                <p className="mt-3 text-xs text-neutral-500">No responses yet.</p>
+                <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
               ) : (
                 <div className="mt-3 space-y-2">
                   {responses.map((resp) => (
                     <div
                       key={`${resp.user_id}-${resp.response}`}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2"
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
                     >
                       <div className="flex items-center gap-3">
                         <Avatar
@@ -439,19 +508,19 @@ export default function EventDetailPage() {
                           textClassName="text-[11px]"
                         />
                         <div>
-                          <p className="text-xs font-semibold text-neutral-800">
+                          <p className="text-xs font-semibold text-white">
                             {resp.first_name} {resp.last_name}
                           </p>
-                          <p className="text-[11px] text-neutral-500">
+                          <p className="text-[11px] text-neutral-400">
                             @{resp.nickname || "user"}
                           </p>
                         </div>
                       </div>
                       <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                        className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
                           resp.response === "going"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : "bg-neutral-200 text-neutral-700"
+                            ? "bg-emerald-500/20 text-emerald-400"
+                            : "bg-white/10 text-neutral-400"
                         }`}
                       >
                         {resp.response === "going" ? "Going" : "Not going"}
@@ -461,9 +530,8 @@ export default function EventDetailPage() {
                 </div>
               )}
             </motion.div>
-          </div>
+          </aside>
         ) : null}
-        </section>
       </main>
     </div>
   );

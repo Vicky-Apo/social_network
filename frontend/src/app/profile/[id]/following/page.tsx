@@ -121,12 +121,20 @@ export default function FollowingPage() {
   const isOwner = viewer?.id === profileID;
 
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900">
-      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} />
+    <div
+      className="min-h-screen text-neutral-100"
+      style={{
+        backgroundImage: "url('/groups-bg.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <TopNav user={viewer ?? undefined} onLogout={() => router.replace("/login")} variant="dark" />
 
       <main className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="hidden lg:block">
-          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" />
+          <LeftNav user={viewer ?? undefined} activeHref="/dashboard" variant="dark" />
         </aside>
 
         <section className="space-y-5">
