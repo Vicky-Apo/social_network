@@ -4,14 +4,16 @@ import "time"
 
 // EventDTO represents an event in API responses.
 type EventDTO struct {
-	ID          int64     `json:"id"`
-	GroupID     int64     `json:"group_id"`
-	CreatorID   int64     `json:"creator_id"`
-	Title       string    `json:"title"`
-	Description *string   `json:"description,omitempty"`
-	EventTime   time.Time `json:"event_time"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID             int64     `json:"id"`
+	GroupID        int64     `json:"group_id"`
+	GroupTitle     *string   `json:"group_title,omitempty"`
+	CreatorID      int64     `json:"creator_id"`
+	Title          string    `json:"title"`
+	Description    *string   `json:"description,omitempty"`
+	EventTime      time.Time `json:"event_time"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	ResponsesCount int64     `json:"responses_count"`
 }
 
 // EventResponseDTO represents a user's response to an event.

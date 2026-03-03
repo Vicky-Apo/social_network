@@ -8,12 +8,8 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -31,6 +27,7 @@ type GroupSummary = {
 type EventItem = {
   id: number;
   group_id: number;
+  group_title?: string | null;
   creator_id: number;
   title: string;
   description?: string | null;
@@ -67,12 +64,7 @@ export default function GroupEventsPage() {
 
   const pageSize = 8;
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadGroupAndEvents = useCallback(async () => {
     if (!Number.isFinite(groupID) || groupID <= 0) {
@@ -84,28 +76,20 @@ export default function GroupEventsPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
 
-      const groupResponse = await fetch(`${apiBaseUrl}/groups/${groupID}`, { credentials: "include" });
-      const groupResult = (await groupResponse.json().catch(() => null)) as ApiResponse<unknown> | null;
-      if (groupResponse.ok && groupResult?.success && groupResult.data) {
-        const raw = groupResult.data as { id?: number; title?: string; name?: string };
-        setGroup({ id: Number(raw.id ?? groupID), name: raw.title || raw.name || `Group ${groupID}` });
-      }
-
-      const eventsResponse = await fetch(
-        `${apiBaseUrl}/groups/${groupID}/events?limit=${pageSize}&offset=0`,
-        { credentials: "include" },
-      );
-      const eventsResult = (await eventsResponse.json().catch(() => null)) as
-        | ApiResponse<EventItem[]>
-        | null;
+      const { response: eventsResponse, result: eventsResult } = await apiFetchJson<
+        ApiResponse<EventItem[]>
+      >(`/groups/${groupID}/events?limit=${pageSize}&offset=0`, {}, apiBaseUrl);
       if (!eventsResponse.ok || !eventsResult?.success) {
         if (eventsResponse.status === 403) {
           setError("Join this group to view events.");
@@ -118,6 +102,14 @@ export default function GroupEventsPage() {
       }
       const items = eventsResult.data ?? [];
       setEvents(items);
+      if (items.length > 0) {
+        const title = items[0].group_title?.trim();
+        if (title) {
+          setGroup({ id: groupID, name: title });
+        }
+      } else if (!group) {
+        setGroup({ id: groupID, name: `Group ${groupID}` });
+      }
       setHasMore(items.length >= pageSize);
     } catch {
       setError("Network error. Please try again.");
@@ -137,11 +129,11 @@ export default function GroupEventsPage() {
     setIsLoadingMore(true);
     try {
       const offset = events.length;
-      const response = await fetch(
-        `${apiBaseUrl}/groups/${groupID}/events?limit=${pageSize}&offset=${offset}`,
-        { credentials: "include" },
+      const { response, result } = await apiFetchJson<ApiResponse<EventItem[]>>(
+        `/groups/${groupID}/events?limit=${pageSize}&offset=${offset}`,
+        {},
+        apiBaseUrl,
       );
-      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem[]> | null;
       if (!response.ok || !result?.success) return;
       const next = result.data ?? [];
       setEvents((prev) => [...prev, ...next]);
@@ -164,13 +156,15 @@ export default function GroupEventsPage() {
         description: description.trim() || undefined,
         event_time: new Date(eventTime).toISOString(),
       };
-      const response = await fetch(`${apiBaseUrl}/groups/${groupID}/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem> | null;
+      const { response, result } = await apiFetchJson<ApiResponse<EventItem>>(
+        `/groups/${groupID}/events`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success || !result.data) {
         setCreateError(result?.error || "Could not create event.");
         return;

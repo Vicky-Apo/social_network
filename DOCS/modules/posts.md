@@ -45,6 +45,7 @@ Response (200):
       "id": 1,
       "author_id": 2,
       "group_id": null,
+      "group_title": null,
       "author_first_name": "Jane",
       "author_last_name": "Doe",
       "author_nickname": "jdoe",
@@ -64,6 +65,11 @@ Response (200):
 
 Headers:
 - `X-Total-Count`: total posts available for the current query.
+
+Notes:
+- `group_id` is present only for group posts.
+- `group_title` is present for group posts and can be displayed in mixed feeds.
+- `comment_count`, `like_count`, and `dislike_count` are included so clients can render totals without extra per-post requests.
 
 ### Create post
 
@@ -87,6 +93,7 @@ Notes:
 - `followers` is the "almost private" option (only followers can see the post).
 - `allowed_user_ids` is required only when `privacy` is `private` (must be followers of the author).
 - `allowed_user_ids` is ignored for `public` and `followers`.
+- The frontend may load the followers list only when `privacy` is set to `private` to avoid unnecessary requests.
 - `group_id` is optional here. For group posts, prefer `POST /groups/{id}/posts` and do not send `allowed_user_ids`.
 - If `group_id` is provided, the post is stored with `privacy = public` and access is enforced by group membership.
 - Use `POST /uploads` to get a `media_path` if you need to attach an image/GIF.

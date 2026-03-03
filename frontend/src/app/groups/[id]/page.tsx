@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -22,12 +22,10 @@ import Avatar from "@/components/Avatar";
 import Pagination from "@/components/Pagination";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 import { formatApiError } from "@/lib/formatApiError";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { shortDate } from "@/lib/date";
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type GroupDetail = {
   id: number;
@@ -126,26 +124,11 @@ function formatDate(value?: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function shortDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 function formatDateTime(value?: string) {
   if (!value) return "N/A";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "N/A";
   return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
 }
 
 function parseGroup(data: unknown): GroupDetail | null {
@@ -261,11 +244,11 @@ export default function GroupDetailsPage() {
   const [eventCreateError, setEventCreateError] = useState<string | null>(null);
   const [eventCreating, setEventCreating] = useState(false);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const fetchJson = useCallback(
+    async <T,>(path: string, options: RequestInit = {}) =>
+      apiFetchJson<ApiResponse<T>>(path, options, apiBaseUrl),
+    [apiBaseUrl],
   );
 
   useEffect(() => {
@@ -288,10 +271,7 @@ export default function GroupDetailsPage() {
       setPostsError(null);
 
       try {
-        const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-          credentials: "include",
-        });
-        const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<unknown> | null;
+        const { response: meResponse, result: meResult } = await fetchJson<unknown>("/auth/me");
         if (!meResponse.ok || !meResult?.success) {
           if (!cancelled) {
             router.replace("/login");
@@ -306,20 +286,14 @@ export default function GroupDetailsPage() {
 
         const offset = (currentPage - 1) * pageSize;
         const [groupResponse, postsResponse] = await Promise.all([
-          fetch(`${apiBaseUrl}/groups/${groupIDNumber}`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=${offset}`, {
-            credentials: "include",
-          }),
+          fetchJson<unknown>(`/groups/${groupIDNumber}`),
+          fetchJson<unknown>(`/groups/${groupIDNumber}/posts?limit=${pageSize}&offset=${offset}`),
         ]);
 
-        const groupResult = (await groupResponse.json().catch(() => null)) as
-          | ApiResponse<unknown>
-          | null;
-        if (!groupResponse.ok || !groupResult?.success) {
+        const groupResult = groupResponse.result;
+        if (!groupResponse.response.ok || !groupResult?.success) {
           if (!cancelled) {
-            if (groupResponse.status === 404) {
+            if (groupResponse.response.status === 404) {
               setError("Group endpoint is not available yet or this group does not exist.");
             } else {
               setError(groupResult?.error || "Could not load this group.");
@@ -338,12 +312,10 @@ export default function GroupDetailsPage() {
           }
         }
 
-        const postsResult = (await postsResponse.json().catch(() => null)) as
-          | ApiResponse<Post[]>
-          | null;
-        if (!postsResponse.ok || !postsResult?.success) {
+        const postsResult = postsResponse.result as ApiResponse<Post[]> | null;
+        if (!postsResponse.response.ok || !postsResult?.success) {
           if (!cancelled) {
-            if (postsResponse.status === 404) {
+            if (postsResponse.response.status === 404) {
               setPostsError("Group posts endpoint is not available yet.");
             } else {
               setPostsError(postsResult?.error || "Could not load group posts.");
@@ -353,45 +325,20 @@ export default function GroupDetailsPage() {
         } else if (!cancelled) {
           const nextPosts = postsResult.data ?? [];
           setPosts(nextPosts);
-          const totalHeader = postsResponse.headers.get("X-Total-Count");
+          const totalHeader = postsResponse.response.headers.get("X-Total-Count");
           const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
           setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : nextPosts.length);
 
-          const currentUserID = typeof meUser?.id === "number" ? meUser.id : null;
-          if (currentUserID && nextPosts.length > 0) {
-            void Promise.all(
-              nextPosts.map(async (post) => {
-                try {
-                  const reactionRes = await fetch(`${apiBaseUrl}/posts/${post.id}/reactions`, {
-                    credentials: "include",
-                  });
-                  const reactionJson = (await reactionRes.json().catch(() => null)) as
-                    | ApiResponse<Reaction[]>
-                    | null;
-                  if (!reactionRes.ok || !reactionJson?.success) {
-                    return [post.id, null] as const;
-                  }
-                  const mine = (reactionJson.data ?? []).find(
-                    (item) => item.user_id === currentUserID,
-                  );
-                  return [post.id, mine?.reaction ?? null] as const;
-                } catch {
-                  return [post.id, null] as const;
-                }
-              }),
-            ).then((entries) => {
-              if (!cancelled) {
-                setPostReactionMap(Object.fromEntries(entries));
-              }
-            });
-          }
+          setPostReactionMap({});
         }
 
         if (!cancelled) {
           try {
-            const membersResponse = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/members`, {
-              credentials: "include",
-            });
+            const membersResponse = await apiFetch(
+              `/groups/${groupIDNumber}/members`,
+              {},
+              apiBaseUrl,
+            );
             setIsMember(membersResponse.ok);
           } catch {
             setIsMember(false);
@@ -417,7 +364,7 @@ export default function GroupDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, groupIDNumber, pageSize, router, currentPage]);
+  }, [apiBaseUrl, fetchJson, groupIDNumber, pageSize, router, currentPage]);
 
   useEffect(() => {
     const creatorID = group?.creatorID;
@@ -428,12 +375,9 @@ export default function GroupDetailsPage() {
     let cancelled = false;
     const loadCreator = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/profiles/${creatorID}`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<{ user?: ProfileSummary }>
-          | null;
+        const { response, result } = await fetchJson<{ user?: ProfileSummary }>(
+          `/profiles/${creatorID}`,
+        );
         if (!cancelled && response.ok && result?.success && result.data?.user) {
           setCreatorProfile(result.data.user);
         }
@@ -447,7 +391,7 @@ export default function GroupDetailsPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, group?.creatorID]);
+  }, [fetchJson, group?.creatorID]);
 
   useEffect(() => {
     if (!inviteQuery.trim()) {
@@ -461,13 +405,10 @@ export default function GroupDetailsPage() {
     const timeoutID = window.setTimeout(async () => {
       setInviteLoading(true);
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/users?q=${encodeURIComponent(inviteQuery.trim())}&limit=6&offset=0`,
-          { credentials: "include", signal: controller.signal },
+        const { response, result } = await fetchJson<UserSearchItem[]>(
+          `/users?q=${encodeURIComponent(inviteQuery.trim())}&limit=6&offset=0`,
+          { signal: controller.signal },
         );
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<UserSearchItem[]>
-          | null;
         if (!cancelled && response.ok && result?.success) {
           setInviteResults(result.data ?? []);
         } else if (!cancelled) {
@@ -489,7 +430,7 @@ export default function GroupDetailsPage() {
       window.clearTimeout(timeoutID);
       controller.abort();
     };
-  }, [apiBaseUrl, inviteQuery]);
+  }, [fetchJson, inviteQuery]);
 
   useEffect(() => {
     if (!userID || !Number.isFinite(groupIDNumber) || groupIDNumber <= 0) return;
@@ -519,10 +460,11 @@ export default function GroupDetailsPage() {
     setJoinError(null);
     setJoinStatus("idle");
     try {
-      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/join-requests`, {
-        method: "POST",
-        credentials: "include",
-      });
+      const response = await apiFetch(
+        `/groups/${groupIDNumber}/join-requests`,
+        { method: "POST" },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         if (response.status === 409) {
@@ -552,10 +494,7 @@ export default function GroupDetailsPage() {
     setMembersLoading(true);
     setMembersError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/members`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<GroupMember[]> | null;
+      const { response, result } = await fetchJson<GroupMember[]>(`/groups/${groupIDNumber}/members`);
       if (!response.ok || !result?.success) {
         setMembersError(result?.error || "Could not load members.");
         setMembers([]);
@@ -579,11 +518,9 @@ export default function GroupDetailsPage() {
       setEventsError(null);
     }
     try {
-      const response = await fetch(
-        `${apiBaseUrl}/groups/${groupIDNumber}/events?limit=${pageSize}&offset=${offset}`,
-        { credentials: "include" },
+      const { response, result } = await fetchJson<EventItem[]>(
+        `/groups/${groupIDNumber}/events?limit=${pageSize}&offset=${offset}`,
       );
-      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem[]> | null;
       if (!response.ok || !result?.success) {
         if (!append) {
           setEventsError(result?.error || "Could not load events.");
@@ -621,13 +558,11 @@ export default function GroupDetailsPage() {
         description: eventDescription.trim() || undefined,
         event_time: new Date(eventTime).toISOString(),
       };
-      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/events`, {
+      const { response, result } = await fetchJson<EventItem>(`/groups/${groupIDNumber}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify(payload),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem> | null;
       if (!response.ok || !result?.success || !result.data) {
         setEventCreateError(result?.error || "Could not create event.");
         return;
@@ -647,10 +582,11 @@ export default function GroupDetailsPage() {
   const leaveGroup = async () => {
     setLeaveError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/members/me`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(
+        `/groups/${groupIDNumber}/members/me`,
+        { method: "DELETE" },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setLeaveError(result?.error || "Could not leave group.");
@@ -672,13 +608,14 @@ export default function GroupDetailsPage() {
       return;
     }
     try {
-      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/invitations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ invitee_id: selectedInvitee.id }),
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+      const { response, result } = await fetchJson<unknown>(
+        `/groups/${groupIDNumber}/invitations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invitee_id: selectedInvitee.id }),
+        },
+      );
       if (!response.ok || !result?.success) {
         setInviteError(result?.error || "Could not send invitation.");
         return;
@@ -696,14 +633,13 @@ export default function GroupDetailsPage() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("kind", kind);
-    const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    });
-    const uploadJson = (await uploadRes.json().catch(() => null)) as
-      | ApiResponse<{ path?: string }>
-      | null;
+    const { response: uploadRes, result: uploadJson } = await fetchJson<{ path?: string }>(
+      "/uploads",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
     if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
       throw new Error(uploadJson?.error || "Could not upload media.");
     }
@@ -728,16 +664,14 @@ export default function GroupDetailsPage() {
         mediaPath = await uploadMedia(composerFile, "post");
       }
 
-      const response = await fetch(`${apiBaseUrl}/groups/${groupIDNumber}/posts`, {
+      const { response, result } = await fetchJson<Post>(`/groups/${groupIDNumber}/posts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath || media || undefined,
         }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
       if (!response.ok || !result?.success || !result.data) {
         setComposerError(result?.error || "Could not publish your post.");
         return;
@@ -760,11 +694,9 @@ export default function GroupDetailsPage() {
 
     try {
       const offset = (page - 1) * commentLimit;
-      const response = await fetch(
-        `${apiBaseUrl}/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
-        { credentials: "include" },
+      const { response, result } = await fetchJson<Comment[]>(
+        `/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
       );
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
 
       if (!response.ok || !result?.success) {
         setCommentErrorByPost((prev) => ({
@@ -784,24 +716,6 @@ export default function GroupDetailsPage() {
         [postID]: Number.isFinite(parsedTotal) ? parsedTotal : comments.length,
       }));
 
-      if (userID && comments.length > 0) {
-        const entries = await Promise.all(
-          comments.map(async (comment) => {
-            const reactionRes = await fetch(`${apiBaseUrl}/comments/${comment.id}/reactions`, {
-              credentials: "include",
-            });
-            const reactionJson = (await reactionRes.json().catch(() => null)) as
-              | ApiResponse<Reaction[]>
-              | null;
-            if (!reactionRes.ok || !reactionJson?.success) {
-              return [comment.id, null] as const;
-            }
-            const mine = (reactionJson.data ?? []).find((item) => item.user_id === userID);
-            return [comment.id, mine?.reaction ?? null] as const;
-          }),
-        );
-        setCommentReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      }
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -847,13 +761,11 @@ export default function GroupDetailsPage() {
         }
       }
 
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+      const { response, result } = await fetchJson<Comment>(`/posts/${postID}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ content: draft || undefined, media_path: mediaPath }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
 
       if (!response.ok || !result?.success || !result.data) {
         setCommentErrorByPost((prev) => ({
@@ -920,16 +832,14 @@ export default function GroupDetailsPage() {
       if (editPostFile) {
         mediaPath = await uploadMedia(editPostFile, "post");
       }
-      const response = await fetch(`${apiBaseUrl}/posts/${post.id}`, {
+      const { response, result } = await fetchJson<Post>(`/posts/${post.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath ?? undefined,
         }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
       if (!response.ok || !result?.success || !result.data) {
         setEditPostError(result?.error || "Could not update post.");
         return;
@@ -943,10 +853,7 @@ export default function GroupDetailsPage() {
 
   const deletePost = async (postID: number) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/posts/${postID}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         return;
       }
@@ -989,16 +896,14 @@ export default function GroupDetailsPage() {
       if (editCommentFile) {
         mediaPath = await uploadMedia(editCommentFile, "comment");
       }
-      const response = await fetch(`${apiBaseUrl}/comments/${comment.id}`, {
+      const { response, result } = await fetchJson<Comment>(`/comments/${comment.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath ?? undefined,
         }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
       if (!response.ok || !result?.success || !result.data) {
         setEditCommentError(result?.error || "Could not update comment.");
         return;
@@ -1017,10 +922,7 @@ export default function GroupDetailsPage() {
 
   const deleteComment = async (postID: number, commentID: number) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/comments/${commentID}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/comments/${commentID}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         return;
       }
@@ -1066,14 +968,17 @@ export default function GroupDetailsPage() {
     );
 
     try {
-      await fetch(`${apiBaseUrl}/posts/${postID}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          reaction,
-        }),
-      });
+      await apiFetch(
+        `/posts/${postID}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reaction,
+          }),
+        },
+        apiBaseUrl,
+      );
     } catch {
       setPostReactionMap((prev) => ({ ...prev, [postID]: previous }));
     }
@@ -1106,14 +1011,17 @@ export default function GroupDetailsPage() {
     }));
 
     try {
-      await fetch(`${apiBaseUrl}/comments/${commentID}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          reaction,
-        }),
-      });
+      await apiFetch(
+        `/comments/${commentID}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reaction,
+          }),
+        },
+        apiBaseUrl,
+      );
     } catch {
       setCommentReactionMap((prev) => ({ ...prev, [commentID]: previous }));
     }

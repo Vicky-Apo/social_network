@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -8,12 +8,8 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -33,17 +29,11 @@ export default function CreateGroupPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadViewer = async () => {
     if (viewer) return;
-    const response = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-    const result = (await response.json().catch(() => null)) as ApiResponse<User> | null;
+    const { response, result } = await apiFetchJson<ApiResponse<User>>("/auth/me", {}, apiBaseUrl);
     if (!response.ok || !result?.success || !result.data) {
       router.replace("/login");
       return;
@@ -63,16 +53,18 @@ export default function CreateGroupPage() {
     setError(null);
     setSuccess(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/groups`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          title: cleanTitle,
-          description: cleanDescription || undefined,
-        }),
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<{ id?: number }> | null;
+      const { response, result } = await apiFetchJson<ApiResponse<{ id?: number }>>(
+        "/groups",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: cleanTitle,
+            description: cleanDescription || undefined,
+          }),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success) {
         setError(result?.error || "Could not create group.");
         return;
@@ -89,9 +81,9 @@ export default function CreateGroupPage() {
     }
   };
 
-  if (!viewer) {
+  useEffect(() => {
     void loadViewer();
-  }
+  }, []);
 
   return (
     <div

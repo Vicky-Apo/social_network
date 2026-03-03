@@ -256,11 +256,30 @@ func (s *Service) RemoveFollower(ctx context.Context, targetID, followerID int64
 }
 
 func mapRequest(req domainfollow.FollowRequest) *FollowRequestDTO {
-	return &FollowRequestDTO{
+	dto := &FollowRequestDTO{
 		ID:          req.ID,
 		RequesterID: req.RequesterID,
 		TargetID:    req.TargetID,
 		Status:      req.Status,
 		CreatedAt:   req.CreatedAt,
 	}
+	if req.Requester != nil {
+		dto.Requester = &UserDTO{
+			ID:         req.Requester.ID,
+			FirstName:  req.Requester.FirstName,
+			LastName:   req.Requester.LastName,
+			Nickname:   req.Requester.Nickname,
+			AvatarPath: req.Requester.AvatarPath,
+		}
+	}
+	if req.Target != nil {
+		dto.Target = &UserDTO{
+			ID:         req.Target.ID,
+			FirstName:  req.Target.FirstName,
+			LastName:   req.Target.LastName,
+			Nickname:   req.Target.Nickname,
+			AvatarPath: req.Target.AvatarPath,
+		}
+	}
+	return dto
 }

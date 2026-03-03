@@ -74,6 +74,13 @@ Response (200):
       "id": 10,
       "requester_id": 1,
       "target_id": 2,
+      "requester": {
+        "id": 1,
+        "first_name": "John",
+        "last_name": "Doe",
+        "nickname": "jdoe",
+        "avatar_path": "/uploads/avatars/john.png"
+      },
       "status": "pending",
       "created_at": "2025-01-24T12:34:56Z"
     }
@@ -98,6 +105,13 @@ Response (200):
       "id": 11,
       "requester_id": 1,
       "target_id": 3,
+      "target": {
+        "id": 3,
+        "first_name": "Anna",
+        "last_name": "Smith",
+        "nickname": "asmith",
+        "avatar_path": "/uploads/avatars/anna.png"
+      },
       "status": "pending",
       "created_at": "2025-01-24T12:34:56Z"
     }
@@ -107,6 +121,7 @@ Response (200):
 
 Notes:
 - Only pending requests are returned.
+- Follow request responses include requester/target user details to avoid extra `/users` fetches.
 
 ### Update follow request status
 

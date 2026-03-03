@@ -383,6 +383,7 @@ func mapInvitation(inv domaingroup.GroupInvitation) GroupInvitationDTO {
 	return GroupInvitationDTO{
 		ID:        inv.ID,
 		GroupID:   inv.GroupID,
+		GroupTitle: inv.GroupTitle,
 		InviterID: inv.InviterID,
 		InviteeID: inv.InviteeID,
 		CreatedAt: inv.CreatedAt,
@@ -390,10 +391,20 @@ func mapInvitation(inv domaingroup.GroupInvitation) GroupInvitationDTO {
 }
 
 func mapJoinRequest(req domaingroup.GroupJoinRequest) GroupJoinRequestDTO {
-	return GroupJoinRequestDTO{
+	dto := GroupJoinRequestDTO{
 		ID:        req.ID,
 		GroupID:   req.GroupID,
 		UserID:    req.UserID,
 		CreatedAt: req.CreatedAt,
 	}
+	if req.User != nil {
+		dto.User = &GroupMemberDTO{
+			UserID:     req.User.UserID,
+			FirstName:  req.User.FirstName,
+			LastName:   req.User.LastName,
+			Nickname:   req.User.Nickname,
+			AvatarPath: req.User.AvatarPath,
+		}
+	}
+	return dto
 }

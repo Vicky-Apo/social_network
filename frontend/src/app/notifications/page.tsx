@@ -4,132 +4,50 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
-import { useAuth } from "@/components/AuthContext";
 import { useNotifications } from "@/components/NotificationsContext";
-
-function notificationActorName(item: {
-  metadata?: Record<string, unknown>;
-  actor_id?: number;
-}) {
-  const meta = item.metadata ?? {};
-  const requester = meta["requester_name"];
-  if (typeof requester === "string" && requester.trim()) return requester;
-  return "Someone";
-}
-
-function notificationGroupName(item: { metadata?: Record<string, unknown> }) {
-  const meta = item.metadata ?? {};
-  const groupName = meta["group_name"];
-  if (typeof groupName === "string" && groupName.trim()) return groupName;
-  return "your group";
-}
-
-function notificationTitle(item: { type: string }) {
-  switch (item.type) {
-    case "follow_request":
-      return "Follow request";
-    case "group_invitation":
-      return "Group invitation";
-    case "group_join_request":
-      return "Join request";
-    case "event_created":
-      return "New group event";
-    default:
-      return "Notification";
-  }
-}
-
-function notificationBody(item: {
-  type: string;
-  metadata?: Record<string, unknown>;
-  actor_id?: number;
-}) {
-  switch (item.type) {
-    case "follow_request":
-      return `${notificationActorName(item)} sent you a follow request.`;
-    case "group_invitation":
-      return `${notificationActorName(item)} invited you to ${notificationGroupName(item)}.`;
-    case "group_join_request":
-      return `${notificationActorName(item)} requested to join ${notificationGroupName(item)}.`;
-    case "event_created":
-      return `New event in ${notificationGroupName(item)}.`;
-    default:
-      return "Notification update.";
-  }
-}
-
-function notificationHref(item: {
-  type: string;
-  entity_id: number;
-  metadata?: Record<string, unknown>;
-}) {
-  const meta = item.metadata ?? {};
-  switch (item.type) {
-    case "follow_request":
-      return "/follow-requests";
-    case "group_invitation":
-      return "/group-invitations";
-    case "group_join_request": {
-      const groupID = meta["group_id"];
-      if (typeof groupID === "number") {
-        return `/groups/${groupID}/join-requests`;
-      }
-      return "/groups";
-    }
-    case "event_created":
-      return `/events/${item.entity_id}`;
-    default:
-      return null;
-  }
-}
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import {
+  allowedNotificationTypes,
+  getNotificationBody,
+  getNotificationHref,
+  getNotificationTitle,
+} from "@/lib/notifications";
+import { ApiResponse } from "@/lib/types";
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { logout } = useAuth();
   const notificationsContext = useNotifications();
   const [viewer, setViewer] = useState<{
     id: number;
-    email?: string;
-    first_name?: string;
-    last_name?: string;
-    nickname?: string | null;
-    avatar_path?: string | null;
+    email: string;
+    first_name: string;
+    last_name: string;
   } | null>(null);
-  const [loadingViewer, setLoadingViewer] = useState(true);
 
-  const notifications = notificationsContext?.notifications ?? [];
+  const notifications = (notificationsContext?.notifications ?? []).filter((item) =>
+    allowedNotificationTypes.has(item.type),
+  );
   const loading = notificationsContext?.loading ?? false;
   const markRead = notificationsContext?.markRead ?? (async () => Promise.resolve());
   const markAllRead = notificationsContext?.markAllRead ?? (async () => Promise.resolve());
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   useEffect(() => {
     let cancelled = false;
     const loadViewer = async () => {
-      try {
-        const response = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-        const result = (await response.json().catch(() => null)) as
-          | { success?: boolean; data?: typeof viewer }
-          | null;
-        if (!cancelled && response.ok && result?.success) {
-          setViewer(result.data ?? null);
-        } else if (!cancelled) {
-          router.replace("/login");
-        }
-      } catch {
-        if (!cancelled) {
-          router.replace("/login");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingViewer(false);
-        }
+      const { response, result } = await apiFetchJson<ApiResponse<{
+        id: number;
+        email: string;
+        first_name: string;
+        last_name: string;
+      }>>("/auth/me", {}, apiBaseUrl);
+      if (!response.ok || !result?.success || !result.data) {
+        router.replace("/login");
+        return;
+      }
+      if (!cancelled) {
+        setViewer(result.data);
       }
     };
     void loadViewer();
@@ -150,10 +68,7 @@ export default function NotificationsPage() {
     >
       <TopNav
         user={viewer ?? undefined}
-        onLogout={() => {
-          logout();
-          router.replace("/login");
-        }}
+        onLogout={() => router.replace("/login")}
         variant="dark"
       />
 
@@ -186,14 +101,12 @@ export default function NotificationsPage() {
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
             {loading ? (
               <p className="text-sm text-neutral-400">Loading notifications...</p>
-            ) : loadingViewer ? (
-              <p className="text-sm text-neutral-400">Loading account...</p>
             ) : notifications.length === 0 ? (
               <p className="text-sm text-neutral-400">No notifications yet.</p>
             ) : (
               <div className="space-y-3">
                 {notifications.map((item) => {
-                  const href = notificationHref(item);
+                  const href = getNotificationHref(item);
                   return (
                     <button
                       key={item.id}
@@ -211,9 +124,9 @@ export default function NotificationsPage() {
                       }`}
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-wide">
-                        {notificationTitle(item)}
+                        {getNotificationTitle(item.type)}
                       </span>
-                      <span className="mt-1 text-sm">{notificationBody(item)}</span>
+                      <span className="mt-1 text-sm">{getNotificationBody(item.type, item.metadata)}</span>
                     </button>
                   );
                 })}

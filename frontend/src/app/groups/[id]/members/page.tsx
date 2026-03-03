@@ -9,12 +9,9 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -44,32 +41,11 @@ type UserSearchItem = {
 type SentInvite = {
   id: number;
   invited_at: string;
+  first_name?: string;
+  last_name?: string;
+  nickname?: string | null;
+  avatar_path?: string | null;
 };
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
-
-async function fetchProfileSummary(
-  apiBaseUrl: string,
-  id: number,
-): Promise<UserSearchItem | null> {
-  try {
-    const response = await fetch(`${apiBaseUrl}/profiles/${id}`, { credentials: "include" });
-    const result = (await response.json().catch(() => null)) as
-      | ApiResponse<{ user?: UserSearchItem }>
-      | null;
-    if (!response.ok || !result?.success || !result.data?.user) {
-      return null;
-    }
-    return result.data.user;
-  } catch {
-    return null;
-  }
-}
 
 export default function GroupMembersPage() {
   const router = useRouter();
@@ -85,17 +61,11 @@ export default function GroupMembersPage() {
   const [inviteLoading, setInviteLoading] = useState(false);
   const [selectedInvitee, setSelectedInvitee] = useState<UserSearchItem | null>(null);
   const [sentInvites, setSentInvites] = useState<SentInvite[]>([]);
-  const [sentProfiles, setSentProfiles] = useState<Record<number, UserSearchItem>>({});
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
   const [leaveError, setLeaveError] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   useEffect(() => {
     if (!Number.isFinite(groupID) || groupID <= 0) {
@@ -109,8 +79,11 @@ export default function GroupMembersPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const meResponse = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-        const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+        const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+          "/auth/me",
+          {},
+          apiBaseUrl,
+        );
         if (!meResponse.ok || !meResult?.success || !meResult.data) {
           router.replace("/login");
           return;
@@ -119,12 +92,9 @@ export default function GroupMembersPage() {
           setViewer(meResult.data);
         }
 
-        const membersResponse = await fetch(`${apiBaseUrl}/groups/${groupID}/members`, {
-          credentials: "include",
-        });
-        const membersResult = (await membersResponse.json().catch(() => null)) as
-          | ApiResponse<GroupMember[]>
-          | null;
+        const { response: membersResponse, result: membersResult } = await apiFetchJson<
+          ApiResponse<GroupMember[]>
+        >(`/groups/${groupID}/members`, {}, apiBaseUrl);
         if (!membersResponse.ok || !membersResult?.success) {
           setError(membersResult?.error || "Could not load group members.");
           setMembers([]);
@@ -170,13 +140,11 @@ export default function GroupMembersPage() {
     const timeoutID = window.setTimeout(async () => {
       setInviteLoading(true);
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/users?q=${encodeURIComponent(inviteQuery.trim())}&limit=6&offset=0`,
-          { credentials: "include", signal: controller.signal },
+        const { response, result } = await apiFetchJson<ApiResponse<UserSearchItem[]>>(
+          `/users?q=${encodeURIComponent(inviteQuery.trim())}&limit=6&offset=0`,
+          { signal: controller.signal },
+          apiBaseUrl,
         );
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<UserSearchItem[]>
-          | null;
         if (!cancelled && response.ok && result?.success) {
           setInviteResults(result.data ?? []);
         } else if (!cancelled) {
@@ -200,34 +168,6 @@ export default function GroupMembersPage() {
     };
   }, [apiBaseUrl, inviteQuery]);
 
-  useEffect(() => {
-    if (sentInvites.length === 0) return;
-    const missing = sentInvites
-      .map((item) => item.id)
-      .filter((id) => !sentProfiles[id]);
-    if (missing.length === 0) return;
-
-    let cancelled = false;
-    Promise.all(missing.map((id) => fetchProfileSummary(apiBaseUrl, id).then((user) => [id, user] as const)))
-      .then((entries) => {
-        if (cancelled) return;
-        const updates: Record<number, UserSearchItem> = {};
-        for (const [id, user] of entries) {
-          if (user) {
-            updates[id] = user;
-          }
-        }
-        if (Object.keys(updates).length > 0) {
-          setSentProfiles((prev) => ({ ...prev, ...updates }));
-        }
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl, sentInvites, sentProfiles]);
-
   const handleInvite = async () => {
     setInviteError(null);
     setInviteSuccess(null);
@@ -236,13 +176,15 @@ export default function GroupMembersPage() {
       return;
     }
     try {
-      const response = await fetch(`${apiBaseUrl}/groups/${groupID}/invitations`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ invitee_id: selectedInvitee.id }),
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+      const { response, result } = await apiFetchJson<ApiResponse<unknown>>(
+        `/groups/${groupID}/invitations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invitee_id: selectedInvitee.id }),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success) {
         setInviteError(result?.error || "Could not send invitation.");
         return;
@@ -251,6 +193,10 @@ export default function GroupMembersPage() {
       const nextInvite: SentInvite = {
         id: selectedInvitee.id,
         invited_at: new Date().toISOString(),
+        first_name: selectedInvitee.first_name,
+        last_name: selectedInvitee.last_name,
+        nickname: selectedInvitee.nickname,
+        avatar_path: selectedInvitee.avatar_path,
       };
       setSentInvites((prev) => {
         if (prev.some((item) => item.id === nextInvite.id)) return prev;
@@ -269,10 +215,7 @@ export default function GroupMembersPage() {
   const handleLeave = async () => {
     setLeaveError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/groups/${groupID}/members/me`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/groups/${groupID}/members/me`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setLeaveError(result?.error || "Could not leave group.");
@@ -454,7 +397,7 @@ export default function GroupMembersPage() {
                 <p className="text-xs text-neutral-400">No sent invitations yet.</p>
               ) : (
                 sentInvites.map((invite) => {
-                  const profile = sentProfiles[invite.id];
+                  const profile = invite;
                   return (
                     <div
                       key={invite.id}

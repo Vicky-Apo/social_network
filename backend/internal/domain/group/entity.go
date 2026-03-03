@@ -40,6 +40,7 @@ type GroupMemberInfo struct {
 type GroupInvitation struct {
 	ID        int64
 	GroupID   int64
+	GroupTitle *string
 	InviterID int64
 	InviteeID int64
 	CreatedAt time.Time
@@ -53,4 +54,5 @@ type GroupJoinRequest struct {
 	UserID    int64
 	CreatedAt time.Time
 	UpdatedAt time.Time
+	User      *GroupMemberInfo
 }

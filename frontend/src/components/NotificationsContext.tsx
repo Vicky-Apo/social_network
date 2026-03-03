@@ -2,6 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
+import { allowedNotificationTypes } from "@/lib/notifications";
 
 export type NotificationItem = {
   id: number;
@@ -14,12 +17,6 @@ export type NotificationItem = {
   is_read: boolean;
   read_at?: string;
   created_at: string;
-};
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
 };
 
 type NotificationsContextValue = {
@@ -45,12 +42,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const reconnectTimerRef = useRef<number | null>(null);
   const connectRef = useRef<(() => void) | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
   const wsBaseUrl = useMemo(() => {
     if (apiBaseUrl.startsWith("https://")) return apiBaseUrl.replace("https://", "wss://");
     if (apiBaseUrl.startsWith("http://")) return apiBaseUrl.replace("http://", "ws://");
@@ -60,14 +52,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const refreshNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/notifications?limit=20`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<NotificationItem[]>
-        | null;
+      const { response, result } = await apiFetchJson<ApiResponse<NotificationItem[]>>(
+        "/notifications?limit=20",
+        {},
+        apiBaseUrl,
+      );
       if (response.ok && result?.success) {
-        setNotifications(result.data ?? []);
+        const next = (result.data ?? []).filter((item) => allowedNotificationTypes.has(item.type));
+        setNotifications(next);
+        setCount(next.filter((item) => !item.is_read).length);
       }
     } finally {
       setLoading(false);
@@ -75,20 +68,23 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [apiBaseUrl]);
 
   const refreshUnreadCount = useCallback(async () => {
+    if (notifications.length > 0) {
+      setCount(notifications.filter((item) => !item.is_read).length);
+      return;
+    }
     try {
-      const response = await fetch(`${apiBaseUrl}/notifications/unread-count`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<{ count: number }>
-        | null;
+      const { response, result } = await apiFetchJson<ApiResponse<{ count: number }>>(
+        "/notifications/unread-count",
+        {},
+        apiBaseUrl,
+      );
       if (response.ok && result?.success) {
         setCount(Number(result.data?.count ?? 0));
       }
     } catch {
       // ignore
     }
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, notifications]);
 
   const markRead = useCallback(
     async (id: number) => {
@@ -98,10 +94,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       );
       setCount((value) => Math.max(0, value - 1));
       try {
-        const response = await fetch(`${apiBaseUrl}/notifications/${id}/read`, {
-          method: "PATCH",
-          credentials: "include",
-        });
+        const response = await apiFetch(`/notifications/${id}/read`, { method: "PATCH" }, apiBaseUrl);
         if (!response.ok) {
           setNotifications(prev);
         }
@@ -115,10 +108,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const markAllRead = useCallback(async () => {
     setNotifications((items) => items.map((item) => ({ ...item, is_read: true })));
     setCount(0);
-    await fetch(`${apiBaseUrl}/notifications/read-all`, {
-      method: "PATCH",
-      credentials: "include",
-    }).catch(() => undefined);
+    await apiFetch("/notifications/read-all", { method: "PATCH" }, apiBaseUrl).catch(() => undefined);
   }, [apiBaseUrl]);
 
   useEffect(() => {
@@ -141,6 +131,9 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
             const msg = JSON.parse(raw) as { type?: string; payload?: unknown };
             if (msg.type === "notification" && msg.payload) {
               const payload = msg.payload as NotificationItem;
+              if (!allowedNotificationTypes.has(payload.type)) {
+                return;
+              }
               setNotifications((prev) => {
                 if (prev.some((item) => item.id === payload.id)) {
                   return prev;

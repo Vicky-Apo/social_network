@@ -20,12 +20,10 @@ import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import Pagination from "@/components/Pagination";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { shortDate } from "@/lib/date";
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type MeUser = {
   id: number;
@@ -63,6 +61,7 @@ type Post = {
   id: number;
   author_id: number;
   group_id?: number | null;
+  group_title?: string | null;
   author_first_name: string;
   author_last_name: string;
   author_nickname?: string | null;
@@ -88,21 +87,10 @@ type Comment = {
   created_at: string;
 };
 
-type Reaction = {
-  user_id: number;
-  reaction: "like" | "dislike";
-};
-
 type ReactionKind = "like" | "dislike";
 type ReactionMap = Record<number, ReactionKind | null>;
 
-type FullProfileResponse = {
-  profile: ProfileDTO;
-  posts: Post[];
-  activity?: {
-    recent_posts?: Post[];
-  };
-};
+type ProfileResponse = ProfileDTO;
 
 type FollowRequest = {
   id: number;
@@ -114,12 +102,6 @@ type FollowRequest = {
 
 type FollowState = "none" | "requested" | "following" | "loading";
 
-function initials(first?: string | null, last?: string | null) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
-
 function formatDate(value?: string | null) {
   if (!value) return "N/A";
   const date = new Date(value);
@@ -127,19 +109,9 @@ function formatDate(value?: string | null) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-function shortDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
+function groupLabel(post: Post) {
+  if (!post.group_id) return "";
+  return post.group_title?.trim() || `Group ${post.group_id}`;
 }
 
 export default function ProfilePage() {
@@ -170,11 +142,11 @@ export default function ProfilePage() {
   const [followError, setFollowError] = useState<string | null>(null);
   const [pendingRequestID, setPendingRequestID] = useState<number | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const fetchJson = useCallback(
+    async <T,>(path: string, options: RequestInit = {}) =>
+      apiFetchJson<ApiResponse<T>>(path, options, apiBaseUrl),
+    [apiBaseUrl],
   );
   const feedLimit = 10;
   const totalPages = Math.max(1, Math.ceil(totalPosts / feedLimit));
@@ -184,14 +156,13 @@ export default function ProfilePage() {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("kind", kind);
-    const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    });
-    const uploadJson = (await uploadRes.json().catch(() => null)) as
-      | ApiResponse<{ path?: string }>
-      | null;
+    const { response: uploadRes, result: uploadJson } = await fetchJson<{ path?: string }>(
+      "/uploads",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
     if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
       throw new Error(uploadJson?.error || "Could not upload media.");
     }
@@ -209,31 +180,16 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-        credentials: "include",
-      });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<MeUser> | null;
+      const { response: meResponse, result: meResult } = await fetchJson<MeUser>("/auth/me");
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
 
-      const [profileResponse, sentResponse] = await Promise.all([
-        fetch(`${apiBaseUrl}/profiles/${profileID}/full`, {
-          credentials: "include",
-        }),
-        fetch(`${apiBaseUrl}/follow-requests/sent`, {
-          credentials: "include",
-        }),
-      ]);
-
-      const profileResult = (await profileResponse.json().catch(() => null)) as
-        | ApiResponse<FullProfileResponse>
-        | null;
-      const sentResult = (await sentResponse.json().catch(() => null)) as
-        | ApiResponse<FollowRequest[]>
-        | null;
+      const { response: profileResponse, result: profileResult } = await fetchJson<ProfileResponse>(
+        `/profiles/${profileID}`,
+      );
 
       if (!profileResponse.ok || !profileResult?.success || !profileResult.data) {
         setError(profileResult?.error || "Could not load profile.");
@@ -242,21 +198,30 @@ export default function ProfilePage() {
         return;
       }
 
-      const nextProfile = profileResult.data.profile;
+      const nextProfile = profileResult.data;
       setProfile(nextProfile);
       setPosts([]);
-
-      const sentRequests = sentResponse.ok && sentResult?.success ? sentResult.data ?? [] : [];
-      const pendingRequest = sentRequests.find((req) => req.target_id === profileID);
-      setPendingRequestID(pendingRequest?.id ?? null);
+      setPostReactionMap({});
+      setCommentReactionMap({});
 
       if (nextProfile.is_following) {
         setFollowState("following");
-      } else if (pendingRequest) {
-        setFollowState("requested");
-      } else {
-        setFollowState("none");
+        setPendingRequestID(null);
+        return;
       }
+
+      if (nextProfile.user.id === meResult.data.id || nextProfile.user.is_public) {
+        setFollowState("none");
+        setPendingRequestID(null);
+        return;
+      }
+
+      const { response: sentResponse, result: sentResult } =
+        await fetchJson<FollowRequest[]>("/follow-requests/sent");
+      const sentRequests = sentResponse.ok && sentResult?.success ? sentResult.data ?? [] : [];
+      const pendingRequest = sentRequests.find((req) => req.target_id === profileID);
+      setPendingRequestID(pendingRequest?.id ?? null);
+      setFollowState(pendingRequest ? "requested" : "none");
     } catch {
       setError("Network error. Please try again.");
       setProfile(null);
@@ -264,7 +229,7 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, profileID, router]);
+  }, [fetchJson, profileID, router]);
 
   useEffect(() => {
     void loadProfile();
@@ -276,11 +241,9 @@ export default function ProfilePage() {
 
   const fetchPostsPage = async (page: number) => {
     const offset = (page - 1) * feedLimit;
-    const response = await fetch(
-      `${apiBaseUrl}/posts?author_id=${profileID}&limit=${feedLimit}&offset=${offset}`,
-      { credentials: "include" },
+    const { response, result } = await fetchJson<Post[]>(
+      `/posts?author_id=${profileID}&limit=${feedLimit}&offset=${offset}`,
     );
-    const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
     if (!response.ok || !result?.success) {
       throw new Error(result?.error || "Could not load posts.");
     }
@@ -297,42 +260,7 @@ export default function ProfilePage() {
       return;
     }
     void fetchPostsPage(currentPage);
-  }, [apiBaseUrl, profile, profileID, currentPage]);
-
-  useEffect(() => {
-    if (!viewer?.id || posts.length === 0) {
-      return;
-    }
-
-    let cancelled = false;
-    Promise.all(
-      posts.map(async (post) => {
-        try {
-          const res = await fetch(`${apiBaseUrl}/posts/${post.id}/reactions`, {
-            credentials: "include",
-          });
-          const json = (await res.json().catch(() => null)) as
-            | ApiResponse<Reaction[]>
-            | null;
-          if (!res.ok || !json?.success) {
-            return [post.id, null] as const;
-          }
-          const mine = (json.data ?? []).find((item) => item.user_id === viewer.id);
-          return [post.id, mine?.reaction ?? null] as const;
-        } catch {
-          return [post.id, null] as const;
-        }
-      }),
-    ).then((entries) => {
-      if (!cancelled) {
-        setPostReactionMap(Object.fromEntries(entries));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl, posts, viewer?.id]);
+  }, [fetchJson, profile, profileID, currentPage]);
 
   const handleFollow = async () => {
     if (!profile || followState === "loading") return;
@@ -340,15 +268,11 @@ export default function ProfilePage() {
     setFollowError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/follow-requests`, {
+      const { response, result } = await fetchJson<{ status?: string }>("/follow-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ target_id: profile.user.id }),
       });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<{ status?: string }>
-        | null;
       if (!response.ok || !result?.success) {
         setFollowState("none");
         setFollowError(result?.error || "Could not send follow request.");
@@ -378,10 +302,11 @@ export default function ProfilePage() {
     setFollowError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/users/${profile.user.id}/followers`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(
+        `/users/${profile.user.id}/followers`,
+        { method: "DELETE" },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setFollowError(result?.error || "Could not unfollow this user.");
@@ -402,11 +327,9 @@ export default function ProfilePage() {
 
     try {
       const offset = (page - 1) * commentLimit;
-      const response = await fetch(
-        `${apiBaseUrl}/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
-        { credentials: "include" },
+      const { response, result } = await fetchJson<Comment[]>(
+        `/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
       );
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
 
       if (!response.ok || !result?.success) {
         setCommentErrorByPost((prev) => ({
@@ -426,29 +349,6 @@ export default function ProfilePage() {
         [postID]: Number.isFinite(parsedTotal) ? parsedTotal : comments.length,
       }));
 
-      if (viewer?.id && comments.length > 0) {
-        const entries = await Promise.all(
-          comments.map(async (comment) => {
-            try {
-              const reactionRes = await fetch(
-                `${apiBaseUrl}/comments/${comment.id}/reactions`,
-                { credentials: "include" },
-              );
-              const reactionJson = (await reactionRes.json().catch(() => null)) as
-                | ApiResponse<Reaction[]>
-                | null;
-              if (!reactionRes.ok || !reactionJson?.success) {
-                return [comment.id, null] as const;
-              }
-              const mine = (reactionJson.data ?? []).find((item) => item.user_id === viewer.id);
-              return [comment.id, mine?.reaction ?? null] as const;
-            } catch {
-              return [comment.id, null] as const;
-            }
-          }),
-        );
-        setCommentReactionMap((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      }
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -494,13 +394,11 @@ export default function ProfilePage() {
         }
       }
 
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+      const { response, result } = await fetchJson<Comment>(`/posts/${postID}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ content: draft || undefined, media_path: mediaPath }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
 
       if (!response.ok || !result?.success || !result.data) {
         setCommentErrorByPost((prev) => ({
@@ -553,12 +451,15 @@ export default function ProfilePage() {
     );
 
     try {
-      await fetch(`${apiBaseUrl}/posts/${postID}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ reaction: next }),
-      });
+      await apiFetch(
+        `/posts/${postID}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reaction: next }),
+        },
+        apiBaseUrl,
+      );
     } catch {
       setPostReactionMap((prev) => ({ ...prev, [postID]: previous }));
     }
@@ -588,12 +489,15 @@ export default function ProfilePage() {
     }));
 
     try {
-      await fetch(`${apiBaseUrl}/comments/${commentID}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ reaction: next }),
-      });
+      await apiFetch(
+        `/comments/${commentID}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reaction: next }),
+        },
+        apiBaseUrl,
+      );
     } catch {
       setCommentReactionMap((prev) => ({ ...prev, [commentID]: previous }));
     }
@@ -605,12 +509,15 @@ export default function ProfilePage() {
     setFollowError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/follow-requests/${pendingRequestID}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status: "canceled" }),
-      });
+      const response = await apiFetch(
+        `/follow-requests/${pendingRequestID}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "canceled" }),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setFollowError(result?.error || "Could not cancel request.");
@@ -839,6 +746,14 @@ export default function ProfilePage() {
                           {post.author_first_name} {post.author_last_name}
                         </p>
                         <p className="text-xs text-neutral-400">{shortDate(post.created_at)}</p>
+                        {post.group_id ? (
+                          <Link
+                            href={`/groups/${post.group_id}`}
+                            className="mt-1 inline-flex items-center text-xs text-sky-200/80 hover:text-sky-200"
+                          >
+                            {groupLabel(post)}
+                          </Link>
+                        ) : null}
                       </div>
                       <span className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1 text-[11px] uppercase tracking-wide text-neutral-400">
                         {post.privacy}

@@ -471,10 +471,11 @@ func (r *Repository) GetInvitationByID(ctx context.Context, id int64) (domaingro
 // ListInvitationsByInvitee returns invitations for an invitee.
 func (r *Repository) ListInvitationsByInvitee(ctx context.Context, inviteeID int64) ([]domaingroup.GroupInvitation, error) {
 	const query = `
-		SELECT id, group_id, inviter_id, invitee_id, created_at, updated_at
-		FROM group_invitations
-		WHERE invitee_id = $1
-		ORDER BY created_at DESC
+		SELECT gi.id, gi.group_id, gi.inviter_id, gi.invitee_id, gi.created_at, gi.updated_at, g.title
+		FROM group_invitations gi
+		JOIN groups g ON g.id = gi.group_id
+		WHERE gi.invitee_id = $1
+		ORDER BY gi.created_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, inviteeID)
 	if err != nil {
@@ -485,8 +486,20 @@ func (r *Repository) ListInvitationsByInvitee(ctx context.Context, inviteeID int
 	var out []domaingroup.GroupInvitation
 	for rows.Next() {
 		var inv domaingroup.GroupInvitation
-		if err := rows.Scan(&inv.ID, &inv.GroupID, &inv.InviterID, &inv.InviteeID, &inv.CreatedAt, &inv.UpdatedAt); err != nil {
+		var groupTitle sql.NullString
+		if err := rows.Scan(
+			&inv.ID,
+			&inv.GroupID,
+			&inv.InviterID,
+			&inv.InviteeID,
+			&inv.CreatedAt,
+			&inv.UpdatedAt,
+			&groupTitle,
+		); err != nil {
 			return nil, fmt.Errorf("scan invitation: %w", err)
+		}
+		if groupTitle.Valid {
+			inv.GroupTitle = &groupTitle.String
 		}
 		out = append(out, inv)
 	}
@@ -584,10 +597,12 @@ func (r *Repository) GetJoinRequestByID(ctx context.Context, id int64) (domaingr
 // ListJoinRequestsByGroup returns join requests for a group.
 func (r *Repository) ListJoinRequestsByGroup(ctx context.Context, groupID int64) ([]domaingroup.GroupJoinRequest, error) {
 	const query = `
-		SELECT id, group_id, user_id, created_at, updated_at
-		FROM group_join_requests
-		WHERE group_id = $1
-		ORDER BY created_at DESC
+		SELECT gjr.id, gjr.group_id, gjr.user_id, gjr.created_at, gjr.updated_at,
+		       u.first_name, u.last_name, u.nickname, u.avatar_path
+		FROM group_join_requests gjr
+		JOIN users u ON u.id = gjr.user_id
+		WHERE gjr.group_id = $1
+		ORDER BY gjr.created_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, groupID)
 	if err != nil {
@@ -598,9 +613,30 @@ func (r *Repository) ListJoinRequestsByGroup(ctx context.Context, groupID int64)
 	var out []domaingroup.GroupJoinRequest
 	for rows.Next() {
 		var req domaingroup.GroupJoinRequest
-		if err := rows.Scan(&req.ID, &req.GroupID, &req.UserID, &req.CreatedAt, &req.UpdatedAt); err != nil {
+		var nickname sql.NullString
+		var avatar sql.NullString
+		var user domaingroup.GroupMemberInfo
+		if err := rows.Scan(
+			&req.ID,
+			&req.GroupID,
+			&req.UserID,
+			&req.CreatedAt,
+			&req.UpdatedAt,
+			&user.FirstName,
+			&user.LastName,
+			&nickname,
+			&avatar,
+		); err != nil {
 			return nil, fmt.Errorf("scan join request: %w", err)
 		}
+		user.UserID = req.UserID
+		if nickname.Valid {
+			user.Nickname = &nickname.String
+		}
+		if avatar.Valid {
+			user.AvatarPath = &avatar.String
+		}
+		req.User = &user
 		out = append(out, req)
 	}
 	if err := rows.Err(); err != nil {

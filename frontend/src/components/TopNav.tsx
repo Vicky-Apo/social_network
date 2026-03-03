@@ -11,12 +11,15 @@ import { useNotifications } from "./NotificationsContext";
 import { useMessages } from "./MessagesContext";
 import { landingData } from "@/lib/data";
 import Avatar from "@/components/Avatar";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
+import {
+  allowedNotificationTypes,
+  getNotificationBody,
+  getNotificationHref,
+  getNotificationTitle,
+} from "@/lib/notifications";
 
 type SearchMode = "users" | "groups";
 
@@ -69,85 +72,6 @@ type Props = {
   variant?: "light" | "dark";
 };
 
-function formatNotificationTitle(item: TopNavNotification) {
-  switch (item.type) {
-    case "follow_request":
-      return "Follow request";
-    case "group_invitation":
-      return "Group invitation";
-    case "group_join_request":
-      return "Join request";
-    case "event_created":
-      return "New group event";
-    default:
-      return "Notification";
-  }
-}
-
-const allowedNotificationTypes = new Set([
-  "follow_request",
-  "group_invitation",
-  "group_join_request",
-  "event_created",
-]);
-
-function getActorName(item: TopNavNotification) {
-  const meta = item.metadata ?? {};
-  const requester = meta["requester_name"];
-  if (typeof requester === "string" && requester.trim()) return requester;
-  return "Someone";
-}
-
-function getGroupName(item: TopNavNotification) {
-  const meta = item.metadata ?? {};
-  const groupName = meta["group_name"];
-  if (typeof groupName === "string" && groupName.trim()) return groupName;
-  return "your group";
-}
-
-function getNotificationBody(item: TopNavNotification) {
-  switch (item.type) {
-    case "follow_request":
-      return `${getActorName(item)} sent you a follow request.`;
-    case "group_invitation":
-      return `${getActorName(item)} invited you to ${getGroupName(item)}.`;
-    case "group_join_request":
-      return `${getActorName(item)} requested to join ${getGroupName(item)}.`;
-    case "event_created":
-      return `New event in ${getGroupName(item)}.`;
-    default:
-      return "Notification update.";
-  }
-}
-
-function getNotificationHref(item: TopNavNotification) {
-  const meta = item.metadata ?? {};
-  switch (item.type) {
-    case "follow_request":
-      return "/follow-requests";
-    case "group_invitation":
-      return "/group-invitations";
-    case "group_join_request": {
-      const groupID = meta["group_id"];
-      if (typeof groupID === "number") {
-        return `/groups/${groupID}/join-requests`;
-      }
-      return "/groups";
-    }
-    case "event_created":
-      return `/events/${item.entity_id}`;
-    default:
-      return null;
-  }
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
-
 export default function TopNav({
   user,
   searchValue,
@@ -178,12 +102,7 @@ export default function TopNav({
   const [dropdownStyle, setDropdownStyle] = useState<CSSProperties | null>(null);
   const searchWrapRef = useRef<HTMLDivElement | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const resolvedNotifications =
     notifications ?? notificationsContext?.notifications ?? localNotifications;
@@ -225,12 +144,11 @@ export default function TopNav({
   const refreshNotificationsLocal = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/notifications?limit=20`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<TopNavNotification[]>
-        | null;
+      const { response, result } = await apiFetchJson<ApiResponse<TopNavNotification[]>>(
+        "/notifications?limit=20",
+        {},
+        apiBaseUrl,
+      );
       if (response.ok && result?.success) {
         setNotificationsSafe(result.data ?? []);
       }
@@ -247,12 +165,11 @@ export default function TopNav({
 
     const run = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/notifications/unread-count`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<{ count: number }>
-          | null;
+        const { response, result } = await apiFetchJson<ApiResponse<{ count: number }>>(
+          "/notifications/unread-count",
+          {},
+          apiBaseUrl,
+        );
         if (!cancelled && response.ok && result?.success) {
           setCountSafe(Number(result.data?.count ?? 0));
         }
@@ -281,10 +198,7 @@ export default function TopNav({
     setCountSafe(Math.max(0, resolvedCount - 1));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/notifications/${id}/read`, {
-        method: "PATCH",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/notifications/${id}/read`, { method: "PATCH" }, apiBaseUrl);
       if (!response.ok) {
         setNotificationsSafe(old);
       }
@@ -300,10 +214,7 @@ export default function TopNav({
     }
     setNotificationsSafe(resolvedNotifications.map((item) => ({ ...item, is_read: true })));
     setCountSafe(0);
-    await fetch(`${apiBaseUrl}/notifications/read-all`, {
-      method: "PATCH",
-      credentials: "include",
-    }).catch(() => undefined);
+    await apiFetch("/notifications/read-all", { method: "PATCH" }, apiBaseUrl).catch(() => undefined);
   };
 
   const unreadMessageConversations = messageConversations
@@ -317,10 +228,7 @@ export default function TopNav({
 
   const handleLogout = async () => {
     try {
-      await fetch(`${apiBaseUrl}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiFetch("/auth/logout", { method: "POST" }, apiBaseUrl);
     } finally {
       logout();
       if (onLogout) {
@@ -376,31 +284,27 @@ export default function TopNav({
       setSearchLoading(true);
       try {
         if (searchMode === "users") {
-          const res = await fetch(
-            `${apiBaseUrl}/users?q=${encodeURIComponent(query)}&limit=6&offset=0`,
-            { credentials: "include", signal: controller.signal },
+          const { response, result } = await apiFetchJson<ApiResponse<UserSearchItem[]>>(
+            `/users?q=${encodeURIComponent(query)}&limit=6&offset=0`,
+            { signal: controller.signal },
+            apiBaseUrl,
           );
-          const json = (await res.json().catch(() => null)) as
-            | ApiResponse<UserSearchItem[]>
-            | null;
-          if (!cancelled && res.ok && json?.success) {
+          if (!cancelled && response.ok && result?.success) {
             setSearchResults(
-              (json.data ?? []).map((item) => ({ type: "user" as const, item })),
+              (result.data ?? []).map((item) => ({ type: "user" as const, item })),
             );
           } else if (!cancelled) {
             setSearchResults([]);
           }
         } else {
-          const res = await fetch(
-            `${apiBaseUrl}/groups?q=${encodeURIComponent(query)}&limit=6&offset=0`,
-            { credentials: "include", signal: controller.signal },
+          const { response, result } = await apiFetchJson<ApiResponse<GroupSearchItem[]>>(
+            `/groups?q=${encodeURIComponent(query)}&limit=6&offset=0`,
+            { signal: controller.signal },
+            apiBaseUrl,
           );
-          const json = (await res.json().catch(() => null)) as
-            | ApiResponse<GroupSearchItem[]>
-            | null;
-          if (!cancelled && res.ok && json?.success) {
+          if (!cancelled && response.ok && result?.success) {
             setSearchResults(
-              (json.data ?? []).map((item) => ({ type: "group" as const, item })),
+              (result.data ?? []).map((item) => ({ type: "group" as const, item })),
             );
           } else if (!cancelled) {
             setSearchResults([]);
@@ -783,12 +687,12 @@ export default function TopNav({
                       }
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-wide">
-                        {formatNotificationTitle(item)}
+                        {getNotificationTitle(item.type)}
                       </span>
                       <span
                         className={`mt-1 text-[11px] ${isDark ? "text-neutral-400" : "text-neutral-500"}`}
                       >
-                        {getNotificationBody(item)}
+                        {getNotificationBody(item.type, item.metadata)}
                       </span>
                     </button>
                   );

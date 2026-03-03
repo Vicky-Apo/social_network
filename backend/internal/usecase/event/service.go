@@ -291,13 +291,15 @@ func (s *Service) notifyGroupMembers(ctx context.Context, ev domainevent.Event) 
 
 func mapEvent(e domainevent.Event) EventDTO {
 	return EventDTO{
-		ID:          e.ID,
-		GroupID:     e.GroupID,
-		CreatorID:   e.CreatorID,
-		Title:       e.Title,
-		Description: e.Description,
-		EventTime:   e.EventTime,
-		CreatedAt:   e.CreatedAt,
-		UpdatedAt:   e.UpdatedAt,
+		ID:             e.ID,
+		GroupID:        e.GroupID,
+		GroupTitle:     e.GroupTitle,
+		CreatorID:      e.CreatorID,
+		Title:          e.Title,
+		Description:    e.Description,
+		EventTime:      e.EventTime,
+		CreatedAt:      e.CreatedAt,
+		UpdatedAt:      e.UpdatedAt,
+		ResponsesCount: e.ResponsesCount,
 	}
 }

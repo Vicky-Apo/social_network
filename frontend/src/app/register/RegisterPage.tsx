@@ -7,6 +7,8 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { landingData } from "@/lib/data";
 import { fadeUp, staggerContainer } from "@/components/Motion";
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type FormState = {
   firstName: string;
@@ -20,12 +22,6 @@ type FormState = {
 };
 
 type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
-
 const initialFormData: FormState = {
   firstName: "",
   lastName: "",
@@ -106,9 +102,7 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     setErrors({});
 
-    const apiBaseUrl =
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080";
+    const apiBaseUrl = getApiBaseUrl();
     const endpoint = `${apiBaseUrl}/auth/register`;
 
     const dateOfBirth = formatDateOfBirth(formData.dob);
@@ -125,16 +119,17 @@ export default function RegisterPage() {
     };
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { response, result } = await apiFetchJson<ApiResponse<unknown>>(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+        apiBaseUrl,
+      );
 
       if (!response.ok || !result?.success) {
         setErrors({

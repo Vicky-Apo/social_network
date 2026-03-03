@@ -39,12 +39,16 @@ func (r *Repository) Create(ctx context.Context, e domainevent.Event) (domaineve
 // GetByID returns an event by ID.
 func (r *Repository) GetByID(ctx context.Context, id int64) (domainevent.Event, error) {
 	const query = `
-		SELECT id, group_id, creator_id, title, description, event_time, created_at, updated_at
-		FROM events
-		WHERE id = $1
+		SELECT e.id, e.group_id, e.creator_id, e.title, e.description, e.event_time,
+		       e.created_at, e.updated_at, g.title,
+		       (SELECT COUNT(*) FROM event_responses er WHERE er.event_id = e.id) AS responses_count
+		FROM events e
+		JOIN groups g ON g.id = e.group_id
+		WHERE e.id = $1
 	`
 	var e domainevent.Event
 	var desc sql.NullString
+	var groupTitle sql.NullString
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&e.ID,
 		&e.GroupID,
@@ -54,6 +58,8 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainevent.Event, 
 		&e.EventTime,
 		&e.CreatedAt,
 		&e.UpdatedAt,
+		&groupTitle,
+		&e.ResponsesCount,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -64,16 +70,22 @@ func (r *Repository) GetByID(ctx context.Context, id int64) (domainevent.Event, 
 	if desc.Valid {
 		e.Description = &desc.String
 	}
+	if groupTitle.Valid {
+		e.GroupTitle = &groupTitle.String
+	}
 	return e, nil
 }
 
 // ListByGroup returns events for a group with pagination.
 func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainevent.Event, error) {
 	const query = `
-		SELECT id, group_id, creator_id, title, description, event_time, created_at, updated_at
-		FROM events
-		WHERE group_id = $1
-		ORDER BY event_time ASC
+		SELECT e.id, e.group_id, e.creator_id, e.title, e.description, e.event_time,
+		       e.created_at, e.updated_at, g.title,
+		       (SELECT COUNT(*) FROM event_responses er WHERE er.event_id = e.id) AS responses_count
+		FROM events e
+		JOIN groups g ON g.id = e.group_id
+		WHERE e.group_id = $1
+		ORDER BY e.event_time ASC
 		LIMIT $2 OFFSET $3
 	`
 	rows, err := r.db.QueryContext(ctx, query, groupID, limit, offset)
@@ -86,6 +98,7 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offs
 	for rows.Next() {
 		var e domainevent.Event
 		var desc sql.NullString
+		var groupTitle sql.NullString
 		if err := rows.Scan(
 			&e.ID,
 			&e.GroupID,
@@ -95,11 +108,16 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offs
 			&e.EventTime,
 			&e.CreatedAt,
 			&e.UpdatedAt,
+			&groupTitle,
+			&e.ResponsesCount,
 		); err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
 		if desc.Valid {
 			e.Description = &desc.String
+		}
+		if groupTitle.Valid {
+			e.GroupTitle = &groupTitle.String
 		}
 		out = append(out, e)
 	}

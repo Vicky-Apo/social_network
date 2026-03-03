@@ -9,12 +9,9 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -27,12 +24,14 @@ type User = {
 type EventItem = {
   id: number;
   group_id: number;
+  group_title?: string | null;
   creator_id: number;
   title: string;
   description?: string | null;
   event_time: string;
   created_at: string;
   updated_at: string;
+  responses_count?: number;
 };
 
 type EventResponse = {
@@ -45,19 +44,6 @@ type EventResponse = {
   response: string;
   responded_at?: string | null;
 };
-
-type GroupSummary = {
-  id: number;
-  title?: string | null;
-  name?: string | null;
-};
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
 
 function formatDateTime(value?: string) {
   if (!value) return "N/A";
@@ -86,6 +72,7 @@ export default function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [responsesError, setResponsesError] = useState<string | null>(null);
   const [responseAction, setResponseAction] = useState<string | null>(null);
+  const [responsesLoaded, setResponsesLoaded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -93,14 +80,8 @@ export default function EventDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [groupName, setGroupName] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadEvent = useCallback(async () => {
     if (!Number.isFinite(eventID) || eventID <= 0) {
@@ -112,16 +93,20 @@ export default function EventDetailPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
 
-      const eventResponse = await fetch(`${apiBaseUrl}/events/${eventID}`, { credentials: "include" });
-      const eventResult = (await eventResponse.json().catch(() => null)) as ApiResponse<EventItem> | null;
+      const { response: eventResponse, result: eventResult } = await apiFetchJson<
+        ApiResponse<EventItem>
+      >(`/events/${eventID}`, {}, apiBaseUrl);
       if (!eventResponse.ok || !eventResult?.success || !eventResult.data) {
         setError(eventResult?.error || "Could not load event.");
         setEvent(null);
@@ -132,29 +117,9 @@ export default function EventDetailPage() {
       setEditDescription(eventResult.data.description || "");
       setEditTime(toInputDate(eventResult.data.event_time));
 
-      const groupResponse = await fetch(`${apiBaseUrl}/groups/${eventResult.data.group_id}`, {
-        credentials: "include",
-      });
-      const groupResult = (await groupResponse.json().catch(() => null)) as
-        | ApiResponse<GroupSummary>
-        | null;
-      if (groupResponse.ok && groupResult?.success && groupResult.data) {
-        const title = groupResult.data.title || groupResult.data.name;
-        if (title) setGroupName(title);
-      }
-
-      const responsesResponse = await fetch(`${apiBaseUrl}/events/${eventID}/responses`, {
-        credentials: "include",
-      });
-      const responsesResult = (await responsesResponse.json().catch(() => null)) as
-        | ApiResponse<EventResponse[]>
-        | null;
-      if (!responsesResponse.ok || !responsesResult?.success) {
-        setResponsesError(responsesResult?.error || "Could not load responses.");
-        setResponses([]);
-        return;
-      }
-      setResponses(responsesResult.data ?? []);
+      setResponses([]);
+      setResponsesError(null);
+      setResponsesLoaded(false);
     } catch {
       setError("Network error. Please try again.");
       setEvent(null);
@@ -170,22 +135,45 @@ export default function EventDetailPage() {
   const handleRespond = async (response: "going" | "not_going") => {
     setResponseAction(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/events/${eventID}/responses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ response }),
-      });
-      const json = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+      const { response: res, result: json } = await apiFetchJson<ApiResponse<unknown>>(
+        `/events/${eventID}/responses`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ response }),
+        },
+        apiBaseUrl,
+      );
       if (!res.ok || !json?.success) {
         setResponseAction(json?.error || "Could not submit response.");
         return;
       }
       await loadEvent();
+      if (responsesLoaded) {
+        await loadResponses();
+      }
     } catch {
       setResponseAction("Network error. Please try again.");
     }
   };
+
+  const loadResponses = useCallback(async () => {
+    setResponsesError(null);
+    try {
+      const { response: responsesResponse, result: responsesResult } = await apiFetchJson<
+        ApiResponse<EventResponse[]>
+      >(`/events/${eventID}/responses`, {}, apiBaseUrl);
+      if (!responsesResponse.ok || !responsesResult?.success) {
+        setResponsesError(responsesResult?.error || "Could not load responses.");
+        setResponses([]);
+        return;
+      }
+      setResponses(responsesResult.data ?? []);
+      setResponsesLoaded(true);
+    } catch {
+      setResponsesError("Network error. Please try again.");
+    }
+  }, [apiBaseUrl, eventID]);
 
   const handleSave = async () => {
     if (!event) return;
@@ -201,13 +189,15 @@ export default function EventDetailPage() {
         description: editDescription.trim() || undefined,
         event_time: new Date(editTime).toISOString(),
       };
-      const response = await fetch(`${apiBaseUrl}/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem> | null;
+      const { response, result } = await apiFetchJson<ApiResponse<EventItem>>(
+        `/events/${event.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success || !result.data) {
         setEditError(result?.error || "Could not update event.");
         return;
@@ -225,10 +215,7 @@ export default function EventDetailPage() {
     if (!event) return;
     setDeleteError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/events/${event.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/events/${event.id}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setDeleteError(result?.error || "Could not delete event.");
@@ -241,6 +228,10 @@ export default function EventDetailPage() {
   };
 
   const isCreator = Boolean(event && viewer && event.creator_id === viewer.id);
+
+  const groupName = event?.group_title?.trim();
+  const responsesCount =
+    typeof event?.responses_count === "number" ? event.responses_count : responses.length;
 
   return (
     <div
@@ -430,7 +421,15 @@ export default function EventDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Responses
                 </div>
-                {responsesError ? (
+                {!responsesLoaded ? (
+                  <button
+                    type="button"
+                    onClick={() => void loadResponses()}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10"
+                  >
+                    View responses ({responsesCount})
+                  </button>
+                ) : responsesError ? (
                   <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
                 ) : responses.length === 0 ? (
                   <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
@@ -489,7 +488,15 @@ export default function EventDetailPage() {
                 <Calendar className="h-4 w-4" />
                 Responses
               </div>
-              {responsesError ? (
+              {!responsesLoaded ? (
+                <button
+                  type="button"
+                  onClick={() => void loadResponses()}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10"
+                >
+                  View responses ({responsesCount})
+                </button>
+              ) : responsesError ? (
                 <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
               ) : responses.length === 0 ? (
                 <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
