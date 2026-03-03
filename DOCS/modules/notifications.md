@@ -50,6 +50,7 @@ All notification endpoints require a valid session cookie. Use `credentials: "in
 - Results are ordered by `created_at DESC`.
 - `metadata` is optional and varies by type.
 - Notifications are also pushed in real time over WebSocket with type `notification`.
+- The notifications page uses `AuthContext` for the current user and does not call `/auth/me`.
 
 **Error Responses:**
 - `400 Bad Request` - Invalid pagination parameters or invalid `unread` value

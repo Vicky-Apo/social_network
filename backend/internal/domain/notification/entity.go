@@ -13,9 +13,6 @@ const (
 	GroupInvitation  NotificationType = "group_invitation"
 	GroupJoinRequest NotificationType = "group_join_request"
 	EventCreated     NotificationType = "event_created"
-	PostReaction     NotificationType = "post_reaction"
-	CommentReaction  NotificationType = "comment_reaction"
-	CommentOnPost    NotificationType = "comment_on_post"
 )
 
 // Notification represents a user notification.

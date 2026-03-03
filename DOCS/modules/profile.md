@@ -47,6 +47,7 @@ Notes:
 - If the profile is private, only followers or the profile owner can access it.
 - `date_of_birth` format is `DD/MM/YYYY`.
 - Access checks are based on `is_public`, ownership, and follower status and are computed once per request to reduce redundant DB lookups.
+- The profile page uses `GET /profiles/{id}` for profile data and `GET /posts?author_id=...` for paginated posts.
 
 Limited response:
 - If the profile is private and the viewer is not a follower, the API returns a limited profile with only basic fields (id, first_name, last_name, nickname, avatar_path, is_public) and `limited: true`.
@@ -191,6 +192,9 @@ Response (200):
 
 Notes:
 - Access follows the same privacy rules as the profile itself.
+- The followers page uses `AuthContext` for the viewer and does not call `/auth/me`.
+- The following page uses `AuthContext` for the viewer and does not call `/auth/me`.
+- The edit profile page uses `AuthContext` for the viewer and only updates visibility when it changes.
 
 Error responses:
 - `400 Bad Request` - Invalid profile id

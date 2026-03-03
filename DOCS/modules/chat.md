@@ -174,6 +174,10 @@ Notes:
 - Typing is ephemeral and may be auto-cleared by the server after a short inactivity window (~5s).
 - If a client disconnects while typing, the server will send a final `is_typing: false` for that user.
 
+Frontend notes:
+- The messages page loads group lists only when the Groups tab is active to avoid unnecessary `/groups` calls.
+- Message reactions are fetched on demand (when the user reacts) instead of prefetching for every message.
+
 ### user_online / user_offline
 
 Sent when a user in your follow network comes online or goes offline. On connection, you also receive a `user_online` for each contact that is already online at that moment.

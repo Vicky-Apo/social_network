@@ -163,7 +163,7 @@ func (n *testNotifier) CreateForUser(ctx context.Context, req usecasenotificatio
 
 var sqlErrNoRows = sql.ErrNoRows
 
-func TestAddPostReaction_AddsAndNotifies(t *testing.T) {
+func TestAddPostReaction_Adds(t *testing.T) {
 	repo := newFakeReactionRepo()
 	postRepo := &fakePostRepo{authorID: 2}
 	commentRepo := &fakeCommentRepo{authorID: 3}
@@ -177,12 +177,12 @@ func TestAddPostReaction_AddsAndNotifies(t *testing.T) {
 	if status != "added" {
 		t.Fatalf("expected added, got %s", status)
 	}
-	if notify.calls != 1 || notify.lastType != "post_reaction" {
-		t.Fatalf("expected post_reaction notification")
+	if notify.calls != 0 {
+		t.Fatalf("expected no notification")
 	}
 }
 
-func TestAddCommentReaction_AddsAndNotifies(t *testing.T) {
+func TestAddCommentReaction_Adds(t *testing.T) {
 	repo := newFakeReactionRepo()
 	postRepo := &fakePostRepo{authorID: 2}
 	commentRepo := &fakeCommentRepo{authorID: 4}
@@ -196,8 +196,8 @@ func TestAddCommentReaction_AddsAndNotifies(t *testing.T) {
 	if status != "added" {
 		t.Fatalf("expected added, got %s", status)
 	}
-	if notify.calls != 1 || notify.lastType != "comment_reaction" {
-		t.Fatalf("expected comment_reaction notification")
+	if notify.calls != 0 {
+		t.Fatalf("expected no notification")
 	}
 }
 

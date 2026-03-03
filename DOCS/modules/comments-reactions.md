@@ -231,6 +231,7 @@ Adds, updates, or removes a reaction to a post.
 - If the opposite reaction is sent, it is updated (`status: "updated"`).
 - `user_id` is automatically determined from your authenticated session
 - You must be allowed to view the post (public/followers/private rules). Group posts require membership.
+- Post lists and comment lists already include counts; fetch reaction lists only when needed (e.g., after user reacts).
 
 **Error Responses:**
 - `400 Bad Request` - Invalid post ID, invalid reaction type, or invalid request body

@@ -60,22 +60,7 @@ func (s *Service) Create(ctx context.Context, req CreateCommentRequest) (Comment
 		return CommentDTO{}, err
 	}
 
-	// Emit notification to post author
-	if s.notifier != nil {
-		post, err := s.postRepo.GetByID(ctx, req.PostID)
-		if err == nil && post.AuthorID != req.AuthorID {
-			_, _ = s.notifier.CreateForUser(ctx, usecasenotification.CreateRequest{
-				UserID:     post.AuthorID,
-				ActorID:    &req.AuthorID,
-				Type:       "comment_on_post",
-				EntityType: "post",
-				EntityID:   req.PostID,
-				Metadata: map[string]any{
-					"comment_id": created.ID,
-				},
-			})
-		}
-	}
+	// notifications for comments are disabled
 
 	return mapComment(created), nil
 }
