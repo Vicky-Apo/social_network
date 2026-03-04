@@ -73,6 +73,7 @@ export default function EventDetailPage() {
   const [responsesError, setResponsesError] = useState<string | null>(null);
   const [responseAction, setResponseAction] = useState<string | null>(null);
   const [responsesLoaded, setResponsesLoaded] = useState(false);
+  const [responsesLoading, setResponsesLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -120,6 +121,7 @@ export default function EventDetailPage() {
       setResponses([]);
       setResponsesError(null);
       setResponsesLoaded(false);
+      setResponsesLoading(false);
     } catch {
       setError("Network error. Please try again.");
       setEvent(null);
@@ -159,6 +161,7 @@ export default function EventDetailPage() {
 
   const loadResponses = useCallback(async () => {
     setResponsesError(null);
+    setResponsesLoading(true);
     try {
       const { response: responsesResponse, result: responsesResult } = await apiFetchJson<
         ApiResponse<EventResponse[]>
@@ -172,8 +175,16 @@ export default function EventDetailPage() {
       setResponsesLoaded(true);
     } catch {
       setResponsesError("Network error. Please try again.");
+    } finally {
+      setResponsesLoading(false);
     }
   }, [apiBaseUrl, eventID]);
+
+  useEffect(() => {
+    if (event && !responsesLoaded && !responsesLoading) {
+      void loadResponses();
+    }
+  }, [event, loadResponses, responsesLoaded, responsesLoading]);
 
   const handleSave = async () => {
     if (!event) return;
@@ -232,6 +243,8 @@ export default function EventDetailPage() {
   const groupName = event?.group_title?.trim();
   const responsesCount =
     typeof event?.responses_count === "number" ? event.responses_count : responses.length;
+  const goingResponses = responses.filter((resp) => resp.response === "going");
+  const notGoingResponses = responses.filter((resp) => resp.response !== "going");
 
   return (
     <div
@@ -278,54 +291,54 @@ export default function EventDetailPage() {
           </motion.section>
 
           {isLoading ? (
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm"
-          >
-            Loading event...
-          </motion.div>
-        ) : error ? (
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="mt-5 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400"
-          >
-            {error}
-          </motion.div>
-        ) : event ? (
-          <div className="mt-5 space-y-5">
             <motion.div
               initial="hidden"
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+              className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">{event.title}</h2>
-                  <p className="mt-1 text-sm text-neutral-400">
-                    {event.description || "No description."}
-                  </p>
+              Loading event...
+            </motion.div>
+          ) : error ? (
+            <motion.div
+              initial="hidden"
+              whileInView="show"
+              viewport={viewportOnce}
+              variants={fadeUp}
+              className="mt-5 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400"
+            >
+              {error}
+            </motion.div>
+          ) : event ? (
+            <div className="mt-5 space-y-5">
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+                variants={fadeUp}
+                className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{event.title}</h2>
+                    <p className="mt-1 text-sm text-neutral-400">
+                      {event.description || "No description."}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
+                    {formatDateTime(event.event_time)}
+                  </span>
                 </div>
-                <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
-                  {formatDateTime(event.event_time)}
-                </span>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleRespond("going")}
-                  className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
-                >
-                  <ThumbsUp className="h-3.5 w-3.5" />
-                  Going
-                </button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleRespond("going")}
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                    Going
+                  </button>
                 <button
                   type="button"
                   onClick={() => handleRespond("not_going")}
@@ -421,52 +434,92 @@ export default function EventDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Responses
                 </div>
-                {!responsesLoaded ? (
-                  <button
-                    type="button"
-                    onClick={() => void loadResponses()}
-                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10"
-                  >
-                    View responses ({responsesCount})
-                  </button>
+                {responsesLoading ? (
+                  <p className="mt-3 text-xs text-neutral-400">Loading responses...</p>
                 ) : responsesError ? (
                   <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
                 ) : responses.length === 0 ? (
                   <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
                 ) : (
-                  <div className="mt-3 space-y-2">
-                    {responses.map((resp) => (
-                      <div
-                        key={`${resp.user_id}-${resp.response}`}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            src={resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null}
-                            name={`${resp.first_name} ${resp.last_name}`}
-                            size={36}
-                            textClassName="text-[11px]"
-                          />
-                          <div>
-                            <p className="text-xs font-semibold text-white">
-                              {resp.first_name} {resp.last_name}
-                            </p>
-                            <p className="text-[11px] text-neutral-400">
-                              @{resp.nickname || "user"}
-                            </p>
-                          </div>
+                  <div className="mt-3 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-300">
+                        Going ({goingResponses.length})
+                      </p>
+                      {goingResponses.length === 0 ? (
+                        <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {goingResponses.map((resp) => (
+                            <div
+                              key={`${resp.user_id}-${resp.response}`}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Avatar
+                                  src={
+                                    resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                  }
+                                  name={`${resp.first_name} ${resp.last_name}`}
+                                  size={36}
+                                  textClassName="text-[11px]"
+                                />
+                                <div>
+                                  <p className="text-xs font-semibold text-white">
+                                    {resp.first_name} {resp.last_name}
+                                  </p>
+                                  <p className="text-[11px] text-neutral-400">
+                                    @{resp.nickname || "user"}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-400">
+                                Going
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <span
-                          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                            resp.response === "going"
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-white/10 text-neutral-400"
-                          }`}
-                        >
-                          {resp.response === "going" ? "Going" : "Not going"}
-                        </span>
-                      </div>
-                    ))}
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-300">
+                        Not going ({notGoingResponses.length})
+                      </p>
+                      {notGoingResponses.length === 0 ? (
+                        <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {notGoingResponses.map((resp) => (
+                            <div
+                              key={`${resp.user_id}-${resp.response}`}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Avatar
+                                  src={
+                                    resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                  }
+                                  name={`${resp.first_name} ${resp.last_name}`}
+                                  size={36}
+                                  textClassName="text-[11px]"
+                                />
+                                <div>
+                                  <p className="text-xs font-semibold text-white">
+                                    {resp.first_name} {resp.last_name}
+                                  </p>
+                                  <p className="text-[11px] text-neutral-400">
+                                    @{resp.nickname || "user"}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-neutral-400">
+                                Not going
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -488,52 +541,92 @@ export default function EventDetailPage() {
                 <Calendar className="h-4 w-4" />
                 Responses
               </div>
-              {!responsesLoaded ? (
-                <button
-                  type="button"
-                  onClick={() => void loadResponses()}
-                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white transition hover:bg-white/10"
-                >
-                  View responses ({responsesCount})
-                </button>
+              {responsesLoading ? (
+                <p className="mt-3 text-xs text-neutral-400">Loading responses...</p>
               ) : responsesError ? (
                 <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
               ) : responses.length === 0 ? (
                 <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
               ) : (
-                <div className="mt-3 space-y-2">
-                  {responses.map((resp) => (
-                    <div
-                      key={`${resp.user_id}-${resp.response}`}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          src={resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null}
-                          name={`${resp.first_name} ${resp.last_name}`}
-                          size={36}
-                          textClassName="text-[11px]"
-                        />
-                        <div>
-                          <p className="text-xs font-semibold text-white">
-                            {resp.first_name} {resp.last_name}
-                          </p>
-                          <p className="text-[11px] text-neutral-400">
-                            @{resp.nickname || "user"}
-                          </p>
-                        </div>
+                <div className="mt-3 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-300">
+                      Going ({goingResponses.length})
+                    </p>
+                    {goingResponses.length === 0 ? (
+                      <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {goingResponses.map((resp) => (
+                          <div
+                            key={`${resp.user_id}-${resp.response}`}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={
+                                  resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                }
+                                name={`${resp.first_name} ${resp.last_name}`}
+                                size={36}
+                                textClassName="text-[11px]"
+                              />
+                              <div>
+                                <p className="text-xs font-semibold text-white">
+                                  {resp.first_name} {resp.last_name}
+                                </p>
+                                <p className="text-[11px] text-neutral-400">
+                                  @{resp.nickname || "user"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-400">
+                              Going
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                          resp.response === "going"
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-white/10 text-neutral-400"
-                        }`}
-                      >
-                        {resp.response === "going" ? "Going" : "Not going"}
-                      </span>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-300">
+                      Not going ({notGoingResponses.length})
+                    </p>
+                    {notGoingResponses.length === 0 ? (
+                      <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {notGoingResponses.map((resp) => (
+                          <div
+                            key={`${resp.user_id}-${resp.response}`}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={
+                                  resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                }
+                                name={`${resp.first_name} ${resp.last_name}`}
+                                size={36}
+                                textClassName="text-[11px]"
+                              />
+                              <div>
+                                <p className="text-xs font-semibold text-white">
+                                  {resp.first_name} {resp.last_name}
+                                </p>
+                                <p className="text-[11px] text-neutral-400">
+                                  @{resp.nickname || "user"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-neutral-400">
+                              Not going
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </motion.div>
