@@ -9,12 +9,10 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { shortDate } from "@/lib/date";
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -119,45 +117,20 @@ const emojiPalette = [
   "🙄",
   "💙",
 ];
-const pageSize = 30;
+const pageSize = 10;
 
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
 
 async function uploadMessageMedia(apiBaseUrl: string, file: File) {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("kind", "message");
-  const response = await fetch(`${apiBaseUrl}/uploads`, {
-    method: "POST",
-    credentials: "include",
-    body: formData,
-  });
-  const result = (await response.json().catch(() => null)) as
-    | { success?: boolean; data?: { path?: string }; error?: string }
-    | null;
+  const { response, result } = await apiFetchJson<
+    { success?: boolean; data?: { path?: string }; error?: string }
+  >("/uploads", { method: "POST", body: formData }, apiBaseUrl);
   if (!response.ok || !result?.success || !result.data?.path) {
     throw new Error(result?.error || "Could not upload media.");
   }
   return result.data.path;
-}
-
-function shortDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function formatChatTitle(
@@ -188,6 +161,7 @@ export default function MessagesPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const typingTimerRef = useRef<number | null>(null);
   const typingSentRef = useRef(false);
+  const typingClearTimersRef = useRef<Record<string, number>>({});
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const preserveScrollRef = useRef<{ active: boolean; prevHeight: number }>({
     active: false,
@@ -218,7 +192,6 @@ export default function MessagesPage() {
   const [pendingTarget, setPendingTarget] = useState<PendingTarget>(null);
   const [usersByID, setUsersByID] = useState<Record<number, UserListItem>>({});
   const [groupsByID, setGroupsByID] = useState<Record<number, GroupSummary>>({});
-  const [isHydratingNames, setIsHydratingNames] = useState(false);
   const [reactionsByMessage, setReactionsByMessage] = useState<Record<number, MessageReaction[]>>({});
   const [typingByConversation, setTypingByConversation] = useState<Record<number, number[]>>({});
   const [onlineUsers, setOnlineUsers] = useState<Record<number, boolean>>({});
@@ -228,11 +201,11 @@ export default function MessagesPage() {
     left: number;
   } | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const fetchJson = useCallback(
+    async <T,>(path: string, options: RequestInit = {}) =>
+      apiFetchJson<ApiResponse<T>>(path, options, apiBaseUrl),
+    [apiBaseUrl],
   );
   const wsBaseUrl = useMemo(() => {
     if (apiBaseUrl.startsWith("https://")) return apiBaseUrl.replace("https://", "wss://");
@@ -257,12 +230,9 @@ export default function MessagesPage() {
   }, [activeConversationID]);
 
   const fetchConversations = useCallback(async () => {
-    const response = await fetch(`${apiBaseUrl}/conversations?limit=50`, {
-      credentials: "include",
-    });
-    const result = (await response.json().catch(() => null)) as
-      | ApiResponse<ConversationItem[]>
-      | null;
+    const { response, result } = await fetchJson<ConversationItem[]>(
+      "/conversations?limit=50",
+    );
     if (!response.ok || !result?.success) {
       throw new Error(result?.error || "Could not load conversations.");
     }
@@ -274,16 +244,13 @@ export default function MessagesPage() {
       }
       return items[0]?.id ?? null;
     });
-  }, [apiBaseUrl]);
+  }, [fetchJson]);
 
   const fetchReactionsForMessage = useCallback(
     async (messageID: number) => {
-      const response = await fetch(`${apiBaseUrl}/messages/${messageID}/reactions`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<MessageReaction[]>
-        | null;
+      const { response, result } = await fetchJson<MessageReaction[]>(
+        `/messages/${messageID}/reactions`,
+      );
       if (!response.ok || !result?.success) {
         return;
       }
@@ -292,24 +259,14 @@ export default function MessagesPage() {
         [messageID]: result.data ?? [],
       }));
     },
-    [apiBaseUrl],
-  );
-
-  const fetchReactionsForBatch = useCallback(
-    async (batch: MessageItem[]) => {
-      await Promise.all(batch.map((message) => fetchReactionsForMessage(message.id)));
-    },
-    [fetchReactionsForMessage],
+    [fetchJson],
   );
 
   const fetchGroups = useCallback(async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/groups?limit=200&offset=0`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<GroupSummary[]>
-        | null;
+      const { response, result } = await fetchJson<GroupSummary[]>(
+        "/groups?limit=200&offset=0",
+      );
       if (!response.ok || !result?.success) return;
       const items = result.data ?? [];
       const mapped: Record<number, GroupSummary> = {};
@@ -323,82 +280,7 @@ export default function MessagesPage() {
     } catch {
       // ignore
     }
-  }, [apiBaseUrl]);
-
-  const hydrateMissingUsers = useCallback(
-    async (ids: number[]) => {
-      if (ids.length === 0) return;
-      setIsHydratingNames(true);
-      try {
-        const entries = await Promise.all(
-          ids.map(async (id) => {
-            try {
-              const response = await fetch(`${apiBaseUrl}/profiles/${id}`, {
-                credentials: "include",
-              });
-              const result = (await response.json().catch(() => null)) as
-                | ApiResponse<{ user?: UserListItem }>
-                | null;
-              if (!response.ok || !result?.success || !result.data?.user) {
-                return null;
-              }
-              return result.data.user as UserListItem;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        const mapped: Record<number, UserListItem> = {};
-        for (const user of entries) {
-          if (user) mapped[user.id] = user;
-        }
-        if (Object.keys(mapped).length > 0) {
-          setUsersByID((prev) => ({ ...prev, ...mapped }));
-        }
-      } finally {
-        setIsHydratingNames(false);
-      }
-    },
-    [apiBaseUrl],
-  );
-
-  const hydrateMissingGroups = useCallback(
-    async (ids: number[]) => {
-      if (ids.length === 0) return;
-      try {
-        const entries = await Promise.all(
-          ids.map(async (id) => {
-            try {
-              const response = await fetch(`${apiBaseUrl}/groups/${id}`, {
-                credentials: "include",
-              });
-              const result = (await response.json().catch(() => null)) as
-                | ApiResponse<{ id?: number; title?: string; name?: string }>
-                | null;
-              if (!response.ok || !result?.success || !result.data) {
-                return null;
-              }
-              const data = result.data as { id?: number; title?: string; name?: string };
-              const groupID = typeof data.id === "number" ? data.id : id;
-              return { id: groupID, title: data.title ?? data.name ?? `Group ${groupID}` } as GroupSummary;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        const mapped: Record<number, GroupSummary> = {};
-        for (const group of entries) {
-          if (group) mapped[group.id] = group;
-        }
-        if (Object.keys(mapped).length > 0) {
-          setGroupsByID((prev) => ({ ...prev, ...mapped }));
-        }
-      } catch {
-        // ignore
-      }
-    },
-    [apiBaseUrl],
-  );
+  }, [fetchJson]);
 
   const loadMessagesPage = useCallback(
     async (conversationID: number, offset: number, mode: "replace" | "append") => {
@@ -410,13 +292,9 @@ export default function MessagesPage() {
       }
 
       try {
-        const response = await fetch(
-          `${apiBaseUrl}/conversations/${conversationID}/messages?limit=${pageSize}&offset=${offset}`,
-          { credentials: "include" },
+        const { response, result } = await fetchJson<MessageItem[]>(
+          `/conversations/${conversationID}/messages?limit=${pageSize}&offset=${offset}`,
         );
-        const result = (await response.json().catch(() => null)) as
-          | ApiResponse<MessageItem[]>
-          | null;
         if (!response.ok || !result?.success) {
           setMessagesError(result?.error || "Could not load messages.");
           if (mode === "replace") {
@@ -430,15 +308,18 @@ export default function MessagesPage() {
           setMessagesNewestFirst(batch);
           setReactionsByMessage({});
           autoScrollRef.current = true;
-          await fetch(`${apiBaseUrl}/conversations/${conversationID}/read`, {
-            method: "PATCH",
-            credentials: "include",
-          }).catch(() => undefined);
+          await apiFetch(
+            `/conversations/${conversationID}/read`,
+            { method: "PATCH" },
+            apiBaseUrl,
+          ).catch(() => undefined);
         } else {
           setMessagesNewestFirst((prev) => [...prev, ...batch]);
         }
+        if (batch.length > 0) {
+          void Promise.all(batch.map((item) => fetchReactionsForMessage(item.id)));
+        }
         setHasMoreMessages(batch.length >= pageSize);
-        void fetchReactionsForBatch(batch);
       } finally {
         if (mode === "replace") {
           setIsMessagesLoading(false);
@@ -447,7 +328,7 @@ export default function MessagesPage() {
         }
       }
     },
-    [apiBaseUrl, fetchReactionsForBatch],
+    [apiBaseUrl],
   );
 
   useEffect(() => {
@@ -457,10 +338,7 @@ export default function MessagesPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-          credentials: "include",
-        });
-        const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+        const { response: meResponse, result: meResult } = await fetchJson<User>("/auth/me");
         if (!meResponse.ok || !meResult?.success || !meResult.data) {
           if (!cancelled) {
             router.replace("/login");
@@ -471,27 +349,17 @@ export default function MessagesPage() {
           setUser(meResult.data);
         }
 
-        const [followersRes, followingRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/profiles/${meResult.data.id}/followers`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/profiles/${meResult.data.id}/following`, {
-            credentials: "include",
-          }),
+        const [followers, following] = await Promise.all([
+          fetchJson<UserListItem[]>(`/profiles/${meResult.data.id}/followers`),
+          fetchJson<UserListItem[]>(`/profiles/${meResult.data.id}/following`),
         ]);
-        const followersJson = (await followersRes.json().catch(() => null)) as
-          | ApiResponse<UserListItem[]>
-          | null;
-        const followingJson = (await followingRes.json().catch(() => null)) as
-          | ApiResponse<UserListItem[]>
-          | null;
         if (!cancelled) {
           const combined = new Map<number, UserListItem>();
-          if (followersRes.ok && followersJson?.success) {
-            (followersJson.data ?? []).forEach((person) => combined.set(person.id, person));
+          if (followers.response.ok && followers.result?.success) {
+            (followers.result.data ?? []).forEach((person) => combined.set(person.id, person));
           }
-          if (followingRes.ok && followingJson?.success) {
-            (followingJson.data ?? []).forEach((person) => combined.set(person.id, person));
+          if (following.response.ok && following.result?.success) {
+            (following.result.data ?? []).forEach((person) => combined.set(person.id, person));
           }
           const list = Array.from(combined.values());
           setContacts(list);
@@ -500,7 +368,7 @@ export default function MessagesPage() {
           );
         }
 
-        await Promise.all([fetchConversations(), fetchGroups()]);
+        await fetchConversations();
       } catch {
         if (!cancelled) {
           setError("Network error while loading chats.");
@@ -516,43 +384,12 @@ export default function MessagesPage() {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, fetchConversations, router]);
+  }, [fetchConversations, fetchJson, router]);
 
   useEffect(() => {
-    const missingUserIDs = new Set<number>();
-    conversations.forEach((conv) => {
-      if (conv.other_user_id && !usersByID[conv.other_user_id]) {
-        missingUserIDs.add(conv.other_user_id);
-      }
-      if (conv.group_id && !groupsByID[conv.group_id]) {
-        // handled below
-      }
-    });
-    messagesNewestFirst.forEach((msg) => {
-      if (msg.sender_id && !usersByID[msg.sender_id]) {
-        missingUserIDs.add(msg.sender_id);
-      }
-    });
-    Object.values(typingByConversation).forEach((ids) => {
-      ids.forEach((id) => {
-        if (!usersByID[id]) missingUserIDs.add(id);
-      });
-    });
-
-    const missingGroupIDs = new Set<number>();
-    conversations.forEach((conv) => {
-      if (conv.group_id && !groupsByID[conv.group_id]) {
-        missingGroupIDs.add(conv.group_id);
-      }
-    });
-
-    if (missingUserIDs.size > 0) {
-      void hydrateMissingUsers(Array.from(missingUserIDs));
-    }
-    if (missingGroupIDs.size > 0) {
-      void hydrateMissingGroups(Array.from(missingGroupIDs));
-    }
-  }, [conversations, groupsByID, hydrateMissingGroups, hydrateMissingUsers, messagesNewestFirst, typingByConversation, usersByID]);
+    if (activeTab !== "groups") return;
+    void fetchGroups();
+  }, [activeTab, fetchGroups]);
 
   useEffect(() => {
     if (!activeConversationID) {
@@ -601,11 +438,12 @@ export default function MessagesPage() {
                 }
                 return [payload, ...prev];
               });
-              void fetchReactionsForMessage(payload.id);
-              void fetch(`${apiBaseUrl}/conversations/${payload.conversation_id}/read`, {
-                method: "PATCH",
-                credentials: "include",
-              }).catch(() => undefined);
+              // New messages start with no reactions; skip extra fetch.
+              void apiFetch(
+                `/conversations/${payload.conversation_id}/read`,
+                { method: "PATCH" },
+                apiBaseUrl,
+              ).catch(() => undefined);
             }
             void fetchConversations();
           } else if (msg.type === "message_reaction") {
@@ -645,20 +483,31 @@ export default function MessagesPage() {
             if (!payload?.conversation_id || !payload?.user_id || payload.user_id === user.id) {
               return;
             }
-            setTypingByConversation((prev) => {
-              const current = prev[payload.conversation_id] ?? [];
-              if (payload.is_typing) {
+            const key = `${payload.conversation_id}:${payload.user_id}`;
+            const existingTimer = typingClearTimersRef.current[key];
+            if (existingTimer) {
+              window.clearTimeout(existingTimer);
+            }
+            if (payload.is_typing) {
+              setTypingByConversation((prev) => {
+                const current = prev[payload.conversation_id] ?? [];
                 if (current.includes(payload.user_id)) return prev;
                 return {
                   ...prev,
                   [payload.conversation_id]: [...current, payload.user_id],
                 };
-              }
-              return {
-                ...prev,
-                [payload.conversation_id]: current.filter((id) => id !== payload.user_id),
-              };
-            });
+              });
+            }
+            const timeoutID = window.setTimeout(() => {
+              setTypingByConversation((prev) => {
+                const current = prev[payload.conversation_id] ?? [];
+                if (!current.includes(payload.user_id)) return prev;
+                const next = current.filter((id) => id !== payload.user_id);
+                return { ...prev, [payload.conversation_id]: next };
+              });
+              delete typingClearTimersRef.current[key];
+            }, 3000);
+            typingClearTimersRef.current[key] = timeoutID;
           } else if (msg.type === "user_online") {
             const payload = msg.payload as PresencePayload;
             if (payload?.user_id) {
@@ -829,13 +678,11 @@ export default function MessagesPage() {
   };
 
   const toggleMessageReaction = async (messageID: number, emoji: string) => {
-    const response = await fetch(`${apiBaseUrl}/messages/${messageID}/reactions`, {
+    const { response, result } = await fetchJson<unknown>(`/messages/${messageID}/reactions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",
       body: JSON.stringify({ emoji }),
     });
-    const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
     if (!response.ok || !result?.success) {
       setChatError(result?.error || "Could not update reaction.");
       return;
@@ -988,9 +835,11 @@ export default function MessagesPage() {
                             const isOnline =
                               userItem?.id !== undefined ? Boolean(onlineUsers[userItem.id]) : false;
                             const lastMessage = conversation.last_message;
+                            const typingUsers = typingByConversation[conversation.id] ?? [];
                             const preview =
                               lastMessage?.content ||
                               (lastMessage?.media_path ? "(media)" : "(no message yet)");
+                            const previewText = typingUsers.length > 0 ? "Typing..." : preview;
                             return (
                               <button
                                 key={conversation.id}
@@ -1112,9 +961,11 @@ export default function MessagesPage() {
                             const active = conversation.id === activeConversationID;
                             const title = formatChatTitle(conversation, usersByID, groupsByID);
                             const lastMessage = conversation.last_message;
+                            const typingUsers = typingByConversation[conversation.id] ?? [];
                             const preview =
                               lastMessage?.content ||
                               (lastMessage?.media_path ? "(media)" : "(no message yet)");
+                            const previewText = typingUsers.length > 0 ? "Typing..." : preview;
                             return (
                               <button
                                 key={conversation.id}
@@ -1130,17 +981,24 @@ export default function MessagesPage() {
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-[10px] font-semibold text-white">
-                                    {initials(title)}
-                                  </div>
+                                  <Avatar
+                                    name={title}
+                                    size={32}
+                                    className="border-white/20 bg-white/20"
+                                    textClassName="text-[10px] text-white"
+                                  />
                                   <div className="min-w-0">
                                     <p className="text-xs font-semibold truncate">{title}</p>
                                     <p
                                       className={`mt-1 text-[11px] ${
-                                        active ? "text-neutral-300" : "text-neutral-500"
+                                        typingUsers.length > 0
+                                          ? "text-white"
+                                          : active
+                                            ? "text-neutral-300"
+                                            : "text-neutral-500"
                                       } truncate`}
                                     >
-                                      {preview}
+                                      {previewText}
                                     </p>
                                   </div>
                                 </div>
@@ -1161,6 +1019,9 @@ export default function MessagesPage() {
                             const existing = groupConversations.find(
                               (conv) => conv.group_id === group.id,
                             );
+                            const typingUsers = existing?.id
+                              ? typingByConversation[existing.id] ?? []
+                              : [];
                             const title = group.title || group.name || "Group";
                             return (
                               <button
@@ -1179,7 +1040,9 @@ export default function MessagesPage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-xs font-semibold text-white truncate">{title}</p>
-                                  {group.description ? (
+                                  {typingUsers.length > 0 ? (
+                                    <p className="text-[11px] text-white truncate">Typing...</p>
+                                  ) : group.description ? (
                                     <p className="text-[11px] text-neutral-500 truncate">
                                       {group.description}
                                     </p>
@@ -1297,8 +1160,8 @@ export default function MessagesPage() {
                           key={`${message.id}-${message.created_at}`}
                           className={`relative max-w-[82%] overflow-visible rounded-xl px-3 py-2 text-sm ${
                             mine
-                              ? "ml-auto bg-white text-[#2b2929]"
-                              : "bg-white/10 text-white"
+                              ? "ml-auto bg-neutral-700 text-white"
+                              : "bg-neutral-800 text-white"
                           }`}
                         >
                           <div className={`flex items-center gap-2 ${mine ? "w-full justify-end" : ""}`}>
@@ -1306,9 +1169,9 @@ export default function MessagesPage() {
                               {senderName}
                             </p>
                           </div>
-                          {message.content ? <p className={mine ? "text-neutral-900" : "text-white"}>{message.content}</p> : null}
+                          {message.content ? <p className="text-white">{message.content}</p> : null}
                           {message.media_path ? (
-                            <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                            <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-slate-900/60">
                               <img
                                 src={toMediaUrl(apiBaseUrl, message.media_path)}
                                 alt="Message media"
@@ -1330,7 +1193,7 @@ export default function MessagesPage() {
                                 className={`rounded-full border px-2 py-0.5 text-[11px] ${
                                   myEmojis.has(emoji)
                                     ? "border-emerald-500/30 bg-emerald-500/20 text-emerald-400"
-                                    : "border-white/20 bg-white/5 text-neutral-300"
+                                    : "border-slate-600 bg-slate-700/80 text-neutral-100"
                                 }`}
                               >
                                 {emoji} {count}
@@ -1352,7 +1215,7 @@ export default function MessagesPage() {
                                     };
                                   });
                                 }}
-                                className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[11px] text-neutral-300"
+                                className="inline-flex items-center justify-center rounded-full border border-slate-600 bg-slate-700/80 px-2 py-0.5 text-[11px] text-neutral-100"
                               >
                                 <Plus className="h-3 w-3" />
                               </button>

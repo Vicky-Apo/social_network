@@ -21,7 +21,7 @@ Content type: `multipart/form-data`
 
 Form fields:
 - `file` (required) — the file to upload
-- `kind` (optional) — one of: `media`, `avatar`, `post`, `comment`, `message`, `group`
+- `kind` (optional) — one of: `media`, `avatar`, `post`, `comment`, `message`
 
 Response (201):
 

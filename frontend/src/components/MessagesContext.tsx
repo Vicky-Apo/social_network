@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type MessageItem = {
   id: number;
@@ -34,12 +36,6 @@ type GroupSummary = {
   name?: string | null;
 };
 
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
-
 type MessagesContextValue = {
   conversations: ConversationItem[];
   usersByID: Record<number, UserSummary>;
@@ -67,12 +63,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
   const wsBaseUrl = useMemo(() => {
     if (apiBaseUrl.startsWith("https://")) return apiBaseUrl.replace("https://", "wss://");
     if (apiBaseUrl.startsWith("http://")) return apiBaseUrl.replace("http://", "ws://");
@@ -82,12 +73,11 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
   const refreshConversations = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/conversations?limit=20&offset=0`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<ConversationItem[]>
-        | null;
+      const { response, result } = await apiFetchJson<ApiResponse<ConversationItem[]>>(
+        "/conversations?limit=20&offset=0",
+        {},
+        apiBaseUrl,
+      );
       if (response.ok && result?.success) {
         const items = result.data ?? [];
         setConversations(items);
@@ -101,12 +91,9 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUnreadCounts = useCallback(async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/conversations/unread-counts`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<Array<{ conversation_id: number; unread_count: number }>>
-        | null;
+      const { response, result } = await apiFetchJson<
+        ApiResponse<Array<{ conversation_id: number; unread_count: number }>>
+      >("/conversations/unread-counts", {}, apiBaseUrl);
       if (!response.ok || !result?.success) return;
       const map = new Map(
         (result.data ?? []).map((item) => [item.conversation_id, item.unread_count]),
@@ -130,12 +117,11 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       const entries = await Promise.all(
         ids.map(async (id) => {
           try {
-            const response = await fetch(`${apiBaseUrl}/profiles/${id}`, {
-              credentials: "include",
-            });
-            const result = (await response.json().catch(() => null)) as
-              | ApiResponse<{ user?: UserSummary }>
-              | null;
+            const { response, result } = await apiFetchJson<ApiResponse<{ user?: UserSummary }>>(
+              `/profiles/${id}`,
+              {},
+              apiBaseUrl,
+            );
             if (!response.ok || !result?.success || !result.data?.user) return null;
             return result.data.user as UserSummary;
           } catch {
@@ -160,12 +146,11 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       const entries = await Promise.all(
         ids.map(async (id) => {
           try {
-            const response = await fetch(`${apiBaseUrl}/groups/${id}`, {
-              credentials: "include",
-            });
-            const result = (await response.json().catch(() => null)) as
-              | ApiResponse<GroupSummary>
-              | null;
+            const { response, result } = await apiFetchJson<ApiResponse<GroupSummary>>(
+              `/groups/${id}`,
+              {},
+              apiBaseUrl,
+            );
             if (!response.ok || !result?.success || !result.data) return null;
             return result.data as GroupSummary;
           } catch {
@@ -190,10 +175,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
         prev.map((conv) => (conv.id === id ? { ...conv, unread_count: 0 } : conv)),
       );
       setUnreadCount((count) => Math.max(0, count - 1));
-      await fetch(`${apiBaseUrl}/conversations/${id}/read`, {
-        method: "PATCH",
-        credentials: "include",
-      }).catch(() => undefined);
+      await apiFetch(`/conversations/${id}/read`, { method: "PATCH" }, apiBaseUrl).catch(() => undefined);
       await refreshUnreadCounts();
     },
     [apiBaseUrl, refreshUnreadCounts],
@@ -203,10 +185,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     const unreadIDs = conversations.filter((c) => (c.unread_count ?? 0) > 0).map((c) => c.id);
     await Promise.all(
       unreadIDs.map((id) =>
-        fetch(`${apiBaseUrl}/conversations/${id}/read`, {
-          method: "PATCH",
-          credentials: "include",
-        }),
+        apiFetch(`/conversations/${id}/read`, { method: "PATCH" }, apiBaseUrl),
       ),
     );
     setConversations((prev) => prev.map((c) => ({ ...c, unread_count: 0 })));

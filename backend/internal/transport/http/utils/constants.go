@@ -53,6 +53,6 @@ const (
 )
 
 const (
-	DefaultLimit = 20
+	DefaultLimit = 10
 	MaxLimit     = 100
 )

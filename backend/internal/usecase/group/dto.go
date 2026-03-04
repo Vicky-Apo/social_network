@@ -28,6 +28,7 @@ type GroupMemberDTO struct {
 type GroupInvitationDTO struct {
 	ID        int64     `json:"id"`
 	GroupID   int64     `json:"group_id"`
+	GroupTitle *string `json:"group_title,omitempty"`
 	InviterID int64     `json:"inviter_id"`
 	InviteeID int64     `json:"invitee_id"`
 	CreatedAt time.Time `json:"created_at"`
@@ -39,6 +40,7 @@ type GroupJoinRequestDTO struct {
 	GroupID   int64     `json:"group_id"`
 	UserID    int64     `json:"user_id"`
 	CreatedAt time.Time `json:"created_at"`
+	User      *GroupMemberDTO `json:"user,omitempty"`
 }
 
 // CreateGroupRequest represents the request to create a group.

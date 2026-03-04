@@ -1,5 +1,7 @@
 FROM node:20-alpine AS builder
 
+USER root
+
 WORKDIR /app
 
 # Copy package files
@@ -19,14 +21,14 @@ RUN npm run build
 # Production stage
 FROM node:20-alpine
 
-WORKDIR /app
-
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+WORKDIR /app
+
 # Copy package files and install production dependencies
 COPY --from=builder /app/package*.json ./
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy built assets
 COPY --from=builder /app/.next/standalone ./

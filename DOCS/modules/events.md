@@ -38,10 +38,19 @@ Notes:
 Notes:
 - Only group members can view group events.
 - Returns `404` if the group does not exist.
+- Each event includes `group_title` so the frontend can display the group name without a separate `/groups/{id}` call.
 
 ### Get event by ID
 
 `GET /events/{id}`
+
+Response includes:
+- `group_title` (string)
+- `responses_count` (number)
+
+Notes:
+- Use `group_title` for display to avoid a separate group lookup.
+- Use `responses_count` to show a count and lazily fetch `/events/{id}/responses` only when needed.
 
 ### Update event
 

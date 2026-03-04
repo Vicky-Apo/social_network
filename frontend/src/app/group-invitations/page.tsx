@@ -7,12 +7,9 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { shortDate } from "@/lib/date";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -26,40 +23,22 @@ type User = {
 type GroupInvitation = {
   id: number;
   group_id: number;
+  group_title?: string | null;
   inviter_id: number;
   invitee_id: number;
   status: string;
   created_at?: string;
 };
 
-type GroupSummary = {
-  id: number;
-  title?: string | null;
-  name?: string | null;
-};
-
-function shortDate(value?: string) {
-  if (!value) return "Just now";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Just now";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
 export default function GroupInvitationsPage() {
   const router = useRouter();
   const [viewer, setViewer] = useState<User | null>(null);
   const [invites, setInvites] = useState<GroupInvitation[]>([]);
-  const [groupsByID, setGroupsByID] = useState<Record<number, GroupSummary>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,8 +46,11 @@ export default function GroupInvitationsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const meResponse = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-        const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+        const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+          "/auth/me",
+          {},
+          apiBaseUrl,
+        );
         if (!meResponse.ok || !meResult?.success || !meResult.data) {
           router.replace("/login");
           return;
@@ -77,12 +59,9 @@ export default function GroupInvitationsPage() {
           setViewer(meResult.data);
         }
 
-        const invitesResponse = await fetch(`${apiBaseUrl}/group-invitations`, {
-          credentials: "include",
-        });
-        const invitesResult = (await invitesResponse.json().catch(() => null)) as
-          | ApiResponse<GroupInvitation[]>
-          | null;
+        const { response: invitesResponse, result: invitesResult } = await apiFetchJson<
+          ApiResponse<GroupInvitation[]>
+        >("/group-invitations", {}, apiBaseUrl);
         if (!invitesResponse.ok || !invitesResult?.success) {
           setError(invitesResult?.error || "Could not load invitations.");
           setInvites([]);
@@ -101,51 +80,18 @@ export default function GroupInvitationsPage() {
     };
   }, [apiBaseUrl, router]);
 
-  useEffect(() => {
-    const missing = Array.from(new Set(invites.map((inv) => inv.group_id))).filter(
-      (id) => !groupsByID[id],
-    );
-    if (missing.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      missing.map(async (id) => {
-        try {
-          const response = await fetch(`${apiBaseUrl}/groups/${id}`, {
-            credentials: "include",
-          });
-          const result = (await response.json().catch(() => null)) as
-            | ApiResponse<GroupSummary>
-            | null;
-          if (!response.ok || !result?.success || !result.data) return null;
-          return result.data;
-        } catch {
-          return null;
-        }
-      }),
-    ).then((items) => {
-      if (cancelled) return;
-      const mapped: Record<number, GroupSummary> = {};
-      items.forEach((item) => {
-        if (item && typeof item.id === "number") mapped[item.id] = item;
-      });
-      if (Object.keys(mapped).length > 0) {
-        setGroupsByID((prev) => ({ ...prev, ...mapped }));
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl, groupsByID, invites]);
-
   const updateInvite = async (id: number, status: "accepted" | "declined") => {
     setActionError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/group-invitations/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiFetch(
+        `/group-invitations/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setActionError(result?.error || "Could not update invitation.");
@@ -246,9 +192,7 @@ export default function GroupInvitationsPage() {
                   >
                     <div>
                       <p className="text-sm font-semibold text-white">
-                        {groupsByID[invite.group_id]?.title ||
-                          groupsByID[invite.group_id]?.name ||
-                          "Group"}
+                        {invite.group_title || `Group ${invite.group_id}`}
                       </p>
                       <p className="text-xs text-neutral-500">
                         Invited by user #{invite.inviter_id} · {shortDate(invite.created_at)}

@@ -12,6 +12,7 @@ var ErrNotFound = errors.New("comment not found")
 type Repository interface {
 	Create(ctx context.Context, comment Comment) (Comment, error)
 	GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]Comment, error)
+	CountByPostID(ctx context.Context, postID int64) (int, error)
 	GetByID(ctx context.Context, id int64) (Comment, error)
 	Update(ctx context.Context, comment Comment) (Comment, error)
 	Delete(ctx context.Context, id int64) error

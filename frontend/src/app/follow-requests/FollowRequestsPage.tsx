@@ -8,12 +8,9 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { shortDate } from "@/lib/date";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -38,47 +35,22 @@ type FollowRequest = {
   target_id: number;
   status: string;
   created_at: string;
+  requester?: UserListItem | null;
+  target?: UserListItem | null;
 };
-
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
-
-function shortDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
 
 export default function FollowRequestsPage() {
   const router = useRouter();
   const [viewer, setViewer] = useState<User | null>(null);
   const [incoming, setIncoming] = useState<FollowRequest[]>([]);
   const [sent, setSent] = useState<FollowRequest[]>([]);
-  const [usersByID, setUsersByID] = useState<Record<number, UserListItem>>({});
   const [followers, setFollowers] = useState<UserListItem[]>([]);
   const [following, setFollowing] = useState<UserListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -86,49 +58,42 @@ export default function FollowRequestsPage() {
     setActionError(null);
 
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-        credentials: "include",
-      });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
 
-      const [incomingRes, sentRes, usersRes, followersRes, followingRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/follow-requests`, { credentials: "include" }),
-        fetch(`${apiBaseUrl}/follow-requests/sent`, { credentials: "include" }),
-        fetch(`${apiBaseUrl}/users?limit=200&offset=0`, { credentials: "include" }),
-        fetch(`${apiBaseUrl}/profiles/${meResult.data.id}/followers`, {
-          credentials: "include",
-        }),
-        fetch(`${apiBaseUrl}/profiles/${meResult.data.id}/following`, {
-          credentials: "include",
-        }),
+      const [incomingRes, sentRes, followersRes, followingRes] = await Promise.all([
+        apiFetchJson<ApiResponse<FollowRequest[]>>("/follow-requests", {}, apiBaseUrl),
+        apiFetchJson<ApiResponse<FollowRequest[]>>("/follow-requests/sent", {}, apiBaseUrl),
+        apiFetchJson<ApiResponse<UserListItem[]>>(
+          `/profiles/${meResult.data.id}/followers`,
+          {},
+          apiBaseUrl,
+        ),
+        apiFetchJson<ApiResponse<UserListItem[]>>(
+          `/profiles/${meResult.data.id}/following`,
+          {},
+          apiBaseUrl,
+        ),
       ]);
 
-      const incomingJson = (await incomingRes.json().catch(() => null)) as
-        | ApiResponse<FollowRequest[]>
-        | null;
-      const sentJson = (await sentRes.json().catch(() => null)) as
-        | ApiResponse<FollowRequest[]>
-        | null;
-      const usersJson = (await usersRes.json().catch(() => null)) as
-        | ApiResponse<UserListItem[]>
-        | null;
-      const followersJson = (await followersRes.json().catch(() => null)) as
-        | ApiResponse<UserListItem[]>
-        | null;
-      const followingJson = (await followingRes.json().catch(() => null)) as
-        | ApiResponse<UserListItem[]>
-        | null;
+      const incomingJson = incomingRes.result;
+      const sentJson = sentRes.result;
+      const followersJson = followersRes.result;
+      const followingJson = followingRes.result;
 
-      if (!incomingRes.ok || !incomingJson?.success) {
+      if (!incomingRes.response.ok || !incomingJson?.success) {
         setError(incomingJson?.error || "Could not load incoming requests.");
         return;
       }
-      if (!sentRes.ok || !sentJson?.success) {
+      if (!sentRes.response.ok || !sentJson?.success) {
         setError(sentJson?.error || "Could not load sent requests.");
         return;
       }
@@ -136,17 +101,10 @@ export default function FollowRequestsPage() {
       setIncoming(incomingJson.data ?? []);
       setSent(sentJson.data ?? []);
 
-      if (usersRes.ok && usersJson?.success) {
-        const next = (usersJson.data ?? []).reduce<Record<number, UserListItem>>((acc, item) => {
-          acc[item.id] = item;
-          return acc;
-        }, {});
-        setUsersByID(next);
-      }
-      if (followersRes.ok && followersJson?.success) {
+      if (followersRes.response.ok && followersJson?.success) {
         setFollowers(followersJson.data ?? []);
       }
-      if (followingRes.ok && followingJson?.success) {
+      if (followingRes.response.ok && followingJson?.success) {
         setFollowing(followingJson.data ?? []);
       }
     } catch {
@@ -163,12 +121,15 @@ export default function FollowRequestsPage() {
   const updateRequest = async (id: number, status: "accepted" | "declined" | "canceled") => {
     setActionError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/follow-requests/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiFetch(
+        `/follow-requests/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setActionError(result?.error || "Could not update request.");
@@ -184,10 +145,7 @@ export default function FollowRequestsPage() {
   const removeFollower = async (followerID: number) => {
     setActionError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/followers/${followerID}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/followers/${followerID}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setActionError(result?.error || "Could not remove follower.");
@@ -202,10 +160,11 @@ export default function FollowRequestsPage() {
   const unfollowUser = async (targetID: number) => {
     setActionError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/users/${targetID}/followers`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(
+        `/users/${targetID}/followers`,
+        { method: "DELETE" },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setActionError(result?.error || "Could not unfollow user.");
@@ -217,7 +176,6 @@ export default function FollowRequestsPage() {
     }
   };
 
-  const resolveUser = (id: number) => usersByID[id];
   return (
     <div
       className="min-h-screen text-neutral-100"
@@ -295,7 +253,7 @@ export default function FollowRequestsPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {incoming.map((req) => {
-                      const requester = resolveUser(req.requester_id);
+                      const requester = req.requester;
                       return (
                         <div
                           key={req.id}
@@ -350,7 +308,7 @@ export default function FollowRequestsPage() {
                 ) : (
                   <div className="mt-4 space-y-3">
                     {sent.map((req) => {
-                      const target = resolveUser(req.target_id);
+                      const target = req.target;
                       return (
                         <div
                           key={req.id}

@@ -12,6 +12,8 @@ type Event struct {
 	EventTime   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	GroupTitle  *string
+	ResponsesCount int64
 }
 
 // EventResponse represents a user's response to an event.

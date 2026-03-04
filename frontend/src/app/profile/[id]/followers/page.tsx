@@ -8,12 +8,9 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -32,13 +29,6 @@ type UserListItem = {
   avatar_path?: string | null;
 };
 
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
-
 export default function FollowersPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -50,12 +40,7 @@ export default function FollowersPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadFollowers = useCallback(async () => {
     if (!Number.isFinite(profileID) || profileID <= 0) {
@@ -68,22 +53,22 @@ export default function FollowersPage() {
     setError(null);
 
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-        credentials: "include",
-      });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
 
-      const response = await fetch(`${apiBaseUrl}/profiles/${profileID}/followers`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | ApiResponse<UserListItem[]>
-        | null;
+      const { response, result } = await apiFetchJson<ApiResponse<UserListItem[]>>(
+        `/profiles/${profileID}/followers`,
+        {},
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success) {
         setError(result?.error || "Could not load followers.");
         return;
@@ -103,10 +88,7 @@ export default function FollowersPage() {
   const removeFollower = async (id: number) => {
     setActionError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/followers/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/followers/${id}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setActionError(result?.error || "Could not remove follower.");

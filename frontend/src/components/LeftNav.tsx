@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Compass, Home, MessageSquare, UserPlus, Users } from "lucide-react";
 import { useCachedAvatar } from "@/lib/useCachedAvatar";
 import Avatar from "@/components/Avatar";
+import { toMediaUrl } from "@/lib/media";
+import { getApiBaseUrl } from "@/lib/api";
 
 type LeftNavUser = {
   id: number;
@@ -28,17 +30,8 @@ const quickLinks = [
   { label: "Requests", href: "/follow-requests", icon: UserPlus },
 ];
 
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
-
 export default function LeftNav({ user, activeHref, variant = "light" }: Props) {
-  const apiBaseUrl =
-    process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-    "http://localhost:8080";
+  const apiBaseUrl = getApiBaseUrl();
 
   const displayName = user ? `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim() : "Loading";
   const userTag = user?.nickname || (user?.email ? user.email.split("@")[0] : "member");

@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageCircle, ThumbsDown, ThumbsUp, Plus, Send, Pencil, Trash2 } from "lucide-react";
@@ -10,13 +10,13 @@ import { useAuth } from "@/components/AuthContext";
 import { fadeUp, viewportOnce } from "@/components/Motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
+import Pagination from "@/components/Pagination";
 import { useNotifications } from "@/components/NotificationsContext";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import Avatar from "@/components/Avatar";
+import { shortDate } from "@/lib/date";
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -31,8 +31,10 @@ type Post = {
   id: number;
   author_id: number;
   group_id?: number | null;
+  group_title?: string | null;
   author_first_name: string;
   author_last_name: string;
+  author_avatar_path?: string | null;
   content: string;
   media_path?: string | null;
   privacy: string;
@@ -84,74 +86,14 @@ type UserListItem = {
 
 type PostPrivacy = "public" | "followers" | "private";
 
-function initials(first?: string, last?: string) {
-  const left = first?.trim().charAt(0) ?? "";
-  const right = last?.trim().charAt(0) ?? "";
-  return `${left}${right}`.toUpperCase() || "U";
-}
-
-function shortDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "Just now";
-  }
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+function groupLabel(post: Post) {
+  if (!post.group_id) return "";
+  return post.group_title?.trim() || `Group ${post.group_id}`;
 }
 
 function normalizePrivacy(value?: string | null): PostPrivacy {
   if (value === "followers" || value === "private") return value;
   return "public";
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
-
-function notificationActorName(item: NotificationItem) {
-  const meta = item.metadata ?? {};
-  const requester = meta["requester_name"];
-  if (typeof requester === "string" && requester.trim()) return requester;
-  return "Someone";
-}
-
-function notificationGroupName(item: NotificationItem) {
-  const meta = item.metadata ?? {};
-  const groupName = meta["group_name"];
-  if (typeof groupName === "string" && groupName.trim()) return groupName;
-  return "your group";
-}
-
-function notificationTitle(item: NotificationItem) {
-  switch (item.type) {
-    case "follow_request":
-      return "Follow request";
-    case "group_invitation":
-      return "Group invitation";
-    case "group_join_request":
-      return "Join request";
-    case "event_created":
-      return "New group event";
-    default:
-      return "Notification";
-  }
-}
-
-function notificationBody(item: NotificationItem) {
-  switch (item.type) {
-    case "follow_request":
-      return `${notificationActorName(item)} sent you a follow request.`;
-    case "group_invitation":
-      return `${notificationActorName(item)} invited you to ${notificationGroupName(item)}.`;
-    case "group_join_request":
-      return `${notificationActorName(item)} requested to join ${notificationGroupName(item)}.`;
-    case "event_created":
-      return `New event in ${notificationGroupName(item)}.`;
-    default:
-      return "Notification update.";
-  }
 }
 
 type FeedType = "dashboard" | "explore";
@@ -187,8 +129,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
   const [commentFileByPost, setCommentFileByPost] = useState<Record<number, File | null>>({});
   const [commentFileNameByPost, setCommentFileNameByPost] = useState<Record<number, string>>({});
   const [commentErrorByPost, setCommentErrorByPost] = useState<Record<number, string>>({});
+  const [commentPageByPost, setCommentPageByPost] = useState<Record<number, number>>({});
+  const [commentTotalByPost, setCommentTotalByPost] = useState<Record<number, number>>({});
   const [followers, setFollowers] = useState<UserListItem[]>([]);
   const [followersLoading, setFollowersLoading] = useState(false);
+  const [followersLoaded, setFollowersLoaded] = useState(false);
   const [editingPostID, setEditingPostID] = useState<number | null>(null);
   const [editPostText, setEditPostText] = useState("");
   const [editPostFile, setEditPostFile] = useState<File | null>(null);
@@ -203,15 +148,17 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
   const [editCommentFileName, setEditCommentFileName] = useState("");
   const [editCommentClearMedia, setEditCommentClearMedia] = useState(false);
   const [editCommentError, setEditCommentError] = useState<string | null>(null);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMorePosts, setHasMorePosts] = useState(true);
-  const feedLimit = 20;
+  const [totalPosts, setTotalPosts] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const feedLimit = 10;
+  const totalPages = Math.max(1, Math.ceil(totalPosts / feedLimit));
+  const commentLimit = 10;
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
+  const fetchJson = useCallback(
+    async <T,>(path: string, options: RequestInit = {}) =>
+      apiFetchJson<ApiResponse<T>>(path, options, apiBaseUrl),
+    [apiBaseUrl],
   );
   const notifications = notificationsContext?.notifications ?? [];
   const notificationsLoading = notificationsContext?.loading ?? false;
@@ -222,15 +169,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
 
 
   useEffect(() => {
-    let cancelled = false;
+    setCurrentPage(1);
+  }, [isExplore, groupsOnly]);
 
-    const fetchJson = async <T,>(path: string) => {
-      const response = await fetch(`${apiBaseUrl}${path}`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<T> | null;
-      return { response, result };
-    };
+  useEffect(() => {
+    let cancelled = false;
 
     const load = async () => {
       setIsLoading(true);
@@ -249,27 +192,18 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
           setUser(me.result.data ?? null);
         }
 
-        setFollowersLoading(true);
-        const followerList = await fetchJson<UserListItem[]>(
-          `/profiles/${me.result.data?.id ?? 0}/followers`,
-        );
-        if (!cancelled && followerList.response.ok && followerList.result?.success) {
-          setFollowers(followerList.result.data ?? []);
-        }
-        if (!cancelled) {
-          setFollowersLoading(false);
-        }
-
+        const offset = (currentPage - 1) * feedLimit;
         const feedPath = isExplore
-          ? `/posts?public_only=true&limit=${feedLimit}&offset=0`
+          ? `/posts?public_only=true&limit=${feedLimit}&offset=${offset}`
           : groupsOnly
-            ? `/posts?groups_only=true&limit=${feedLimit}&offset=0`
-            : `/posts?author_id=${me.result.data?.id ?? 0}&limit=${feedLimit}&offset=0`;
+            ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
+            : `/posts?limit=${feedLimit}&offset=${offset}`;
         const feed = await fetchJson<Post[]>(feedPath);
         if (!feed.response.ok || !feed.result?.success) {
           if (!cancelled) {
             setFeedError(feed.result?.error || "Unable to load your feed.");
             setPosts([]);
+            setTotalPosts(0);
           }
           return;
         }
@@ -277,33 +211,9 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         if (!cancelled) {
           const nextPosts = feed.result.data ?? [];
           setPosts(nextPosts);
-          setHasMorePosts(nextPosts.length >= feedLimit);
-
-          const currentUserID = me.result.data?.id;
-          if (currentUserID) {
-            void Promise.all(
-              nextPosts.map(async (post) => {
-                try {
-                  const reactionRes = await fetchJson<Reaction[]>(
-                    `/posts/${post.id}/reactions`,
-                  );
-                  if (!reactionRes.response.ok || !reactionRes.result?.success) {
-                    return [post.id, null] as const;
-                  }
-                  const mine = (reactionRes.result.data ?? []).find(
-                    (item) => item.user_id === currentUserID,
-                  );
-                  return [post.id, mine?.reaction ?? null] as const;
-                } catch {
-                  return [post.id, null] as const;
-                }
-              }),
-            ).then((entries) => {
-              if (!cancelled) {
-                setPostReactionMap(Object.fromEntries(entries));
-              }
-            });
-          }
+          const totalHeader = feed.response.headers.get("X-Total-Count");
+          const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+          setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : nextPosts.length);
         }
       } catch {
         if (!cancelled) {
@@ -312,7 +222,6 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
       } finally {
         if (!cancelled) {
           setIsLoading(false);
-          setFollowersLoading(false);
         }
       }
     };
@@ -322,66 +231,34 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl, router, groupsOnly, isExplore]);
+  }, [apiBaseUrl, router, groupsOnly, isExplore, currentPage, feedLimit]);
 
   const getFeedPath = (offset: number) =>
     isExplore
       ? `/posts?public_only=true&limit=${feedLimit}&offset=${offset}`
       : groupsOnly
         ? `/posts?groups_only=true&limit=${feedLimit}&offset=${offset}`
-        : `/posts?author_id=${user?.id ?? 0}&limit=${feedLimit}&offset=${offset}`;
+        : `/posts?limit=${feedLimit}&offset=${offset}`;
 
-  const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMorePosts) return;
-    setIsLoadingMore(true);
-    setFeedError(null);
+  const ensureFollowersLoaded = async () => {
+    if (followersLoaded || followersLoading || !user?.id) {
+      return;
+    }
+    setFollowersLoading(true);
     try {
-      const offset = posts.length;
-      const response = await fetch(`${apiBaseUrl}${getFeedPath(offset)}`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (!response.ok || !result?.success) {
-        setFeedError(result?.error || "Could not load more posts.");
-        return;
+      const { response, result } = await fetchJson<UserListItem[]>(`/profiles/${user.id}/followers`);
+      if (response.ok && result?.success) {
+        setFollowers(result.data ?? []);
       }
-      const nextPosts = result.data ?? [];
-      setPosts((prev) => [...prev, ...nextPosts]);
-      setHasMorePosts(nextPosts.length >= feedLimit);
+      setFollowersLoaded(true);
     } finally {
-      setIsLoadingMore(false);
+      setFollowersLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!user?.id) {
-      return;
-    }
-
-    const intervalID = window.setInterval(async () => {
-      const response = await fetch(`${apiBaseUrl}${getFeedPath(0)}`, {
-        credentials: "include",
-      }).catch(() => null);
-      if (!response?.ok) {
-        return;
-      }
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
-      if (result?.success) {
-        setPosts(result.data ?? []);
-      }
-    }, 7000);
-
-    return () => {
-      window.clearInterval(intervalID);
-    };
-  }, [apiBaseUrl, groupsOnly, isExplore, user?.id]);
-
   const handleLogout = async () => {
     try {
-      await fetch(`${apiBaseUrl}/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
+      await apiFetch("/auth/logout", { method: "POST" }, apiBaseUrl);
     } finally {
       logout();
       router.replace("/login");
@@ -409,14 +286,13 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         const formData = new FormData();
         formData.append("file", composerFile);
         formData.append("kind", "post");
-        const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        });
-        const uploadJson = (await uploadRes.json().catch(() => null)) as
-          | ApiResponse<{ path?: string }>
-          | null;
+        const { response: uploadRes, result: uploadJson } = await fetchJson<{ path?: string }>(
+          "/uploads",
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
         if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
           setComposerError(uploadJson?.error || "Could not upload media.");
           return;
@@ -424,12 +300,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         mediaPath = uploadJson.data.path;
       }
 
-      const response = await fetch(`${apiBaseUrl}/posts`, {
+      const { response, result } = await fetchJson<Post>("/posts", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath,
@@ -437,8 +312,6 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
           allowed_user_ids: composerPrivacy === "private" ? composerAllowedIDs : undefined,
         }),
       });
-
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
       if (!response.ok || !result?.success || !result.data) {
         setComposerError(result?.error || "Could not publish your post.");
         return;
@@ -461,14 +334,13 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("kind", kind);
-    const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
-      method: "POST",
-      credentials: "include",
-      body: formData,
-    });
-    const uploadJson = (await uploadRes.json().catch(() => null)) as
-      | ApiResponse<{ path?: string }>
-      | null;
+    const { response: uploadRes, result: uploadJson } = await fetchJson<{ path?: string }>(
+      "/uploads",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
     if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
       throw new Error(uploadJson?.error || "Upload failed");
     }
@@ -479,16 +351,16 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     setIsLoading(true);
     setFeedError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}${getFeedPath(0)}`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post[]> | null;
+      const offset = (currentPage - 1) * feedLimit;
+      const { response, result } = await fetchJson<Post[]>(getFeedPath(offset));
       if (!response.ok || !result?.success) {
         setFeedError(result?.error || "Could not refresh feed.");
         return;
       }
       setPosts(result.data ?? []);
-      setHasMorePosts((result.data ?? []).length >= feedLimit);
+      const totalHeader = response.headers.get("X-Total-Count");
+      const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+      setTotalPosts(Number.isFinite(parsedTotal) ? parsedTotal : (result.data ?? []).length);
     } catch {
       setFeedError("Network error. Please try again.");
     } finally {
@@ -496,15 +368,15 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     }
   };
 
-  const loadCommentsForPost = async (postID: number) => {
+  const loadCommentsForPost = async (postID: number, page: number) => {
     setCommentsLoadingByPost((prev) => ({ ...prev, [postID]: true }));
     setCommentErrorByPost((prev) => ({ ...prev, [postID]: "" }));
 
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
-        credentials: "include",
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment[]> | null;
+      const offset = (page - 1) * commentLimit;
+      const { response, result } = await fetchJson<Comment[]>(
+        `/posts/${postID}/comments?limit=${commentLimit}&offset=${offset}`,
+      );
 
       if (!response.ok || !result?.success) {
         setCommentErrorByPost((prev) => ({
@@ -516,17 +388,20 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
 
       const comments = result.data ?? [];
       setCommentsByPost((prev) => ({ ...prev, [postID]: comments }));
+      setCommentPageByPost((prev) => ({ ...prev, [postID]: page }));
+      const totalHeader = response.headers.get("X-Total-Count");
+      const parsedTotal = totalHeader ? Number(totalHeader) : Number.NaN;
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Number.isFinite(parsedTotal) ? parsedTotal : comments.length,
+      }));
 
       if (user?.id && comments.length > 0) {
         const entries = await Promise.all(
           comments.map(async (comment) => {
-            const reactionRes = await fetch(
-              `${apiBaseUrl}/comments/${comment.id}/reactions`,
-              { credentials: "include" },
+            const { response: reactionRes, result: reactionJson } = await fetchJson<Reaction[]>(
+              `/comments/${comment.id}/reactions`,
             );
-            const reactionJson = (await reactionRes.json().catch(() => null)) as
-              | ApiResponse<Reaction[]>
-              | null;
             if (!reactionRes.ok || !reactionJson?.success) {
               return [comment.id, null] as const;
             }
@@ -550,8 +425,9 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     const isOpen = commentsOpenByPost[postID] ?? false;
     const nextOpen = !isOpen;
     setCommentsOpenByPost((prev) => ({ ...prev, [postID]: nextOpen }));
-    if (nextOpen && !commentsByPost[postID]) {
-      void loadCommentsForPost(postID);
+    if (nextOpen) {
+      const page = commentPageByPost[postID] ?? 1;
+      void loadCommentsForPost(postID, page);
     }
   };
 
@@ -572,14 +448,13 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         const formData = new FormData();
         formData.append("file", attachment);
         formData.append("kind", "comment");
-        const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        });
-        const uploadJson = (await uploadRes.json().catch(() => null)) as
-          | ApiResponse<{ path?: string }>
-          | null;
+        const { response: uploadRes, result: uploadJson } = await fetchJson<{ path?: string }>(
+          "/uploads",
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
         if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
           setCommentErrorByPost((prev) => ({
             ...prev,
@@ -590,13 +465,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         mediaPath = uploadJson.data.path;
       }
 
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}/comments`, {
+      const { response, result } = await fetchJson<Comment>(`/posts/${postID}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({ content: draft || undefined, media_path: mediaPath }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
 
       if (!response.ok || !result?.success || !result.data) {
         setCommentErrorByPost((prev) => ({
@@ -606,10 +479,7 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         return;
       }
 
-      setCommentsByPost((prev) => ({
-        ...prev,
-        [postID]: [result.data as Comment, ...(prev[postID] ?? [])],
-      }));
+      const nextPage = commentPageByPost[postID] ?? 1;
       setCommentDraftByPost((prev) => ({ ...prev, [postID]: "" }));
       setCommentFileByPost((prev) => ({ ...prev, [postID]: null }));
       setCommentFileNameByPost((prev) => ({ ...prev, [postID]: "" }));
@@ -620,6 +490,11 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
         ),
       );
       setCommentsOpenByPost((prev) => ({ ...prev, [postID]: true }));
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: (prev[postID] ?? 0) + 1,
+      }));
+      await loadCommentsForPost(postID, nextPage);
     } catch {
       setCommentErrorByPost((prev) => ({
         ...prev,
@@ -670,10 +545,9 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
       if (editPostFile) {
         mediaPath = await uploadMedia(editPostFile, "post");
       }
-      const response = await fetch(`${apiBaseUrl}/posts/${post.id}`, {
+      const { response, result } = await fetchJson<Post>(`/posts/${post.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath ?? undefined,
@@ -682,7 +556,6 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
             !isGroupPost && editPostPrivacy === "private" ? editPostAllowedIDs : undefined,
         }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Post> | null;
       if (!response.ok || !result?.success || !result.data) {
         setEditPostError(result?.error || "Could not update post.");
         return;
@@ -696,10 +569,7 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
 
   const deletePost = async (postID: number) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/posts/${postID}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/posts/${postID}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         return;
       }
@@ -742,16 +612,14 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
       if (editCommentFile) {
         mediaPath = await uploadMedia(editCommentFile, "comment");
       }
-      const response = await fetch(`${apiBaseUrl}/comments/${comment.id}`, {
+      const { response, result } = await fetchJson<Comment>(`/comments/${comment.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        credentials: "include",
         body: JSON.stringify({
           content: content || undefined,
           media_path: mediaPath ?? undefined,
         }),
       });
-      const result = (await response.json().catch(() => null)) as ApiResponse<Comment> | null;
       if (!response.ok || !result?.success || !result.data) {
         setEditCommentError(result?.error || "Could not update comment.");
         return;
@@ -770,10 +638,7 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
 
   const deleteComment = async (postID: number, commentID: number) => {
     try {
-      const response = await fetch(`${apiBaseUrl}/comments/${commentID}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/comments/${commentID}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         return;
       }
@@ -786,6 +651,12 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
           post.id === postID ? { ...post, comment_count: Math.max(0, post.comment_count - 1) } : post,
         ),
       );
+      setCommentTotalByPost((prev) => ({
+        ...prev,
+        [postID]: Math.max(0, (prev[postID] ?? 0) - 1),
+      }));
+      const page = commentPageByPost[postID] ?? 1;
+      await loadCommentsForPost(postID, page);
     } catch {
       // ignore
     }
@@ -814,12 +685,15 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     );
 
     try {
-      await fetch(`${apiBaseUrl}/posts/${postID}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ reaction }),
-      });
+      await apiFetch(
+        `/posts/${postID}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reaction }),
+        },
+        apiBaseUrl,
+      );
     } catch {
       setPostReactionMap((prev) => ({ ...prev, [postID]: previous }));
       setPosts((prev) =>
@@ -869,15 +743,18 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
     }));
 
     try {
-      await fetch(`${apiBaseUrl}/comments/${commentID}/reactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          reaction,
-          user_id: user?.id ?? 0,
-        }),
-      });
+      await apiFetch(
+        `/comments/${commentID}/reactions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reaction,
+            user_id: user?.id ?? 0,
+          }),
+        },
+        apiBaseUrl,
+      );
     } catch {
       setCommentReactionMap((prev) => ({ ...prev, [commentID]: previous }));
     }
@@ -1021,6 +898,8 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
                     setComposerPrivacy(next);
                     if (next !== "private") {
                       setComposerAllowedIDs([]);
+                    } else {
+                      void ensureFollowersLoaded();
                     }
                   }}
                   className="h-9 rounded-lg border border-white/20 bg-white/5 px-3 text-xs text-white outline-none focus:border-white/40 sm:w-40"
@@ -1077,14 +956,26 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
                 >
                   <header className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-xs font-semibold text-white">
-                        {initials(post.author_first_name, post.author_last_name)}
-                      </span>
+                      <Avatar
+                        src={toMediaUrl(apiBaseUrl, post.author_avatar_path)}
+                        name={`${post.author_first_name} ${post.author_last_name}`}
+                        size={36}
+                        className="border-white/30 bg-white/10"
+                        textClassName="text-[10px] text-white"
+                      />
                       <div>
                         <p className="text-sm font-semibold text-white">
                           {post.author_first_name} {post.author_last_name}
                         </p>
                         <p className="text-xs text-neutral-500">{shortDate(post.created_at)}</p>
+                        {post.group_id ? (
+                          <Link
+                            href={`/groups/${post.group_id}`}
+                            className="mt-1 inline-flex items-center text-xs text-sky-200/80 hover:text-sky-200"
+                          >
+                            {groupLabel(post)}
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
                     <span className="rounded-lg border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-neutral-400">
@@ -1111,6 +1002,8 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
                                 setEditPostPrivacy(next);
                                 if (next !== "private") {
                                   setEditPostAllowedIDs([]);
+                                } else {
+                                  void ensureFollowersLoaded();
                                 }
                               }}
                               className="mt-2 h-10 w-full rounded-2xl border border-neutral-200 bg-white px-3 text-xs text-black outline-none focus:border-neutral-400 placeholder:text-neutral-500 sm:w-48"
@@ -1425,6 +1318,19 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
                         ) : null}
                       </div>
 
+                      <Pagination
+                        currentPage={commentPageByPost[post.id] ?? 1}
+                        totalPages={Math.max(
+                          1,
+                          Math.ceil(
+                            (commentTotalByPost[post.id] ??
+                              (commentsByPost[post.id]?.length ?? 0)) / commentLimit,
+                          ),
+                        )}
+                        onPageChange={(page) => loadCommentsForPost(post.id, page)}
+                        className="mt-3"
+                      />
+
                       <div className="mt-3 flex gap-2">
                         <input
                           value={commentDraftByPost[post.id] ?? ""}
@@ -1472,18 +1378,12 @@ export default function DashboardPage({ feedType = "dashboard" }: Props) {
               ))
             )}
           </div>
-          {hasMorePosts && !isLoading && !feedError ? (
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={loadMorePosts}
-                disabled={isLoadingMore}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-4 py-2 text-xs font-semibold text-neutral-700 transition hover:border-neutral-400 hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isLoadingMore ? "Loading..." : "Load more posts"}
-              </button>
-            </div>
-          ) : null}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-5"
+          />
         </section>
       </main>
 

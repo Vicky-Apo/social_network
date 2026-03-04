@@ -61,9 +61,15 @@ func (r *fakeReactionPostRepo) GetByID(ctx context.Context, id int64) (domainpos
 func (r *fakeReactionPostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakeReactionPostRepo) Count(ctx context.Context, viewerID int64) (int, error) { return 0, nil }
 func (r *fakeReactionPostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakeReactionPostRepo) CountGroupsOnly(ctx context.Context, viewerID int64) (int, error) { return 0, nil }
+func (r *fakeReactionPostRepo) ListPublicOnly(ctx context.Context, limit, offset int) ([]domainpost.Post, error) {
+	return nil, nil
+}
+func (r *fakeReactionPostRepo) CountPublicOnly(ctx context.Context) (int, error) { return 0, nil }
 func (r *fakeReactionPostRepo) Create(ctx context.Context, post domainpost.Post, allowedUserIDs []int64) (domainpost.Post, error) {
 	return domainpost.Post{}, nil
 }
@@ -74,9 +80,13 @@ func (r *fakeReactionPostRepo) Delete(ctx context.Context, id int64) error { ret
 func (r *fakeReactionPostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakeReactionPostRepo) CountByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool) (int, error) {
+	return 0, nil
+}
 func (r *fakeReactionPostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakeReactionPostRepo) CountByGroup(ctx context.Context, groupID int64) (int, error) { return 0, nil }
 func (r *fakeReactionPostRepo) IsUserAllowed(ctx context.Context, postID, userID int64) (bool, error) {
 	return false, nil
 }
@@ -88,6 +98,9 @@ func (r *fakeReactionCommentRepo) Create(ctx context.Context, comment domaincomm
 }
 func (r *fakeReactionCommentRepo) GetByPostID(ctx context.Context, postID int64, limit, offset int) ([]domaincomment.Comment, error) {
 	return nil, nil
+}
+func (r *fakeReactionCommentRepo) CountByPostID(ctx context.Context, postID int64) (int, error) {
+	return 0, nil
 }
 func (r *fakeReactionCommentRepo) GetByID(ctx context.Context, id int64) (domaincomment.Comment, error) {
 	return domaincomment.Comment{ID: id, PostID: 1, AuthorID: 2}, nil
@@ -119,3 +132,5 @@ func TestReactionAddPost_Success(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 }
+
+

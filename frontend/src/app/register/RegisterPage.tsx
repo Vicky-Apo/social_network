@@ -7,6 +7,8 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { landingData } from "@/lib/data";
 import { fadeUp, staggerContainer } from "@/components/Motion";
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type FormState = {
   firstName: string;
@@ -20,12 +22,6 @@ type FormState = {
 };
 
 type FormErrors = Partial<Record<keyof FormState | "submit", string>>;
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
-
 const initialFormData: FormState = {
   firstName: "",
   lastName: "",
@@ -40,6 +36,8 @@ const initialFormData: FormState = {
 export default function RegisterPage() {
   const [formData, setFormData] = useState<FormState>(initialFormData);
   const [errors, setErrors] = useState<FormErrors>({});
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarWarning, setAvatarWarning] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
@@ -53,6 +51,16 @@ export default function RegisterPage() {
     setIsSuccess(false);
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setAvatarFile(file);
+    setIsSuccess(false);
+    setAvatarWarning(null);
+    if (errors.submit) {
+      setErrors((prev) => ({ ...prev, submit: undefined }));
     }
   };
 
@@ -93,6 +101,84 @@ export default function RegisterPage() {
     return nextErrors;
   };
 
+  const uploadAvatarAfterRegister = async (email: string, password: string, file: File) => {
+    const apiBaseUrl = getApiBaseUrl();
+    let loggedIn = false;
+
+    try {
+      const { response: loginRes, result: loginJson } = await apiFetchJson<
+        ApiResponse<{ user?: { id?: number } }>
+      >(
+        `${apiBaseUrl}/auth/login`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        },
+        apiBaseUrl,
+      );
+      if (!loginRes.ok || !loginJson?.success) {
+        throw new Error("Account created, but avatar upload failed. Please login and add an avatar.");
+      }
+      loggedIn = true;
+
+      let userId = loginJson?.data?.user?.id;
+      if (!userId) {
+        const { response: meRes, result: meJson } = await apiFetchJson<ApiResponse<{ id?: number }>>(
+          "/auth/me",
+          {},
+          apiBaseUrl,
+        );
+        if (!meRes.ok || !meJson?.success || !meJson.data?.id) {
+          throw new Error("Account created, but avatar upload failed. Please login and add an avatar.");
+        }
+        userId = meJson.data.id;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", "avatar");
+      const { response: uploadRes, result: uploadJson } = await apiFetchJson<
+        ApiResponse<{ path?: string }>
+      >(
+        "/uploads",
+        {
+          method: "POST",
+          body: formData,
+        },
+        apiBaseUrl,
+      );
+      if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
+        throw new Error("Account created, but avatar upload failed. Please login and add an avatar.");
+      }
+
+      const { response: patchRes, result: patchJson } = await apiFetchJson<ApiResponse<unknown>>(
+        `/profiles/${userId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ avatar_path: uploadJson.data.path }),
+        },
+        apiBaseUrl,
+      );
+      if (!patchRes.ok || !patchJson?.success) {
+        throw new Error("Account created, but avatar upload failed. Please login and add an avatar.");
+      }
+    } finally {
+      if (loggedIn) {
+        try {
+          await apiFetchJson<ApiResponse<unknown>>(
+            "/auth/logout",
+            { method: "POST" },
+            apiBaseUrl,
+          );
+        } catch {
+          // Best-effort logout.
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
@@ -105,10 +191,9 @@ export default function RegisterPage() {
 
     setIsSubmitting(true);
     setErrors({});
+    setAvatarWarning(null);
 
-    const apiBaseUrl =
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080";
+    const apiBaseUrl = getApiBaseUrl();
     const endpoint = `${apiBaseUrl}/auth/register`;
 
     const dateOfBirth = formatDateOfBirth(formData.dob);
@@ -125,16 +210,17 @@ export default function RegisterPage() {
     };
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { response, result } = await apiFetchJson<ApiResponse<unknown>>(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
+        apiBaseUrl,
+      );
 
       if (!response.ok || !result?.success) {
         setErrors({
@@ -143,7 +229,20 @@ export default function RegisterPage() {
         return;
       }
 
+      if (avatarFile) {
+        try {
+          await uploadAvatarAfterRegister(formData.email.trim(), formData.password, avatarFile);
+        } catch (err) {
+          setAvatarWarning(
+            err instanceof Error
+              ? err.message
+              : "Account created, but avatar upload failed. Please login and add an avatar.",
+          );
+        }
+      }
+
       setFormData(initialFormData);
+      setAvatarFile(null);
       setIsSuccess(true);
       setTimeout(() => {
         router.push("/login");
@@ -273,6 +372,22 @@ export default function RegisterPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <label htmlFor="avatar" className="text-sm font-semibold text-neutral-300">
+                Avatar (optional)
+              </label>
+              <input
+                id="avatar"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="h-12 w-full rounded-xl border border-white/20 bg-white/5 px-4 text-sm text-white file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-neutral-200 hover:file:bg-white/20"
+              />
+              <p className="text-xs text-neutral-500">
+                Uploaded after registration completes.
+              </p>
+            </div>
+
             <button
               type="submit"
               className="group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-black shadow-sm transition hover:-translate-y-0.5 hover:bg-neutral-100 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#2b2929] disabled:cursor-not-allowed disabled:opacity-70"
@@ -285,6 +400,11 @@ export default function RegisterPage() {
             {errors.submit ? (
               <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-400">
                 {errors.submit}
+              </p>
+            ) : null}
+            {avatarWarning ? (
+              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                {avatarWarning}
               </p>
             ) : null}
             {isSuccess ? (

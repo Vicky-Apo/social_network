@@ -18,12 +18,15 @@ type fakePostRepo struct {
 func (r *fakePostRepo) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) Count(ctx context.Context, viewerID int64) (int, error) { return 0, nil }
 func (r *fakePostRepo) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountGroupsOnly(ctx context.Context, viewerID int64) (int, error) { return 0, nil }
 func (r *fakePostRepo) ListPublicOnly(ctx context.Context, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountPublicOnly(ctx context.Context) (int, error) { return 0, nil }
 func (r *fakePostRepo) GetByID(ctx context.Context, id int64) (domainpost.Post, error) {
 	return domainpost.Post{ID: id, AuthorID: 1, Privacy: "public"}, nil
 }
@@ -40,10 +43,14 @@ func (r *fakePostRepo) Delete(ctx context.Context, id int64) error { return nil 
 func (r *fakePostRepo) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
 	return nil, nil
 }
+func (r *fakePostRepo) CountByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool) (int, error) {
+	return 0, nil
+}
 func (r *fakePostRepo) ListByGroup(ctx context.Context, groupID int64, limit, offset int) ([]domainpost.Post, error) {
 	r.listByGroupCalled = true
 	return nil, nil
 }
+func (r *fakePostRepo) CountByGroup(ctx context.Context, groupID int64) (int, error) { return 0, nil }
 func (r *fakePostRepo) IsUserAllowed(ctx context.Context, postID, userID int64) (bool, error) {
 	return false, nil
 }

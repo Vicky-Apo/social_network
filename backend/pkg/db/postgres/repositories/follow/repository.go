@@ -119,10 +119,12 @@ func (r *Repository) UpdateRequestStatus(ctx context.Context, id int64, status s
 // ListRequestsByTarget returns pending follow requests for a target user.
 func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) ([]domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, status, created_at
-		FROM follow_requests
-		WHERE target_id = $1 AND status = 'pending'
-		ORDER BY created_at DESC
+		SELECT fr.id, fr.requester_id, fr.target_id, fr.status, fr.created_at,
+		       ru.id, ru.first_name, ru.last_name, ru.nickname, ru.avatar_path
+		FROM follow_requests fr
+		JOIN users ru ON ru.id = fr.requester_id
+		WHERE fr.target_id = $1 AND fr.status = 'pending'
+		ORDER BY fr.created_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, targetID)
 	if err != nil {
@@ -133,9 +135,30 @@ func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) (
 	var requests []domainfollow.FollowRequest
 	for rows.Next() {
 		var req domainfollow.FollowRequest
-		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.Status, &req.CreatedAt); err != nil {
+		var nickname sql.NullString
+		var avatar sql.NullString
+		var requester domainfollow.UserInfo
+		if err := rows.Scan(
+			&req.ID,
+			&req.RequesterID,
+			&req.TargetID,
+			&req.Status,
+			&req.CreatedAt,
+			&requester.ID,
+			&requester.FirstName,
+			&requester.LastName,
+			&nickname,
+			&avatar,
+		); err != nil {
 			return nil, fmt.Errorf("list follow requests: %w", err)
 		}
+		if nickname.Valid {
+			requester.Nickname = &nickname.String
+		}
+		if avatar.Valid {
+			requester.AvatarPath = &avatar.String
+		}
+		req.Requester = &requester
 		requests = append(requests, req)
 	}
 	if err := rows.Err(); err != nil {
@@ -147,10 +170,12 @@ func (r *Repository) ListRequestsByTarget(ctx context.Context, targetID int64) (
 // ListRequestsByRequester returns pending follow requests created by a requester.
 func (r *Repository) ListRequestsByRequester(ctx context.Context, requesterID int64) ([]domainfollow.FollowRequest, error) {
 	const query = `
-		SELECT id, requester_id, target_id, status, created_at
-		FROM follow_requests
-		WHERE requester_id = $1 AND status = 'pending'
-		ORDER BY created_at DESC
+		SELECT fr.id, fr.requester_id, fr.target_id, fr.status, fr.created_at,
+		       tu.id, tu.first_name, tu.last_name, tu.nickname, tu.avatar_path
+		FROM follow_requests fr
+		JOIN users tu ON tu.id = fr.target_id
+		WHERE fr.requester_id = $1 AND fr.status = 'pending'
+		ORDER BY fr.created_at DESC
 	`
 	rows, err := r.db.QueryContext(ctx, query, requesterID)
 	if err != nil {
@@ -161,9 +186,30 @@ func (r *Repository) ListRequestsByRequester(ctx context.Context, requesterID in
 	var requests []domainfollow.FollowRequest
 	for rows.Next() {
 		var req domainfollow.FollowRequest
-		if err := rows.Scan(&req.ID, &req.RequesterID, &req.TargetID, &req.Status, &req.CreatedAt); err != nil {
+		var nickname sql.NullString
+		var avatar sql.NullString
+		var target domainfollow.UserInfo
+		if err := rows.Scan(
+			&req.ID,
+			&req.RequesterID,
+			&req.TargetID,
+			&req.Status,
+			&req.CreatedAt,
+			&target.ID,
+			&target.FirstName,
+			&target.LastName,
+			&nickname,
+			&avatar,
+		); err != nil {
 			return nil, fmt.Errorf("list follow requests: %w", err)
 		}
+		if nickname.Valid {
+			target.Nickname = &nickname.String
+		}
+		if avatar.Valid {
+			target.AvatarPath = &avatar.String
+		}
+		req.Target = &target
 		requests = append(requests, req)
 	}
 	if err := rows.Err(); err != nil {

@@ -62,10 +62,9 @@ func scanPost(scanner rowScanner) (domainpost.Post, error) {
 
 // List returns all posts ordered by creation time (newest first).
 func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
-	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +
-		"LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $1\n" +
-		"WHERE (p.group_id IS NULL AND " + visibilityWhereForFeed(1) + ")\n" +
-		"   OR (p.group_id IS NOT NULL AND gm.user_id IS NOT NULL)\n" +
+	query := visibilityCTEForFeed(1) + "\n" +
+		baseSelect() + "\n" + baseFrom() + "\n" + baseJoinsCounts() + "\n" +
+		"JOIN visible_posts vp ON vp.id = p.id\n" +
 		"ORDER BY p.created_at DESC\n" +
 		"LIMIT $2 OFFSET $3"
 	rows, err := r.db.QueryContext(ctx, query, viewerID, limit, offset)
@@ -86,6 +85,19 @@ func (r *Repository) List(ctx context.Context, viewerID int64, limit, offset int
 		return nil, fmt.Errorf("list posts: %w", err)
 	}
 	return posts, nil
+}
+
+// Count returns total posts visible in the feed for a viewer.
+func (r *Repository) Count(ctx context.Context, viewerID int64) (int, error) {
+	query := visibilityCTEForFeed(1) + `
+		SELECT COUNT(*)
+		FROM visible_posts
+	`
+	var total int
+	if err := r.db.QueryRowContext(ctx, query, viewerID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count posts: %w", err)
+	}
+	return total, nil
 }
 
 // ListPublicOnly returns only public personal posts (no group posts). Visible to all users.
@@ -116,9 +128,23 @@ func (r *Repository) ListPublicOnly(ctx context.Context, limit, offset int) ([]d
 	return posts, nil
 }
 
+// CountPublicOnly returns total public personal posts (no group posts).
+func (r *Repository) CountPublicOnly(ctx context.Context) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM posts p
+		WHERE p.group_id IS NULL AND p.visibility = 'public'
+	`
+	var total int
+	if err := r.db.QueryRowContext(ctx, query).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count public posts: %w", err)
+	}
+	return total, nil
+}
+
 // ListGroupsOnly returns only group posts for groups the viewer is a member of.
 func (r *Repository) ListGroupsOnly(ctx context.Context, viewerID int64, limit, offset int) ([]domainpost.Post, error) {
-	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(1) + "\n" +
+	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoinsCounts() + "\n" +
 		"JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $1\n" +
 		"WHERE p.group_id IS NOT NULL\n" +
 		"ORDER BY p.created_at DESC\n" +
@@ -141,6 +167,21 @@ func (r *Repository) ListGroupsOnly(ctx context.Context, viewerID int64, limit, 
 		return nil, fmt.Errorf("list group posts: %w", err)
 	}
 	return posts, nil
+}
+
+// CountGroupsOnly returns total group posts for groups the viewer is a member of.
+func (r *Repository) CountGroupsOnly(ctx context.Context, viewerID int64) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM posts p
+		JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $1
+		WHERE p.group_id IS NOT NULL
+	`
+	var total int
+	if err := r.db.QueryRowContext(ctx, query, viewerID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count group posts: %w", err)
+	}
+	return total, nil
 }
 
 // GetByID returns a post by ID.
@@ -302,12 +343,9 @@ func (r *Repository) Delete(ctx context.Context, id int64) error {
 
 // ListByAuthor returns posts for a specific author with pagination.
 func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool, limit, offset int) ([]domainpost.Post, error) {
-	query := baseSelect() + "\n" + baseFrom() + "\n" + baseJoins(2) + "\n" +
-		"LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $2\n" +
-		"WHERE p.author_id = $1 AND (\n" +
-		"  (p.group_id IS NULL AND " + visibilityWhereForAuthor(3, 4) + ")\n" +
-		"  OR (p.group_id IS NOT NULL AND gm.user_id IS NOT NULL)\n" +
-		")\n" +
+	query := visibilityCTEForAuthor(2, 3, 4) + "\n" +
+		baseSelect() + "\n" + baseFrom() + "\n" + baseJoinsCounts() + "\n" +
+		"JOIN visible_posts vp ON vp.id = p.id\n" +
 		"ORDER BY p.created_at DESC\n" +
 		"LIMIT $5 OFFSET $6"
 	rows, err := r.db.QueryContext(ctx, query, authorID, viewerID, isFollower, isOwner, limit, offset)
@@ -328,6 +366,19 @@ func (r *Repository) ListByAuthor(ctx context.Context, authorID, viewerID int64,
 		return nil, fmt.Errorf("list posts by author: %w", err)
 	}
 	return posts, nil
+}
+
+// CountByAuthor returns total posts for a specific author respecting viewer access.
+func (r *Repository) CountByAuthor(ctx context.Context, authorID, viewerID int64, isFollower, isOwner bool) (int, error) {
+	query := visibilityCTEForAuthor(2, 3, 4) + `
+		SELECT COUNT(*)
+		FROM visible_posts
+	`
+	var total int
+	if err := r.db.QueryRowContext(ctx, query, authorID, viewerID, isFollower, isOwner).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count posts by author: %w", err)
+	}
+	return total, nil
 }
 
 // ListByGroup returns posts for a group with pagination.
@@ -357,6 +408,20 @@ func (r *Repository) ListByGroup(ctx context.Context, groupID int64, limit, offs
 		return nil, fmt.Errorf("list posts by group: %w", err)
 	}
 	return posts, nil
+}
+
+// CountByGroup returns total posts for a group.
+func (r *Repository) CountByGroup(ctx context.Context, groupID int64) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM posts p
+		WHERE p.group_id = $1
+	`
+	var total int
+	if err := r.db.QueryRowContext(ctx, query, groupID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count posts by group: %w", err)
+	}
+	return total, nil
 }
 
 // IsUserAllowed checks if a user is in the allowed list for a private post.
@@ -401,27 +466,29 @@ func baseFrom() string {
 	`
 }
 
-func baseJoins(viewerParam int) string {
-	return fmt.Sprintf(`
-		LEFT JOIN follows f ON f.follower_id = $%d AND f.following_id = p.author_id
-		LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $%d
+func baseJoinsCounts() string {
+	return `
 		LEFT JOIN post_comment_counts cc ON cc.post_id = p.id
 		LEFT JOIN post_reaction_counts rc ON rc.post_id = p.id
-	`, viewerParam, viewerParam)
+	`
 }
 
 func visibilityWhereForFeed(viewerParam int) string {
 	return fmt.Sprintf(`
 		(
-			u.is_public = TRUE
-			OR p.author_id = $%d
-			OR f.follower_id IS NOT NULL
-		)
-		AND (
-			p.author_id = $%d
-			OR p.visibility = 'public'
-			OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
-			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+			p.visibility = 'public'
+			OR (
+				(
+					u.is_public = TRUE
+					OR p.author_id = $%d
+					OR f.follower_id IS NOT NULL
+				)
+				AND (
+					p.author_id = $%d
+					OR (p.visibility = 'followers' AND f.follower_id IS NOT NULL)
+					OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
+				)
+			)
 		)
 	`, viewerParam, viewerParam)
 }
@@ -435,4 +502,36 @@ func visibilityWhereForAuthor(isFollowerParam, isOwnerParam int) string {
 			OR (p.visibility = 'private' AND pau.user_id IS NOT NULL)
 		)
 	`, isOwnerParam, isFollowerParam)
+}
+
+func visibilityCTEForFeed(viewerParam int) string {
+	return fmt.Sprintf(`
+		WITH visible_posts AS (
+			SELECT p.id
+			FROM posts p
+			JOIN users u ON u.id = p.author_id
+			LEFT JOIN follows f ON f.follower_id = $%d AND f.following_id = p.author_id
+			LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $%d
+			LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $%d
+			WHERE (p.group_id IS NULL AND %s)
+			   OR (p.group_id IS NOT NULL AND gm.user_id IS NOT NULL)
+		)
+	`, viewerParam, viewerParam, viewerParam, visibilityWhereForFeed(viewerParam))
+}
+
+func visibilityCTEForAuthor(viewerParam, isFollowerParam, isOwnerParam int) string {
+	return fmt.Sprintf(`
+		WITH visible_posts AS (
+			SELECT p.id
+			FROM posts p
+			JOIN users u ON u.id = p.author_id
+			LEFT JOIN follows f ON f.follower_id = $%d AND f.following_id = p.author_id
+			LEFT JOIN post_allowed_users pau ON pau.post_id = p.id AND pau.user_id = $%d
+			LEFT JOIN group_members gm ON gm.group_id = p.group_id AND gm.user_id = $%d
+			WHERE p.author_id = $1 AND (
+				(p.group_id IS NULL AND %s)
+				OR (p.group_id IS NOT NULL AND gm.user_id IS NOT NULL)
+			)
+		)
+	`, viewerParam, viewerParam, viewerParam, visibilityWhereForAuthor(isFollowerParam, isOwnerParam))
 }

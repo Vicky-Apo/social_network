@@ -9,6 +9,17 @@ type FollowRequest struct {
 	TargetID    int64
 	Status      string
 	CreatedAt   time.Time
+	Requester   *UserInfo
+	Target      *UserInfo
+}
+
+// UserInfo is a lightweight user view for follow requests.
+type UserInfo struct {
+	ID         int64
+	FirstName  string
+	LastName   string
+	Nickname   *string
+	AvatarPath *string
 }
 
 // Follow represents a follower -> following relationship.

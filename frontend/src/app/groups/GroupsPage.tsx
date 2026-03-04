@@ -8,12 +8,8 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -80,34 +76,27 @@ export default function GroupsPage() {
   const [groupsError, setGroupsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadPageData = useCallback(async () => {
     setIsLoading(true);
     setGroupsError(null);
 
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-        credentials: "include",
-      });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setUser(meResult.data);
 
-      const groupsResponse = await fetch(`${apiBaseUrl}/groups`, {
-        credentials: "include",
-      });
-      const groupsResult = (await groupsResponse.json().catch(() => null)) as
-        | ApiResponse<unknown>
-        | null;
+      const { response: groupsResponse, result: groupsResult } = await apiFetchJson<
+        ApiResponse<unknown>
+      >("/groups", {}, apiBaseUrl);
       if (!groupsResponse.ok || !groupsResult?.success) {
         if (groupsResponse.status === 404) {
           setGroupsError("Groups endpoint is not available yet on the backend.");

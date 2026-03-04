@@ -9,12 +9,10 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { shortDate } from "@/lib/date";
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -31,31 +29,19 @@ type JoinRequest = {
   user_id: number;
   status: string;
   created_at?: string;
+  user?: User | null;
 };
-
-function shortDate(value?: string) {
-  if (!value) return "Just now";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Just now";
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
 
 async function fetchProfileSummary(
   apiBaseUrl: string,
   id: number,
 ): Promise<User | null> {
   try {
-    const response = await fetch(`${apiBaseUrl}/profiles/${id}`, { credentials: "include" });
-    const result = (await response.json().catch(() => null)) as
-      | ApiResponse<{ user?: User }>
-      | null;
+    const { response, result } = await apiFetchJson<ApiResponse<{ user?: User }>>(
+      `/profiles/${id}`,
+      {},
+      apiBaseUrl,
+    );
     if (!response.ok || !result?.success || !result.data?.user) {
       return null;
     }
@@ -72,17 +58,11 @@ export default function GroupJoinRequestsPage() {
 
   const [viewer, setViewer] = useState<User | null>(null);
   const [requests, setRequests] = useState<JoinRequest[]>([]);
-  const [requesterProfiles, setRequesterProfiles] = useState<Record<number, User>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   useEffect(() => {
     if (!Number.isFinite(groupID) || groupID <= 0) {
@@ -96,8 +76,11 @@ export default function GroupJoinRequestsPage() {
       setIsLoading(true);
       setError(null);
       try {
-        const meResponse = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-        const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+        const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+          "/auth/me",
+          {},
+          apiBaseUrl,
+        );
         if (!meResponse.ok || !meResult?.success || !meResult.data) {
           router.replace("/login");
           return;
@@ -106,13 +89,9 @@ export default function GroupJoinRequestsPage() {
           setViewer(meResult.data);
         }
 
-        const requestsResponse = await fetch(
-          `${apiBaseUrl}/groups/${groupID}/join-requests`,
-          { credentials: "include" },
-        );
-        const requestsResult = (await requestsResponse.json().catch(() => null)) as
-          | ApiResponse<JoinRequest[]>
-          | null;
+        const { response: requestsResponse, result: requestsResult } = await apiFetchJson<
+          ApiResponse<JoinRequest[]>
+        >(`/groups/${groupID}/join-requests`, {}, apiBaseUrl);
         if (!requestsResponse.ok || !requestsResult?.success) {
           setError(requestsResult?.error || "Could not load join requests.");
           setRequests([]);
@@ -131,45 +110,18 @@ export default function GroupJoinRequestsPage() {
     };
   }, [apiBaseUrl, groupID, router]);
 
-  useEffect(() => {
-    if (requests.length === 0) return;
-    const missing = Array.from(new Set(requests.map((req) => req.user_id))).filter(
-      (id) => !requesterProfiles[id],
-    );
-    if (missing.length === 0) return;
-    let cancelled = false;
-
-    Promise.all(
-      missing.map((id) => fetchProfileSummary(apiBaseUrl, id).then((user) => [id, user] as const)),
-    )
-      .then((entries) => {
-        if (cancelled) return;
-        const updates: Record<number, User> = {};
-        for (const [id, user] of entries) {
-          if (user) {
-            updates[id] = user;
-          }
-        }
-        if (Object.keys(updates).length > 0) {
-          setRequesterProfiles((prev) => ({ ...prev, ...updates }));
-        }
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBaseUrl, requests, requesterProfiles]);
-
   const updateRequest = async (id: number, status: "accepted" | "declined") => {
     setActionError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/group-join-requests/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiFetch(
+        `/group-join-requests/${id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setActionError(result?.error || "Could not update join request.");
@@ -272,22 +224,22 @@ export default function GroupJoinRequestsPage() {
                     <div className="flex items-center gap-3">
                       <Avatar
                         src={
-                          requesterProfiles[req.user_id]?.avatar_path
-                            ? toMediaUrl(apiBaseUrl, requesterProfiles[req.user_id]?.avatar_path)
+                          req.user?.avatar_path
+                            ? toMediaUrl(apiBaseUrl, req.user?.avatar_path)
                             : null
                         }
-                        name={`${requesterProfiles[req.user_id]?.first_name ?? ""} ${requesterProfiles[req.user_id]?.last_name ?? ""}`.trim()}
+                        name={`${req.user?.first_name ?? ""} ${req.user?.last_name ?? ""}`.trim()}
                         size={36}
                         textClassName="text-[11px]"
                       />
                       <div>
                         <p className="text-sm font-semibold text-white">
-                          {requesterProfiles[req.user_id]
-                            ? `${requesterProfiles[req.user_id]?.first_name} ${requesterProfiles[req.user_id]?.last_name}`
+                          {req.user
+                            ? `${req.user?.first_name} ${req.user?.last_name}`
                             : "User"}
                         </p>
                         <p className="text-xs text-neutral-400">
-                          @{requesterProfiles[req.user_id]?.nickname || "user"} ·
+                          @{req.user?.nickname || "user"} ·
                           Requested {shortDate(req.created_at)}
                         </p>
                       </div>

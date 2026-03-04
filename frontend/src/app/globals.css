@@ -18,6 +18,8 @@
 
 :root {
   color-scheme: light;
+  --font-heading-family: ui-sans-serif, system-ui, sans-serif;
+  --font-body-family: ui-sans-serif, system-ui, sans-serif;
   --brand-mint: #d1f2eb;
   --brand-emerald: #50c878;
   --brand-royal: #0b6e4f;

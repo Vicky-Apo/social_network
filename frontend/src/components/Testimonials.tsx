@@ -6,15 +6,7 @@ import { motion } from "framer-motion";
 import { Section } from "@/components/Section";
 import { fadeUp, staggerContainer, viewportOnce } from "@/components/Motion";
 import { landingData } from "@/lib/data";
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+import Avatar from "@/components/Avatar";
 
 export function Testimonials() {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -91,9 +83,12 @@ export function Testimonials() {
           >
             <blockquote className="text-base leading-relaxed text-neutral-700">{item.quote}</blockquote>
             <figcaption className="mt-8 flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-neutral-900 text-xs font-semibold text-white">
-                {initials(item.name)}
-              </span>
+              <Avatar
+                name={item.name}
+                size={40}
+                className="border-neutral-900 bg-neutral-900"
+                textClassName="text-xs text-white"
+              />
               <span className="flex flex-col">
                 <span className="text-sm font-semibold text-neutral-900">{item.name}</span>
                 <span className="text-xs text-neutral-500">{item.role}</span>

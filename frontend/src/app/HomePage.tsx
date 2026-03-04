@@ -4,26 +4,21 @@ import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
 
 export default function HomePage() {
   const router = useRouter();
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   useEffect(() => {
     let cancelled = false;
     const checkSession = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/auth/me`, {
-          credentials: "include",
-        });
-        const result = (await response.json().catch(() => null)) as
-          | { success?: boolean }
-          | null;
+        const { response, result } = await apiFetchJson<{ success?: boolean }>(
+          "/auth/me",
+          {},
+          apiBaseUrl,
+        );
         if (!cancelled && response.ok && result?.success) {
           router.replace("/dashboard");
         }

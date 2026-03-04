@@ -8,12 +8,8 @@ import { motion } from "framer-motion";
 import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type MeUser = {
   id: number;
@@ -53,12 +49,7 @@ export default function ProfileEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadProfile = useCallback(async () => {
     setIsLoading(true);
@@ -66,22 +57,20 @@ export default function ProfileEditPage() {
     setSuccess(null);
 
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, {
-        credentials: "include",
-      });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<MeUser> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<MeUser>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
-
-      const profileResponse = await fetch(`${apiBaseUrl}/profiles/${meResult.data.id}`, {
-        credentials: "include",
-      });
-      const profileResult = (await profileResponse.json().catch(() => null)) as
-        | ApiResponse<ProfileDTO>
-        | null;
+      const viewerID = meResult.data.id;
+      const { response: profileResponse, result: profileResult } = await apiFetchJson<
+        ApiResponse<ProfileDTO>
+      >(`/profiles/${viewerID}`, {}, apiBaseUrl);
       if (!profileResponse.ok || !profileResult?.success || !profileResult.data) {
         setError(profileResult?.error || "Could not load profile.");
         return;
@@ -116,14 +105,16 @@ export default function ProfileEditPage() {
         const formData = new FormData();
         formData.append("file", avatarFile);
         formData.append("kind", "avatar");
-        const uploadRes = await fetch(`${apiBaseUrl}/uploads`, {
-          method: "POST",
-          credentials: "include",
-          body: formData,
-        });
-        const uploadJson = (await uploadRes.json().catch(() => null)) as
-          | ApiResponse<{ path?: string }>
-          | null;
+        const { response: uploadRes, result: uploadJson } = await apiFetchJson<
+          ApiResponse<{ path?: string }>
+        >(
+          "/uploads",
+          {
+            method: "POST",
+            body: formData,
+          },
+          apiBaseUrl,
+        );
         if (!uploadRes.ok || !uploadJson?.success || !uploadJson.data?.path) {
           setError(uploadJson?.error || "Could not upload avatar.");
           return;
@@ -132,34 +123,40 @@ export default function ProfileEditPage() {
         setAvatarPath(nextAvatarPath);
       }
 
-      const updateRes = await fetch(`${apiBaseUrl}/profiles/${viewer.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          nickname: nickname.trim() ? nickname.trim() : "",
-          about: about.trim() ? about.trim() : "",
-          avatar_path: nextAvatarPath ? nextAvatarPath : "",
-        }),
-      });
-      const updateJson = (await updateRes.json().catch(() => null)) as ApiResponse<unknown> | null;
+      const { response: updateRes, result: updateJson } = await apiFetchJson<ApiResponse<unknown>>(
+        `/profiles/${viewer.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nickname: nickname.trim() ? nickname.trim() : "",
+            about: about.trim() ? about.trim() : "",
+            avatar_path: nextAvatarPath ? nextAvatarPath : "",
+          }),
+        },
+        apiBaseUrl,
+      );
       if (!updateRes.ok || !updateJson?.success) {
         setError(updateJson?.error || "Could not update profile.");
         return;
       }
 
-      const visibilityRes = await fetch(`${apiBaseUrl}/profiles/${viewer.id}/visibility`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ is_public: isPublic }),
-      });
-      const visibilityJson = (await visibilityRes.json().catch(() => null)) as
-        | ApiResponse<unknown>
-        | null;
-      if (!visibilityRes.ok || !visibilityJson?.success) {
-        setError(visibilityJson?.error || "Could not update visibility.");
-        return;
+      if (profile?.user.is_public !== isPublic) {
+        const { response: visibilityRes, result: visibilityJson } = await apiFetchJson<
+          ApiResponse<unknown>
+        >(
+          `/profiles/${viewer.id}/visibility`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_public: isPublic }),
+          },
+          apiBaseUrl,
+        );
+        if (!visibilityRes.ok || !visibilityJson?.success) {
+          setError(visibilityJson?.error || "Could not update visibility.");
+          return;
+        }
       }
 
       setSuccess("Profile updated successfully.");

@@ -77,13 +77,23 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var posts []usecasepost.PostDTO
+	total := 0
 	switch {
 	case publicOnly:
 		posts, err = h.service.ListPublicOnly(r.Context(), limit, offset)
+		if err == nil {
+			total, err = h.service.CountPublicOnly(r.Context())
+		}
 	case groupsOnly:
 		posts, err = h.service.ListGroupsOnly(r.Context(), viewerID, limit, offset)
+		if err == nil {
+			total, err = h.service.CountGroupsOnly(r.Context(), viewerID)
+		}
 	default:
 		posts, err = h.service.List(r.Context(), viewerID, limit, offset)
+		if err == nil {
+			total, err = h.service.Count(r.Context(), viewerID)
+		}
 	}
 	if err != nil {
 		logServerError(h.log, "posts.list", err)
@@ -91,6 +101,7 @@ func (h *PostHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
 	utils.RespondWithSuccess(w, http.StatusOK, posts)
 }
 
@@ -135,6 +146,19 @@ func (h *PostHandler) ListByGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	total, err := h.service.CountByGroup(r.Context(), groupID, viewerID)
+	if err != nil {
+		if errors.Is(err, usecasepost.ErrForbidden) {
+			logForbidden(h.log, "posts.list_by_group", logger.F("group_id", groupID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		logServerError(h.log, "posts.list_by_group", err, logger.F("group_id", groupID))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		return
+	}
+
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
 	utils.RespondWithSuccess(w, http.StatusOK, posts)
 }
 
@@ -304,5 +328,18 @@ func (h *PostHandler) ListByAuthor(w http.ResponseWriter, r *http.Request, autho
 		return
 	}
 
+	total, err := h.service.CountByAuthor(r.Context(), authorID, viewerID)
+	if err != nil {
+		if errors.Is(err, usecasepost.ErrForbidden) {
+			logForbidden(h.log, "posts.list_by_author", logger.F("author_id", authorID), logger.F("viewer_id", viewerID))
+			utils.RespondWithError(w, http.StatusForbidden, utils.MsgForbidden)
+			return
+		}
+		logServerError(h.log, "posts.list_by_author", err, logger.F("author_id", authorID))
+		utils.RespondWithError(w, http.StatusInternalServerError, utils.MsgInternalServerError)
+		return
+	}
+
+	w.Header().Set("X-Total-Count", strconv.Itoa(total))
 	utils.RespondWithSuccess(w, http.StatusOK, posts)
 }

@@ -75,7 +75,7 @@ Deliverables:
 
 **Notes**
 
-- Session cookie: `HttpOnly`, `Secure` (in prod), `SameSite=Lax` (or `Strict` if feasible).
+- Session cookie: `HttpOnly`, `Secure` (when using HTTPS), `SameSite=Lax` (or `Strict` if feasible).
 
 ### 2.3 Profiles
 

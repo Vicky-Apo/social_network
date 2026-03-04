@@ -8,6 +8,8 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/components/AuthContext";
 import { landingData } from "@/lib/data";
 import { fadeUp, staggerContainer } from "@/components/Motion";
+import { apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type FormState = {
   email: string;
@@ -24,12 +26,6 @@ type LoginResponse = {
     first_name?: string;
     last_name?: string;
   };
-};
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
 };
 
 export default function LoginPage() {
@@ -78,9 +74,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     setErrors({});
 
-    const apiBaseUrl =
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080";
+    const apiBaseUrl = getApiBaseUrl();
     const endpoint = `${apiBaseUrl}/auth/login`;
 
     const payload = {
@@ -89,16 +83,17 @@ export default function LoginPage() {
     };
 
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const { response, result } = await apiFetchJson<ApiResponse<LoginResponse>>(
+        endpoint,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-
-      const result = (await response.json().catch(() => null)) as ApiResponse<LoginResponse> | null;
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success) {
         setErrors({
           submit: result?.error || "Login failed. Please try again.",

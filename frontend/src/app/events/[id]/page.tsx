@@ -9,12 +9,9 @@ import TopNav from "@/components/TopNav";
 import LeftNav from "@/components/LeftNav";
 import Avatar from "@/components/Avatar";
 import { fadeUp, viewportOnce } from "@/components/Motion";
-
-type ApiResponse<T> = {
-  success?: boolean;
-  data?: T;
-  error?: string;
-};
+import { toMediaUrl } from "@/lib/media";
+import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
+import { ApiResponse } from "@/lib/types";
 
 type User = {
   id: number;
@@ -27,12 +24,14 @@ type User = {
 type EventItem = {
   id: number;
   group_id: number;
+  group_title?: string | null;
   creator_id: number;
   title: string;
   description?: string | null;
   event_time: string;
   created_at: string;
   updated_at: string;
+  responses_count?: number;
 };
 
 type EventResponse = {
@@ -45,19 +44,6 @@ type EventResponse = {
   response: string;
   responded_at?: string | null;
 };
-
-type GroupSummary = {
-  id: number;
-  title?: string | null;
-  name?: string | null;
-};
-
-function toMediaUrl(apiBaseUrl: string, path?: string | null) {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  return `${apiBaseUrl}${normalized}`;
-}
 
 function formatDateTime(value?: string) {
   if (!value) return "N/A";
@@ -86,6 +72,8 @@ export default function EventDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [responsesError, setResponsesError] = useState<string | null>(null);
   const [responseAction, setResponseAction] = useState<string | null>(null);
+  const [responsesLoaded, setResponsesLoaded] = useState(false);
+  const [responsesLoading, setResponsesLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -93,14 +81,8 @@ export default function EventDetailPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [groupName, setGroupName] = useState<string | null>(null);
 
-  const apiBaseUrl = useMemo(
-    () =>
-      process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/+$/, "") ||
-      "http://localhost:8080",
-    [],
-  );
+  const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
 
   const loadEvent = useCallback(async () => {
     if (!Number.isFinite(eventID) || eventID <= 0) {
@@ -112,16 +94,20 @@ export default function EventDetailPage() {
     setIsLoading(true);
     setError(null);
     try {
-      const meResponse = await fetch(`${apiBaseUrl}/auth/me`, { credentials: "include" });
-      const meResult = (await meResponse.json().catch(() => null)) as ApiResponse<User> | null;
+      const { response: meResponse, result: meResult } = await apiFetchJson<ApiResponse<User>>(
+        "/auth/me",
+        {},
+        apiBaseUrl,
+      );
       if (!meResponse.ok || !meResult?.success || !meResult.data) {
         router.replace("/login");
         return;
       }
       setViewer(meResult.data);
 
-      const eventResponse = await fetch(`${apiBaseUrl}/events/${eventID}`, { credentials: "include" });
-      const eventResult = (await eventResponse.json().catch(() => null)) as ApiResponse<EventItem> | null;
+      const { response: eventResponse, result: eventResult } = await apiFetchJson<
+        ApiResponse<EventItem>
+      >(`/events/${eventID}`, {}, apiBaseUrl);
       if (!eventResponse.ok || !eventResult?.success || !eventResult.data) {
         setError(eventResult?.error || "Could not load event.");
         setEvent(null);
@@ -132,29 +118,10 @@ export default function EventDetailPage() {
       setEditDescription(eventResult.data.description || "");
       setEditTime(toInputDate(eventResult.data.event_time));
 
-      const groupResponse = await fetch(`${apiBaseUrl}/groups/${eventResult.data.group_id}`, {
-        credentials: "include",
-      });
-      const groupResult = (await groupResponse.json().catch(() => null)) as
-        | ApiResponse<GroupSummary>
-        | null;
-      if (groupResponse.ok && groupResult?.success && groupResult.data) {
-        const title = groupResult.data.title || groupResult.data.name;
-        if (title) setGroupName(title);
-      }
-
-      const responsesResponse = await fetch(`${apiBaseUrl}/events/${eventID}/responses`, {
-        credentials: "include",
-      });
-      const responsesResult = (await responsesResponse.json().catch(() => null)) as
-        | ApiResponse<EventResponse[]>
-        | null;
-      if (!responsesResponse.ok || !responsesResult?.success) {
-        setResponsesError(responsesResult?.error || "Could not load responses.");
-        setResponses([]);
-        return;
-      }
-      setResponses(responsesResult.data ?? []);
+      setResponses([]);
+      setResponsesError(null);
+      setResponsesLoaded(false);
+      setResponsesLoading(false);
     } catch {
       setError("Network error. Please try again.");
       setEvent(null);
@@ -170,22 +137,54 @@ export default function EventDetailPage() {
   const handleRespond = async (response: "going" | "not_going") => {
     setResponseAction(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/events/${eventID}/responses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ response }),
-      });
-      const json = (await res.json().catch(() => null)) as ApiResponse<unknown> | null;
+      const { response: res, result: json } = await apiFetchJson<ApiResponse<unknown>>(
+        `/events/${eventID}/responses`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ response }),
+        },
+        apiBaseUrl,
+      );
       if (!res.ok || !json?.success) {
         setResponseAction(json?.error || "Could not submit response.");
         return;
       }
       await loadEvent();
+      if (responsesLoaded) {
+        await loadResponses();
+      }
     } catch {
       setResponseAction("Network error. Please try again.");
     }
   };
+
+  const loadResponses = useCallback(async () => {
+    setResponsesError(null);
+    setResponsesLoading(true);
+    try {
+      const { response: responsesResponse, result: responsesResult } = await apiFetchJson<
+        ApiResponse<EventResponse[]>
+      >(`/events/${eventID}/responses`, {}, apiBaseUrl);
+      if (!responsesResponse.ok || !responsesResult?.success) {
+        setResponsesError(responsesResult?.error || "Could not load responses.");
+        setResponses([]);
+        return;
+      }
+      setResponses(responsesResult.data ?? []);
+      setResponsesLoaded(true);
+    } catch {
+      setResponsesError("Network error. Please try again.");
+    } finally {
+      setResponsesLoading(false);
+    }
+  }, [apiBaseUrl, eventID]);
+
+  useEffect(() => {
+    if (event && !responsesLoaded && !responsesLoading) {
+      void loadResponses();
+    }
+  }, [event, loadResponses, responsesLoaded, responsesLoading]);
 
   const handleSave = async () => {
     if (!event) return;
@@ -201,13 +200,15 @@ export default function EventDetailPage() {
         description: editDescription.trim() || undefined,
         event_time: new Date(editTime).toISOString(),
       };
-      const response = await fetch(`${apiBaseUrl}/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(payload),
-      });
-      const result = (await response.json().catch(() => null)) as ApiResponse<EventItem> | null;
+      const { response, result } = await apiFetchJson<ApiResponse<EventItem>>(
+        `/events/${event.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+        apiBaseUrl,
+      );
       if (!response.ok || !result?.success || !result.data) {
         setEditError(result?.error || "Could not update event.");
         return;
@@ -225,10 +226,7 @@ export default function EventDetailPage() {
     if (!event) return;
     setDeleteError(null);
     try {
-      const response = await fetch(`${apiBaseUrl}/events/${event.id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
+      const response = await apiFetch(`/events/${event.id}`, { method: "DELETE" }, apiBaseUrl);
       if (!response.ok) {
         const result = (await response.json().catch(() => null)) as ApiResponse<unknown> | null;
         setDeleteError(result?.error || "Could not delete event.");
@@ -241,6 +239,12 @@ export default function EventDetailPage() {
   };
 
   const isCreator = Boolean(event && viewer && event.creator_id === viewer.id);
+
+  const groupName = event?.group_title?.trim();
+  const responsesCount =
+    typeof event?.responses_count === "number" ? event.responses_count : responses.length;
+  const goingResponses = responses.filter((resp) => resp.response === "going");
+  const notGoingResponses = responses.filter((resp) => resp.response !== "going");
 
   return (
     <div
@@ -287,54 +291,54 @@ export default function EventDetailPage() {
           </motion.section>
 
           {isLoading ? (
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm"
-          >
-            Loading event...
-          </motion.div>
-        ) : error ? (
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={viewportOnce}
-            variants={fadeUp}
-            className="mt-5 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400"
-          >
-            {error}
-          </motion.div>
-        ) : event ? (
-          <div className="mt-5 space-y-5">
             <motion.div
               initial="hidden"
               whileInView="show"
               viewport={viewportOnce}
               variants={fadeUp}
-              className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+              className="mt-5 rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-neutral-400 backdrop-blur-sm"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-white">{event.title}</h2>
-                  <p className="mt-1 text-sm text-neutral-400">
-                    {event.description || "No description."}
-                  </p>
+              Loading event...
+            </motion.div>
+          ) : error ? (
+            <motion.div
+              initial="hidden"
+              whileInView="show"
+              viewport={viewportOnce}
+              variants={fadeUp}
+              className="mt-5 rounded-3xl border border-rose-500/30 bg-rose-500/10 p-6 text-sm text-rose-400"
+            >
+              {error}
+            </motion.div>
+          ) : event ? (
+            <div className="mt-5 space-y-5">
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+                variants={fadeUp}
+                className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{event.title}</h2>
+                    <p className="mt-1 text-sm text-neutral-400">
+                      {event.description || "No description."}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
+                    {formatDateTime(event.event_time)}
+                  </span>
                 </div>
-                <span className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white">
-                  {formatDateTime(event.event_time)}
-                </span>
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleRespond("going")}
-                  className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
-                >
-                  <ThumbsUp className="h-3.5 w-3.5" />
-                  Going
-                </button>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleRespond("going")}
+                    className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    <ThumbsUp className="h-3.5 w-3.5" />
+                    Going
+                  </button>
                 <button
                   type="button"
                   onClick={() => handleRespond("not_going")}
@@ -430,44 +434,92 @@ export default function EventDetailPage() {
                   <Calendar className="h-4 w-4" />
                   Responses
                 </div>
-                {responsesError ? (
+                {responsesLoading ? (
+                  <p className="mt-3 text-xs text-neutral-400">Loading responses...</p>
+                ) : responsesError ? (
                   <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
                 ) : responses.length === 0 ? (
                   <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
                 ) : (
-                  <div className="mt-3 space-y-2">
-                    {responses.map((resp) => (
-                      <div
-                        key={`${resp.user_id}-${resp.response}`}
-                        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            src={resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null}
-                            name={`${resp.first_name} ${resp.last_name}`}
-                            size={36}
-                            textClassName="text-[11px]"
-                          />
-                          <div>
-                            <p className="text-xs font-semibold text-white">
-                              {resp.first_name} {resp.last_name}
-                            </p>
-                            <p className="text-[11px] text-neutral-400">
-                              @{resp.nickname || "user"}
-                            </p>
-                          </div>
+                  <div className="mt-3 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold text-emerald-300">
+                        Going ({goingResponses.length})
+                      </p>
+                      {goingResponses.length === 0 ? (
+                        <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {goingResponses.map((resp) => (
+                            <div
+                              key={`${resp.user_id}-${resp.response}`}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Avatar
+                                  src={
+                                    resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                  }
+                                  name={`${resp.first_name} ${resp.last_name}`}
+                                  size={36}
+                                  textClassName="text-[11px]"
+                                />
+                                <div>
+                                  <p className="text-xs font-semibold text-white">
+                                    {resp.first_name} {resp.last_name}
+                                  </p>
+                                  <p className="text-[11px] text-neutral-400">
+                                    @{resp.nickname || "user"}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-400">
+                                Going
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <span
-                          className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                            resp.response === "going"
-                              ? "bg-emerald-500/20 text-emerald-400"
-                              : "bg-white/10 text-neutral-400"
-                          }`}
-                        >
-                          {resp.response === "going" ? "Going" : "Not going"}
-                        </span>
-                      </div>
-                    ))}
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-neutral-300">
+                        Not going ({notGoingResponses.length})
+                      </p>
+                      {notGoingResponses.length === 0 ? (
+                        <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {notGoingResponses.map((resp) => (
+                            <div
+                              key={`${resp.user_id}-${resp.response}`}
+                              className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Avatar
+                                  src={
+                                    resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                  }
+                                  name={`${resp.first_name} ${resp.last_name}`}
+                                  size={36}
+                                  textClassName="text-[11px]"
+                                />
+                                <div>
+                                  <p className="text-xs font-semibold text-white">
+                                    {resp.first_name} {resp.last_name}
+                                  </p>
+                                  <p className="text-[11px] text-neutral-400">
+                                    @{resp.nickname || "user"}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-neutral-400">
+                                Not going
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -489,44 +541,92 @@ export default function EventDetailPage() {
                 <Calendar className="h-4 w-4" />
                 Responses
               </div>
-              {responsesError ? (
+              {responsesLoading ? (
+                <p className="mt-3 text-xs text-neutral-400">Loading responses...</p>
+              ) : responsesError ? (
                 <p className="mt-2 text-xs text-rose-400">{responsesError}</p>
               ) : responses.length === 0 ? (
                 <p className="mt-3 text-xs text-neutral-400">No responses yet.</p>
               ) : (
-                <div className="mt-3 space-y-2">
-                  {responses.map((resp) => (
-                    <div
-                      key={`${resp.user_id}-${resp.response}`}
-                      className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          src={resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null}
-                          name={`${resp.first_name} ${resp.last_name}`}
-                          size={36}
-                          textClassName="text-[11px]"
-                        />
-                        <div>
-                          <p className="text-xs font-semibold text-white">
-                            {resp.first_name} {resp.last_name}
-                          </p>
-                          <p className="text-[11px] text-neutral-400">
-                            @{resp.nickname || "user"}
-                          </p>
-                        </div>
+                <div className="mt-3 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-emerald-300">
+                      Going ({goingResponses.length})
+                    </p>
+                    {goingResponses.length === 0 ? (
+                      <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {goingResponses.map((resp) => (
+                          <div
+                            key={`${resp.user_id}-${resp.response}`}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={
+                                  resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                }
+                                name={`${resp.first_name} ${resp.last_name}`}
+                                size={36}
+                                textClassName="text-[11px]"
+                              />
+                              <div>
+                                <p className="text-xs font-semibold text-white">
+                                  {resp.first_name} {resp.last_name}
+                                </p>
+                                <p className="text-[11px] text-neutral-400">
+                                  @{resp.nickname || "user"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-400">
+                              Going
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                      <span
-                        className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${
-                          resp.response === "going"
-                            ? "bg-emerald-500/20 text-emerald-400"
-                            : "bg-white/10 text-neutral-400"
-                        }`}
-                      >
-                        {resp.response === "going" ? "Going" : "Not going"}
-                      </span>
-                    </div>
-                  ))}
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-300">
+                      Not going ({notGoingResponses.length})
+                    </p>
+                    {notGoingResponses.length === 0 ? (
+                      <p className="mt-2 text-xs text-neutral-400">No one yet.</p>
+                    ) : (
+                      <div className="mt-2 space-y-2">
+                        {notGoingResponses.map((resp) => (
+                          <div
+                            key={`${resp.user_id}-${resp.response}`}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar
+                                src={
+                                  resp.avatar_path ? toMediaUrl(apiBaseUrl, resp.avatar_path) : null
+                                }
+                                name={`${resp.first_name} ${resp.last_name}`}
+                                size={36}
+                                textClassName="text-[11px]"
+                              />
+                              <div>
+                                <p className="text-xs font-semibold text-white">
+                                  {resp.first_name} {resp.last_name}
+                                </p>
+                                <p className="text-[11px] text-neutral-400">
+                                  @{resp.nickname || "user"}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-neutral-400">
+                              Not going
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </motion.div>

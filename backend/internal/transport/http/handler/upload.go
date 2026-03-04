@@ -150,7 +150,7 @@ func extensionForContentType(contentType string) (string, bool) {
 
 func isAllowedKind(kind string) bool {
 	switch kind {
-	case "media", "avatar", "post", "comment", "message", "group":
+	case "media", "avatar", "post", "comment", "message":
 		return true
 	default:
 		return false

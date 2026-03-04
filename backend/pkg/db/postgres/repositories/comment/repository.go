@@ -99,6 +99,20 @@ func (r *Repository) GetByPostID(ctx context.Context, postID int64, limit, offse
 	return comments, nil
 }
 
+// CountByPostID returns total comments for a post.
+func (r *Repository) CountByPostID(ctx context.Context, postID int64) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM comments
+		WHERE post_id = $1
+	`
+	var total int
+	if err := r.db.QueryRowContext(ctx, query, postID).Scan(&total); err != nil {
+		return 0, fmt.Errorf("count comments by post: %w", err)
+	}
+	return total, nil
+}
+
 // GetByID gets a comment by ID
 func (r *Repository) GetByID(ctx context.Context, id int64) (domaincomment.Comment, error) {
 	query := `

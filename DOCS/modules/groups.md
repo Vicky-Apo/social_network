@@ -127,9 +127,19 @@ Error responses:
 - `404 Not Found` - Group not found
 - `409 Conflict` - User is already a member or invitation already exists
 
+Notes:
+- The frontend may cache invited user details locally to avoid extra profile lookups for sent invites.
+- The create group page should call `/auth/me` once on mount (use `useEffect`) to avoid repeated checks.
+
 ### List invitations for me
 
 `GET /group-invitations`
+
+Response includes:
+- `group_title` (string)
+
+Notes:
+- Use `group_title` to display invitation group names without extra `/groups/{id}` calls.
 
 Error responses:
 - `401 Unauthorized` - Not logged in or invalid session
@@ -173,6 +183,7 @@ Error responses:
 
 Notes:
 - Returns `404` if the group does not exist.
+- Each join request includes a `user` object with name/avatar to avoid extra profile lookups.
 
 Error responses:
 - `400 Bad Request` - Invalid group id
