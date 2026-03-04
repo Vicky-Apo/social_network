@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { apiFetch, apiFetchJson, getApiBaseUrl } from "@/lib/api";
 import { ApiResponse } from "@/lib/types";
 import { allowedNotificationTypes } from "@/lib/notifications";
+import { useAuth } from "@/components/AuthContext";
 
 export type NotificationItem = {
   id: number;
@@ -23,8 +24,8 @@ type NotificationsContextValue = {
   notifications: NotificationItem[];
   count: number;
   loading: boolean;
-  refreshNotifications: () => Promise<void>;
-  refreshUnreadCount: () => Promise<void>;
+  refreshNotifications: (options?: { force?: boolean }) => Promise<void>;
+  refreshUnreadCount: (options?: { force?: boolean }) => Promise<void>;
   markRead: (id: number) => Promise<void>;
   markAllRead: () => Promise<void>;
   setNotifications: (items: NotificationItem[]) => void;
@@ -35,12 +36,20 @@ const NotificationsContext = createContext<NotificationsContextValue | undefined
 
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { isAuthenticated } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [count, setCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const connectRef = useRef<(() => void) | null>(null);
+  const notificationsInFlightRef = useRef<Promise<void> | null>(null);
+  const countInFlightRef = useRef<Promise<void> | null>(null);
+  const lastNotificationsFetchRef = useRef(0);
+  const lastCountFetchRef = useRef(0);
+
+  const NOTIFICATIONS_TTL_MS = 20000;
+  const COUNT_TTL_MS = 20000;
 
   const apiBaseUrl = useMemo(() => getApiBaseUrl(), []);
   const wsBaseUrl = useMemo(() => {
@@ -49,42 +58,77 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     return apiBaseUrl;
   }, [apiBaseUrl]);
 
-  const refreshNotifications = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { response, result } = await apiFetchJson<ApiResponse<NotificationItem[]>>(
-        "/notifications?limit=20",
-        {},
-        apiBaseUrl,
-      );
-      if (response.ok && result?.success) {
-        const next = (result.data ?? []).filter((item) => allowedNotificationTypes.has(item.type));
-        setNotifications(next);
-        setCount(next.filter((item) => !item.is_read).length);
+  const refreshNotifications = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!isAuthenticated) return;
+      const now = Date.now();
+      if (!options?.force && now - lastNotificationsFetchRef.current < NOTIFICATIONS_TTL_MS) {
+        return notificationsInFlightRef.current ?? Promise.resolve();
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [apiBaseUrl]);
+      if (notificationsInFlightRef.current) {
+        return notificationsInFlightRef.current;
+      }
+      const request = (async () => {
+        setLoading(true);
+        try {
+          const { response, result } = await apiFetchJson<ApiResponse<NotificationItem[]>>(
+            "/notifications?limit=20",
+            {},
+            apiBaseUrl,
+          );
+          if (response.ok && result?.success) {
+            const next = (result.data ?? []).filter((item) => allowedNotificationTypes.has(item.type));
+            setNotifications(next);
+            setCount(next.filter((item) => !item.is_read).length);
+            lastNotificationsFetchRef.current = Date.now();
+          }
+        } finally {
+          setLoading(false);
+          notificationsInFlightRef.current = null;
+        }
+      })();
+      notificationsInFlightRef.current = request;
+      return request;
+    },
+    [apiBaseUrl, isAuthenticated],
+  );
 
-  const refreshUnreadCount = useCallback(async () => {
-    if (notifications.length > 0) {
-      setCount(notifications.filter((item) => !item.is_read).length);
-      return;
-    }
-    try {
-      const { response, result } = await apiFetchJson<ApiResponse<{ count: number }>>(
-        "/notifications/unread-count",
-        {},
-        apiBaseUrl,
-      );
-      if (response.ok && result?.success) {
-        setCount(Number(result.data?.count ?? 0));
+  const refreshUnreadCount = useCallback(
+    async (options?: { force?: boolean }) => {
+      if (!isAuthenticated) return;
+      if (notifications.length > 0) {
+        setCount(notifications.filter((item) => !item.is_read).length);
+        return;
       }
-    } catch {
-      // ignore
-    }
-  }, [apiBaseUrl, notifications]);
+      const now = Date.now();
+      if (!options?.force && now - lastCountFetchRef.current < COUNT_TTL_MS) {
+        return countInFlightRef.current ?? Promise.resolve();
+      }
+      if (countInFlightRef.current) {
+        return countInFlightRef.current;
+      }
+      const request = (async () => {
+        try {
+          const { response, result } = await apiFetchJson<ApiResponse<{ count: number }>>(
+            "/notifications/unread-count",
+            {},
+            apiBaseUrl,
+          );
+          if (response.ok && result?.success) {
+            setCount(Number(result.data?.count ?? 0));
+            lastCountFetchRef.current = Date.now();
+          }
+        } catch {
+          // ignore
+        } finally {
+          countInFlightRef.current = null;
+        }
+      })();
+      countInFlightRef.current = request;
+      return request;
+    },
+    [apiBaseUrl, isAuthenticated, notifications],
+  );
 
   const markRead = useCallback(
     async (id: number) => {
@@ -112,14 +156,16 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   }, [apiBaseUrl]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void refreshUnreadCount();
     void refreshNotifications();
-  }, [pathname, refreshNotifications, refreshUnreadCount]);
+  }, [pathname, isAuthenticated, refreshNotifications, refreshUnreadCount]);
 
   useEffect(() => {
     let isMounted = true;
 
     const connect = () => {
+      if (!isAuthenticated) return;
       if (!isMounted) return;
       const ws = new WebSocket(`${wsBaseUrl}/ws`);
       wsRef.current = ws;
@@ -170,7 +216,7 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
       wsRef.current?.close();
       wsRef.current = null;
     };
-  }, [wsBaseUrl]);
+  }, [isAuthenticated, wsBaseUrl]);
 
   useEffect(() => {
     const handleLogout = () => {
@@ -185,8 +231,8 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
     const handleLogin = () => {
       connectRef.current?.();
-      void refreshUnreadCount();
-      void refreshNotifications();
+      void refreshUnreadCount({ force: true });
+      void refreshNotifications({ force: true });
     };
 
     window.addEventListener("app-logout", handleLogout);

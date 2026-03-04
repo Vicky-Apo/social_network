@@ -568,7 +568,7 @@ export default function TopNav({
             setNotificationsOpen(next);
             if (next) {
               if (!usingControlledNotifications && notificationsContext?.refreshNotifications) {
-                void notificationsContext.refreshNotifications();
+                void notificationsContext.refreshNotifications({ force: true });
               } else {
                 void refreshNotificationsLocal();
               }

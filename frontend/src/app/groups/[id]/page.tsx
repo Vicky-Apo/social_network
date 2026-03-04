@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -238,6 +238,7 @@ export default function GroupDetailsPage() {
   const [eventsError, setEventsError] = useState<string | null>(null);
   const [eventsHasMore, setEventsHasMore] = useState(true);
   const [eventsLoadingMore, setEventsLoadingMore] = useState(false);
+  const eventsLoadedOnceRef = useRef(false);
   const [eventTitle, setEventTitle] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventTime, setEventTime] = useState("");
@@ -451,10 +452,20 @@ export default function GroupDetailsPage() {
     if (activeTab === "members" && members.length === 0 && !membersLoading) {
       void loadMembers();
     }
-    if (activeTab === "events" && events.length === 0 && !eventsLoading) {
+    if (activeTab === "events" && !eventsLoadedOnceRef.current && !eventsLoading) {
       void loadEvents(0, false);
     }
   }, [activeTab, events.length, eventsLoading, isMember, members.length, membersLoading]);
+
+  useEffect(() => {
+    eventsLoadedOnceRef.current = false;
+  }, [groupIDNumber]);
+
+  useEffect(() => {
+    if (!isMember) {
+      eventsLoadedOnceRef.current = false;
+    }
+  }, [isMember]);
 
   const requestToJoin = async () => {
     setJoinError(null);
@@ -537,6 +548,9 @@ export default function GroupDetailsPage() {
         setEvents([]);
       }
     } finally {
+      if (!append && offset === 0) {
+        eventsLoadedOnceRef.current = true;
+      }
       if (append) {
         setEventsLoadingMore(false);
       } else {
@@ -1750,7 +1764,7 @@ export default function GroupDetailsPage() {
 
           {activeTab === "members" && isMember ? (
             <div className="mt-5 space-y-4">
-              {group?.creatorID && userID === group.creatorID ? (
+              {isMember ? (
                 <div className="rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
                   <h3 className="text-sm font-semibold text-white">Invite members</h3>
                   <p className="mt-1 text-xs text-neutral-400">
